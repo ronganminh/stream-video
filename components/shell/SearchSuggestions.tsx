@@ -60,9 +60,16 @@ export function buildKeyboardOptions(
     return [...recents, ...trending.slice(0, 4), ...tags.slice(0, 6), ...categories.slice(0, 3)];
   }
   if (variant === "mobile") {
-    return [...trending, ...tags, ...categories].slice(0, 4).concat(videos.slice(0, 2));
+    return [
+      ...[...trending, ...tags, ...categories].slice(0, 4),
+      ...videos.slice(0, 2),
+    ];
   }
-  return [...trending, ...tags, ...categories].slice(0, 6).concat(recents, videos.slice(0, 3));
+  return [
+    ...[...trending, ...tags, ...categories].slice(0, 6),
+    ...recents,
+    ...videos.slice(0, 3),
+  ];
 }
 
 function Row({ option, activeId, onSelect, arrow = false }: {
@@ -167,9 +174,9 @@ function Mobile(props: Props) {
       <h2 className={styles.mobileHeading}>Trending searches</h2>
       {trending.map((item, index) => <button key={item.id} id={item.id} type="button" role="option" aria-selected={props.activeId === item.id} className={styles.trendingRow} data-active={props.activeId === item.id || undefined} onClick={() => props.onSelect(item)}><span className={styles.rank}>{index + 1}</span>{item.label}<Icon name="trending_up" className={styles.trendIcon} /></button>)}
       <h2 className={styles.mobileHeading}>Popular tags</h2>
-      <div className={styles.tagWrap}>{props.data.tags.slice(0, 6).map((tag) => <button key={tag.slug} type="button" className={styles.tag} onClick={() => props.onSelect({ id: `tag-${tag.slug}`, kind: "tag", label: tag.name, href: `/tag/${tag.slug}` })}>#{tag.name}</button>)}</div>
+      <div className={styles.tagWrap}>{props.data.tags.slice(0, 6).map((tag) => <button key={tag.slug} id={`tag-${tag.slug}`} type="button" role="option" aria-selected={props.activeId === `tag-${tag.slug}`} className={styles.tag} data-active={props.activeId === `tag-${tag.slug}` || undefined} onClick={() => props.onSelect({ id: `tag-${tag.slug}`, kind: "tag", label: tag.name, href: `/tag/${tag.slug}` })}>#{tag.name}</button>)}</div>
       <h2 className={styles.mobileHeading}>Suggested categories</h2>
-      <div className={styles.categories}>{props.data.categories.slice(0, 3).map((category) => <button key={category.slug} type="button" className={styles.category} onClick={() => props.onSelect({ id: `category-${category.slug}`, kind: "category", label: category.name, href: `/category/${category.slug}` })}><Thumbnail src={category.thumbnailUrl} alt="" className={styles.categoryThumb} /><span>{category.name}</span></button>)}</div>
+      <div className={styles.categories}>{props.data.categories.slice(0, 3).map((category) => <button key={category.slug} id={`category-${category.slug}`} type="button" role="option" aria-selected={props.activeId === `category-${category.slug}`} className={styles.category} data-active={props.activeId === `category-${category.slug}` || undefined} onClick={() => props.onSelect({ id: `category-${category.slug}`, kind: "category", label: category.name, href: `/category/${category.slug}` })}><Thumbnail src={category.thumbnailUrl} alt="" className={styles.categoryThumb} /><span>{category.name}</span></button>)}</div>
     </div>
   );
 }
