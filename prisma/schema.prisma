@@ -1,0 +1,229 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Availability {
+  AVAILABLE
+  PROCESSING
+  REMOVED
+  BLOCKED
+  AGE_RESTRICTED
+  REGION_RESTRICTED
+  FAILED
+}
+
+enum MirrorStatus {
+  OK
+  MISSING
+  ERROR
+}
+
+enum MirrorMatchedBy {
+  PRIMARY
+  AUTO
+  MANUAL
+}
+
+enum SyncKind {
+  NEW
+  HEALTH
+}
+
+enum RemovalRequestType {
+  DMCA
+  REMOVAL
+}
+
+model Host {
+  id        String @id
+  label     String
+  enabled   Boolean
+  isPrimary Boolean
+  sortOrder Int
+
+  mirrors   Mirror[]
+  hostFiles HostFile[]
+}
+
+model Video {
+  id              String       @id @default(cuid())
+  slug            String       @unique
+  title           String
+  description     String?
+  durationSeconds Int?
+  quality         String?
+  thumbnailPath   String?
+  status          Availability
+  isPublished     Boolean      @default(false)
+  isHidden        Boolean      @default(false)
+  hotOverride     Boolean      @default(false)
+  ageRestricted   Boolean      @default(false)
+  categoryId      String?
+  views           Int          @default(0)
+  likes           Int          @default(0)
+  publishedAt     DateTime?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  category   Category?        @relation(fields: [categoryId], references: [id])
+  mirrors    Mirror[]
+  hostFiles  HostFile[]
+  videoTags  VideoTag[]
+  dailyStats VideoDailyStat[]
+  reports    Report[]
+}
+
+model Mirror {
+  id               String          @id @default(cuid())
+  videoId          String
+  hostId           String
+  fileCode         String
+  rawTitle         String
+  normalizedName   String
+  embedUrl         String
+  hostThumbnailUrl String?
+  lengthSeconds    Int?
+  status           MirrorStatus
+  matchedBy        MirrorMatchedBy
+  lastCheckedAt    DateTime?
+
+  video Video @relation(fields: [videoId], references: [id])
+  host  Host  @relation(fields: [hostId], references: [id])
+
+  @@unique([hostId, fileCode])
+  @@unique([videoId, hostId])
+  @@index([normalizedName])
+}
+
+model HostFile {
+  id             String   @id @default(cuid())
+  hostId         String
+  fileCode       String
+  rawTitle       String
+  normalizedName String
+  firstSeenAt    DateTime @default(now())
+  linkedVideoId  String?
+  ignored        Boolean  @default(false)
+
+  host        Host   @relation(fields: [hostId], references: [id])
+  linkedVideo Video? @relation(fields: [linkedVideoId], references: [id])
+
+  @@unique([hostId, fileCode])
+  @@index([normalizedName])
+}
+
+model Category {
+  id            String  @id @default(cuid())
+  slug          String
+  name          String
+  description   String?
+  group         String
+  thumbnailPath String?
+  trending      Boolean
+  sortOrder     Int
+
+  videos Video[]
+}
+
+model Tag {
+  id   String @id @default(cuid())
+  slug String
+  name String
+
+  videoTags VideoTag[]
+}
+
+model VideoTag {
+  videoId String
+  tagId   String
+
+  video Video @relation(fields: [videoId], references: [id])
+  tag   Tag   @relation(fields: [tagId], references: [id])
+
+  @@id([videoId, tagId])
+}
+
+model VideoDailyStat {
+  videoId String
+  date    DateTime @db.Date
+  views   Int
+
+  video Video @relation(fields: [videoId], references: [id])
+
+  @@id([videoId, date])
+}
+
+model SyncRun {
+  id         String   @id @default(cuid())
+  kind       SyncKind
+  startedAt  DateTime @default(now())
+  finishedAt DateTime?
+  created    Int
+  matched    Int
+  missing    Int
+  errors     Json
+}
+
+model SyncRequest {
+  id          String   @id @default(cuid())
+  kind        SyncKind
+  requestedAt DateTime @default(now())
+  handledAt   DateTime?
+}
+
+model Report {
+  id           String   @id @default(cuid())
+  videoId      String
+  reason       String
+  urgent       Boolean
+  details      String?
+  contactEmail String?
+  pageUrl      String
+  status       String
+  createdAt    DateTime @default(now())
+
+  video Video @relation(fields: [videoId], references: [id])
+}
+
+model RemovalRequest {
+  id        String             @id @default(cuid())
+  type      RemovalRequestType
+  payload   Json
+  status    String
+  notes     String?
+  createdAt DateTime           @default(now())
+}
+
+model AdSlot {
+  key     String  @id
+  enabled Boolean
+  html    String
+}
+
+model Setting {
+  key   String @id
+  value Json
+}
+
+model AdminUser {
+  id           String @id @default(cuid())
+  email        String
+  passwordHash String
+
+  actions AdminAction[]
+}
+
+model AdminAction {
+  id      String   @id @default(cuid())
+  adminId String
+  action  String
+  target  String
+  at      DateTime @default(now())
+
+  admin AdminUser @relation(fields: [adminId], references: [id])
+}
