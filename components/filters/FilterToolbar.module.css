@@ -1,0 +1,99 @@
+.toolbar {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.filterCount {
+  min-height: 38px;
+  padding-inline: 12px;
+  border-radius: var(--gv-radius-sm);
+  display: inline-flex;
+  align-items: center;
+  background: var(--gv-surface-1);
+  color: var(--gv-text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.selectShell {
+  position: relative;
+  min-height: 38px;
+  padding: 0 32px 0 12px;
+  border: 1px solid var(--gv-border-input);
+  border-radius: var(--gv-radius-sm);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--gv-surface-1);
+  color: var(--gv-text-secondary);
+  cursor: pointer;
+}
+
+.selectShell:focus-within {
+  box-shadow: var(--gv-focus);
+}
+
+.selectLabel {
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.select {
+  min-width: 0;
+  max-width: 150px;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  appearance: none;
+  background: transparent;
+  color: var(--gv-text);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.select option {
+  background: var(--gv-surface-2);
+  color: var(--gv-text);
+}
+
+.chevron {
+  position: absolute;
+  right: 8px;
+  color: var(--gv-text-muted);
+  font-size: 18px;
+  pointer-events: none;
+}
+
+.clear {
+  min-height: 38px;
+  padding-inline: 10px;
+  border: 0;
+  border-radius: var(--gv-radius-sm);
+  background: transparent;
+  color: var(--gv-text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.clear:hover {
+  color: var(--gv-text);
+  background: var(--gv-surface-1);
+}
+
+.clear:focus-visible {
+  outline: 0;
+  box-shadow: var(--gv-focus);
+}
+
+@media (max-width: 767px) {
+  .toolbar {
+    display: none;
+  }
+}
