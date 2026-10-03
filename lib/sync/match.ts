@@ -2,6 +2,10 @@ import type { HostProvider } from "../hosts/types";
 import { prisma } from "../db";
 import { normalize } from "./normalize";
 
+export function selectUniqueMatch<T>(items: T[]): T | null {
+  return items.length === 1 ? items[0] : null;
+}
+
 export function titleFromFilename(filename: string): string {
   return filename
     .replace(/\.[^.\/\\]+$/, "")
@@ -34,12 +38,13 @@ export async function attachPrimaryFileToExistingVideo(
     take: 2,
   });
 
-  if (matches.length !== 1) return false;
+  const target = selectUniqueMatch(matches);
+  if (!target) return false;
 
   const existingOnHost = await prisma.mirror.findUnique({
     where: {
       videoId_hostId: {
-        videoId: matches[0].videoId,
+        videoId: target.videoId,
         hostId,
       },
     },
@@ -50,7 +55,7 @@ export async function attachPrimaryFileToExistingVideo(
 
   await prisma.mirror.create({
     data: {
-      videoId: matches[0].videoId,
+      videoId: target.videoId,
       hostId,
       fileCode: file.code,
       rawTitle: file.title,
@@ -111,9 +116,8 @@ export async function autoMatchHostFiles(
       take: 2,
     });
 
-    if (candidates.length !== 1) continue;
-
-    const candidate = candidates[0];
+    const candidate = selectUniqueMatch(candidates);
+    if (!candidate) continue;
     await prisma.$transaction([
       prisma.mirror.create({
         data: {
