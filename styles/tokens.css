@@ -1,0 +1,136 @@
+:root {
+  --gv-bg: #09090B;
+  --gv-surface-1: #111116;
+  --gv-surface-2: #17171D;
+  --gv-surface-hover: #202028;
+  --gv-surface-3: #2A2A33;
+  --gv-border: rgba(255,255,255,.08);
+  --gv-border-input: rgba(255,255,255,.10);
+  --gv-text: #FAFAFA;
+  --gv-text-secondary: #A1A1AA;
+  --gv-text-muted: #71717A;
+  --gv-violet: #8B5CF6;
+  --gv-magenta: #EC4899;
+  --gv-violet-300: #C4B5FD;
+  --gv-pink-300: #F9A8D4;
+  --gv-danger: #F43F5E;
+  --gv-danger-300: #FDA4AF;
+  --gv-warning: #FBBF24;      /* ad progress only */
+  --gv-gradient: linear-gradient(90deg, var(--gv-violet), var(--gv-magenta));
+  --gv-gradient-v: linear-gradient(180deg, #A78BFA, var(--gv-magenta)); /* rank numerals */
+  --gv-focus: 0 0 0 2px var(--gv-bg), 0 0 0 4px #A78BFA;
+
+  --gv-radius-xs: 6px;   /* badges, duration, skeleton text */
+  --gv-radius-sm: 10px;  /* thumbnails, segmented, nav pill */
+  --gv-radius-md: 12px;  /* buttons, inputs, rank thumbs */
+  --gv-radius-lg: 16px;  /* panels, category cards, player */
+  --gv-radius-xl: 24px;  /* modals, bottom sheets */
+  --gv-radius-pill: 999px;
+
+  --gv-font: "Geist", system-ui, sans-serif;
+  --gv-font-mono: "Geist Mono", ui-monospace, monospace;
+  --gv-ease: cubic-bezier(.2,.7,.2,1);
+  --gv-dur-fast: 150ms;  /* hover */
+  --gv-dur: 200ms;       /* press, expand, sheet */
+}
+
+:root {
+  --gv-gutter: 32px;
+}
+
+.gv-container {
+  width: 100%;
+  max-width: 1600px;
+  margin-inline: auto;
+  padding-inline: var(--gv-gutter);
+}
+
+.gv-grid {
+  --cols: 5;
+
+  display: grid;
+  gap: 28px 20px;
+  grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
+}
+
+@media (max-width: 1439px) {
+  .gv-grid {
+    --cols: 4;
+  }
+}
+
+@media (max-width: 1279px) {
+  :root {
+    --gv-gutter: 24px;
+  }
+
+  .gv-grid {
+    column-gap: 16px;
+  }
+}
+
+@media (max-width: 1023px) {
+  .gv-grid {
+    --cols: 3;
+  }
+}
+
+@media (max-width: 767px) {
+  :root {
+    --gv-gutter: 16px;
+  }
+
+  .gv-grid {
+    --cols: 2;
+    gap: 18px 10px;
+  }
+}
+
+@media (max-width: 374px) {
+  :root {
+    --gv-gutter: 12px;
+  }
+
+  .gv-grid {
+    column-gap: 8px;
+  }
+}
+
+@media (max-width: 339px) {
+  .gv-grid {
+    --cols: 1;
+    column-gap: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --gv-dur-fast: 0ms;
+    --gv-dur: 120ms;
+  }
+
+  html {
+    scroll-behavior: auto;
+  }
+
+  [data-gv-motion~="zoom"],
+  [data-gv-motion~="lift"],
+  [data-gv-motion~="slide"],
+  [data-gv-motion~="pulse"],
+  [data-gv-motion~="gradient"] {
+    animation: none !important;
+    transition-duration: 0ms !important;
+    transform: none !important;
+  }
+
+  [data-gv-motion~="modal"],
+  [data-gv-motion~="sheet"] {
+    transition-duration: 120ms !important;
+    transition-property: opacity !important;
+    transform: none !important;
+  }
+
+  [data-gv-hover-preview] {
+    display: none !important;
+  }
+}
