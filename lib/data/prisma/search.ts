@@ -139,7 +139,8 @@ async function rankedSearchIds(
     )
     SELECT
       s.id,
-      count(*) OVER() AS total
+      count(*) OVER() AS total,
+      ${scoreSql} AS score
     FROM searchable s
     WHERE true
       ${textFilter}
