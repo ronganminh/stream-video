@@ -1,0 +1,25 @@
+{
+  "server_time": "2023-03-31 00:00:00",
+  "msg": "OK",
+  "message": "successful.",
+  "status": 200,
+  "success": true,
+  "result": [
+    {
+      "status": 200,
+      "fileCode": "abc123456789",
+      "name": "test.mp4",
+      "title": "test.mp4",
+      "length": 6,
+      "file_size": 0,
+      "size_preview": 123456,
+      "video": {
+        "width": 1920,
+        "height": 1080,
+        "aspect_ratio": "16:9",
+        "orientation": "landscape",
+        "source_quality": "n"
+      }
+    }
+  ]
+}
