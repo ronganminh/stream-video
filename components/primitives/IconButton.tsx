@@ -28,6 +28,7 @@ export function IconButton({
       {...props}
       type={type}
       className={joinClasses(styles.button, styles[variant], className)}
+      data-gv-motion="lift"
     >
       {children}
     </button>
