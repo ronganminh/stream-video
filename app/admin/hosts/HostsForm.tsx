@@ -2,7 +2,7 @@
 
 import { useActionState, useMemo, useState } from "react";
 
-import { saveHostsAction } from "./actions";
+import { saveHostsAction, type HostsState } from "./actions";
 import type { HostsState } from "./actions";
 import styles from "./page.module.css";
 

@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 
-import { loginAction } from "./actions";
+import { loginAction, type LoginState } from "./actions";
 import type { LoginState } from "./actions";
 import styles from "./page.module.css";
 
