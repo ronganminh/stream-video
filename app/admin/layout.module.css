@@ -1,0 +1,143 @@
+.shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  background: var(--gv-bg);
+}
+
+.sidebar {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  padding: 24px 16px;
+  border-right: 1px solid var(--gv-border);
+  display: flex;
+  flex-direction: column;
+  background: var(--gv-surface-1);
+}
+
+.brand {
+  padding: 8px 10px 20px;
+  color: var(--gv-text);
+  font-weight: 700;
+  letter-spacing: -.03em;
+  text-decoration: none;
+}
+
+.brand span {
+  display: block;
+  margin-top: 3px;
+  color: var(--gv-violet-300);
+  font: 600 10px var(--gv-font-mono);
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.nav {
+  display: grid;
+  gap: 4px;
+}
+
+.nav a,
+.account button {
+  min-height: 40px;
+  border-radius: var(--gv-radius-sm);
+  display: flex;
+  align-items: center;
+  color: var(--gv-text-secondary);
+  text-decoration: none;
+  font: 500 14px var(--gv-font);
+}
+
+.nav a {
+  padding: 0 10px;
+}
+
+.nav a:hover,
+.account button:hover {
+  background: var(--gv-surface-hover);
+  color: var(--gv-text);
+}
+
+.account {
+  margin-top: auto;
+  padding-top: 18px;
+  border-top: 1px solid var(--gv-border);
+  display: grid;
+  gap: 8px;
+}
+
+.account > span {
+  padding: 0 10px;
+  overflow: hidden;
+  color: var(--gv-text-muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account button {
+  width: 100%;
+  padding: 0 10px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.content {
+  min-width: 0;
+  padding: 32px;
+}
+
+.nav a:focus-visible,
+.brand:focus-visible,
+.account button:focus-visible {
+  outline: none;
+  box-shadow: var(--gv-focus);
+}
+
+@media (max-width: 767px) {
+  .shell {
+    display: block;
+  }
+
+  .sidebar {
+    position: static;
+    width: auto;
+    height: auto;
+    padding: 12px 16px;
+    border-right: 0;
+    border-bottom: 1px solid var(--gv-border);
+  }
+
+  .brand {
+    padding: 4px 0 12px;
+  }
+
+  .nav {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .nav a {
+    justify-content: center;
+    padding: 0 6px;
+    background: var(--gv-surface-2);
+    font-size: 12px;
+  }
+
+  .account {
+    margin-top: 12px;
+    padding-top: 10px;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+  }
+
+  .account button {
+    padding-inline: 12px;
+  }
+
+  .content {
+    padding: 20px 16px 32px;
+  }
+}
