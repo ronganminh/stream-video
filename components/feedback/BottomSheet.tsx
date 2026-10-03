@@ -178,13 +178,17 @@ export function BottomSheet({
   };
 
   const endDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (dragStartRef.current === null) return;
+    const dragStart = dragStartRef.current;
+    if (dragStart === null) return;
 
-    event.currentTarget.releasePointerCapture(event.pointerId);
-    const shouldClose = dragY >= CLOSE_DRAG_THRESHOLD;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+
+    const dragDistance = Math.max(0, event.clientY - dragStart);
     dragStartRef.current = null;
 
-    if (shouldClose) {
+    if (dragDistance >= CLOSE_DRAG_THRESHOLD) {
       onClose();
       return;
     }
