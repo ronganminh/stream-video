@@ -11,18 +11,31 @@ T04 and T03 merged.
 - `app/admin/hosts/*`
 - `app/admin/settings/*`
 - `scripts/admin-create.ts`
+- existing `.env.example`, only for admin-auth environment variables
+- existing `app/(public)/layout.tsx`, only to wire the 2257 visibility setting into the existing Footer; preserve all shell/search/age-gate behavior
 
 ## Implement
 - Admin pages are English and `noindex`.
 - Server actions use zod and write `AdminAction` audit rows.
-- Email/password auth with bcrypt, signed httpOnly cookie, login rate limit.
-- Dashboard counts drafts, published, missing by host, primary-host missing, removed, uncategorized, open reports; show last SyncRun + Sync now.
-- Hosts page: enabled, Primary radio, server-order drag handle; confirmation when primary changes.
-- Settings: sync intervals, auto-match, age-gate cookie lifetime, 2257 flag, change password.
+- Email/password auth with bcrypt, a signed httpOnly cookie, login rate limiting, and a non-committed `ADMIN_SESSION_SECRET`.
+- Dashboard counts drafts, published, missing by host, primary-host missing, removed, uncategorized and open reports; show last SyncRun + Sync now.
+- **Sync now** creates a `SyncRequest`; it does not call host APIs inside the web request.
+- Hosts page: enabled, Primary radio, server-order drag handle; confirmation when primary changes. Server order remains independent from primary.
+- Settings must read/write these exact `Setting.key` values so other lanes consume the same configuration:
+  - `syncNewIntervalMinutes`
+  - `syncHealthIntervalHours`
+  - `syncAutoMatchEnabled`
+  - `ageGateCookieLifetimeDays`
+  - `show2257`
+- Leaving/deleting `ageGateCookieLifetimeDays` means session-only acknowledgement, matching T11; do not invent a persistent legal duration.
+- Public layout reads `show2257` and passes it to the existing Footer. Do not redesign Footer or the shell.
+- Change-password flow updates the current AdminUser securely.
 
 ## Done when
-- Auth and settings changes persist and audit correctly.
-
+- Auth and settings persist and audit correctly.
+- Sync now creates a pending request consumed by the worker.
+- Changing `show2257` changes Footer visibility without source-code edits.
+- T11 age-gate behavior remains intact after the public-layout integration.
 
 ## GitHub delivery workflow
 - Start from the latest `main` after all listed prerequisites are merged. Work on a `task/Txx-<short-name>` branch.

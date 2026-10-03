@@ -8,6 +8,9 @@ T17 merged.
 - `app/admin/categories/*`
 - `app/admin/tags/*`
 
+## Read-only helpers
+T18 may import T14/T15 normalization/matching helpers and Prisma models, but should not modify those files.
+
 ## Implement
 - Matching queue for unmatched secondary-host files including duplicate names.
 - Suggested videos with one-click Link or Ignore.

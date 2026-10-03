@@ -4,26 +4,30 @@
 Phase 1 merged.
 
 ## Read / attach
-- `lib/types.ts`, `lib/data/index.ts`, component index exports
+- `lib/types.ts`, `lib/data/index.ts`, component exports
 - Boards 1c, 1e, 1g
-- Handoff route metadata
+- Handoff route metadata, ad slots and SEO/pagination sections
 
 ## Creates
 - delete the temporary T01 placeholder `app/page.tsx`
 - `app/(public)/page.tsx`
 - `app/(public)/loading.tsx`
 - `app/(public)/page.module.css`
+- `app/(public)/_home/**`, only for Home-specific support/client components such as progressive Load More
 
 ## Implement
 - Replace the temporary T01 root placeholder with the real Home route inside the `(public)` route group so it inherits `app/(public)/layout.tsx`.
-- Build `/` exactly from designs.
-- Use existing data API and components.
-- Include loading skeletons and empty handling where applicable.
-- Preserve responsive layout and SSR.
+- Build `/` exactly from designs using existing data contracts/components.
+- Include skeleton/loading and empty handling where applicable.
+- Home's last video grid has progressive Load More. Because `getHome().latest.nextHref` belongs to `/latest`, Home-specific enhancement must fetch the next Latest page without incorrectly replacing the browser URL with `/latest`; keep a real fallback link to Latest when JS is unavailable.
+- Use T19 ad data with the Handoff spacing rule: no more than one ad per two Home sections; no-fill collapses through `AdSlot`.
+- Preserve SSR and route metadata/canonical behavior from the Handoff.
 
 ## Done when
-- Home matches boards, `/` resolves through the public layout with no duplicate-route conflict, and the build passes without modifying contracts.
-
+- Home matches boards and `/` resolves through the public layout with no duplicate-route conflict.
+- Home Load More appends content without changing the visible route to `/latest`.
+- No-JS users still have a real navigation path to more Latest content.
+- Build passes without modifying locked contracts.
 
 ## GitHub delivery workflow
 - Start from the latest `main` after all listed prerequisites are merged. Work on a `task/Txx-<short-name>` branch.
