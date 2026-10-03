@@ -1,0 +1,186 @@
+.thumbnail {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  background: var(--gv-surface-2);
+  container-type: inline-size;
+  isolation: isolate;
+}
+
+.videoRatio {
+  aspect-ratio: 16 / 9;
+  border-radius: var(--gv-radius-sm);
+}
+
+.rankRatio {
+  aspect-ratio: 16 / 10;
+  border-radius: var(--gv-radius-md);
+  box-shadow: inset 0 0 0 1px var(--gv-border);
+}
+
+.image,
+.previewVideo,
+.loadingSurface,
+.fallback {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.image,
+.previewVideo {
+  object-fit: cover;
+  object-position: center;
+}
+
+.image {
+  z-index: 1;
+  opacity: 0;
+  transform: scale(1);
+  transition:
+    opacity var(--gv-dur-fast) var(--gv-ease),
+    transform var(--gv-dur-fast) var(--gv-ease);
+}
+
+.imageLoaded {
+  opacity: 1;
+}
+
+.previewVideo {
+  z-index: 2;
+}
+
+.loadingSurface {
+  z-index: 0;
+  background: linear-gradient(
+    110deg,
+    var(--gv-surface-2) 30%,
+    var(--gv-surface-hover) 50%,
+    var(--gv-surface-2) 70%
+  );
+}
+
+.fallback {
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background:
+    radial-gradient(
+      80% 80% at 30% 20%,
+      color-mix(in srgb, var(--gv-violet) 18%, transparent),
+      transparent 60%
+    ),
+    radial-gradient(
+      70% 70% at 80% 90%,
+      color-mix(in srgb, var(--gv-magenta) 12%, transparent),
+      transparent 60%
+    ),
+    var(--gv-surface-1);
+}
+
+.fallbackMark {
+  width: 32px;
+  height: 32px;
+  opacity: .55;
+}
+
+.fallbackLabel {
+  color: var(--gv-text-muted);
+  font-family: var(--gv-font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: .08em;
+}
+
+.previewHud {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  opacity: 0;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--gv-bg) 30%, transparent);
+  transition: opacity var(--gv-dur-fast) var(--gv-ease);
+}
+
+.previewPlay {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 48px;
+  height: 48px;
+  border-radius: var(--gv-radius-pill);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform: translate(-50%, -50%);
+  background: color-mix(in srgb, var(--gv-bg) 55%, transparent);
+  backdrop-filter: blur(6px);
+}
+
+.previewPlayIcon {
+  color: var(--gv-text);
+  font-size: 30px;
+  font-variation-settings: "FILL" 1;
+}
+
+.previewLabel {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 6px;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--gv-bg) 70%, transparent);
+  color: var(--gv-text);
+  font-family: var(--gv-font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.previewDot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--gv-radius-pill);
+  background: var(--gv-magenta);
+}
+
+.duration {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  z-index: 6;
+  background: color-mix(in srgb, var(--gv-bg) 82%, transparent);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .zoomOnHover:hover .image {
+    transform: scale(1.045);
+  }
+
+  .thumbnail:hover .previewHud {
+    opacity: 1;
+  }
+}
+
+@container (max-width: 239px) {
+  .fallbackLabel {
+    display: none;
+  }
+
+  .fallback {
+    gap: 4px;
+  }
+
+  .fallbackMark {
+    width: 20px;
+    height: 20px;
+  }
+}

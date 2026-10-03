@@ -1,0 +1,215 @@
+.card {
+  min-width: 0;
+  color: var(--gv-text);
+}
+
+.cardLink {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-radius: var(--gv-radius-md);
+  color: inherit;
+  text-decoration: none;
+  transition:
+    box-shadow var(--gv-dur-fast) var(--gv-ease),
+    background var(--gv-dur-fast) var(--gv-ease);
+}
+
+.cardLink:hover {
+  text-decoration: none;
+}
+
+.cardLink:focus-visible {
+  box-shadow: var(--gv-focus);
+}
+
+.title {
+  min-height: 38px;
+  overflow: hidden;
+  color: var(--gv-text);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 19px;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.meta {
+  min-width: 0;
+  margin-top: -4px;
+  overflow: hidden;
+  color: var(--gv-text-muted);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.topLeft,
+.topRight {
+  position: absolute;
+  top: 8px;
+  z-index: 5;
+}
+
+.topLeft {
+  left: 8px;
+}
+
+.topRight {
+  right: 8px;
+}
+
+.statusBadge,
+.qualityBadge,
+.mostWatchedBadge {
+  background-color: color-mix(in srgb, var(--gv-bg) 72%, transparent);
+}
+
+.watchedScrim {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  background: color-mix(in srgb, var(--gv-bg) 30%, transparent);
+  pointer-events: none;
+}
+
+.progressTrack {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 7;
+  height: 3px;
+  background: color-mix(in srgb, var(--gv-text) 18%, transparent);
+  pointer-events: none;
+}
+
+.progressValue {
+  height: 100%;
+  background: var(--gv-gradient);
+}
+
+.removedCard {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.removedThumb {
+  aspect-ratio: 16 / 9;
+  border-radius: var(--gv-radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--gv-surface-1);
+}
+
+.removedIcon {
+  color: var(--gv-text-muted);
+  font-size: 26px;
+}
+
+.removedTitle {
+  color: var(--gv-text-muted);
+}
+
+.loadingCard {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  animation: gv-card-pulse 1.2s var(--gv-ease) infinite alternate;
+}
+
+.skeletonThumb {
+  aspect-ratio: 16 / 9;
+  border-radius: var(--gv-radius-sm);
+  background: var(--gv-surface-2);
+}
+
+.skeletonTitleWide,
+.skeletonTitleShort,
+.skeletonMeta {
+  border-radius: 4px;
+  background: var(--gv-surface-2);
+}
+
+.skeletonTitleWide,
+.skeletonTitleShort {
+  height: 14px;
+}
+
+.skeletonTitleWide {
+  width: 90%;
+}
+
+.skeletonTitleShort {
+  width: 60%;
+}
+
+.skeletonMeta {
+  width: 40%;
+  height: 10px;
+  margin-top: -4px;
+  background: var(--gv-surface-1);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .cardLink:hover {
+    background: var(--gv-surface-2);
+    box-shadow:
+      0 0 0 8px var(--gv-surface-2),
+      0 16px 40px color-mix(in srgb, var(--gv-bg) 60%, transparent);
+  }
+
+  .cardLink:focus-visible {
+    box-shadow: var(--gv-focus);
+  }
+}
+
+@media (max-width: 767px) {
+  .cardLink,
+  .removedCard,
+  .loadingCard {
+    gap: 7px;
+  }
+
+  .title {
+    min-height: 34px;
+    font-size: 13px;
+    line-height: 17px;
+  }
+
+  .meta {
+    margin-top: -3px;
+    font-size: 11px;
+    line-height: 14px;
+  }
+
+  .topLeft,
+  .topRight {
+    top: 6px;
+  }
+
+  .topLeft {
+    left: 6px;
+  }
+
+  .topRight {
+    right: 6px;
+  }
+}
+
+@keyframes gv-card-pulse {
+  from {
+    opacity: .62;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
