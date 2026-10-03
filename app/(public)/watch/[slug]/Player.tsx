@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Icon } from "@/components/primitives";
 import type { MirrorPublic } from "@/lib/types";
@@ -24,6 +24,7 @@ export function Player({
   const [started, setStarted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [viewCounted, setViewCounted] = useState(false);
+  const startedAtRef = useRef<number | null>(null);
 
   const activeMirror = mirrors[activeIndex] ?? mirrors[0];
   const posterStyle = useMemo(
@@ -39,8 +40,20 @@ export function Player({
     [posterUrl],
   );
 
+  useEffect(() => {
+    if (!started || startedAtRef.current === null) return;
+    const tick = () => {
+      const seconds = Math.floor((Date.now() - (startedAtRef.current ?? Date.now())) / 1000);
+      window.dispatchEvent(new CustomEvent("gv:player-time", { detail: { seconds } }));
+    };
+    tick();
+    const id = window.setInterval(tick, 1000);
+    return () => window.clearInterval(id);
+  }, [started]);
+
   const play = () => {
     if (!activeMirror) return;
+    if (startedAtRef.current === null) startedAtRef.current = Date.now();
     setStarted(true);
     setLoading(true);
 
