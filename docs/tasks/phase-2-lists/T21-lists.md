@@ -7,11 +7,11 @@ T20 merged.
 Boards 2a, 2b, 2c, 2n, 2o, 2p, 2q, 3b.
 
 ## Creates
-Route files for:
-- `/hot`
-- `/most-viewed`
-- `/latest`
-including loading states and metadata.
+- `app/(public)/hot/**`
+- `app/(public)/most-viewed/**`
+- `app/(public)/latest/**`
+
+Keep page, loading, metadata exports, and route-local CSS/components inside those directories.
 
 ## Implement
 - SSR `?page=n`.
@@ -24,6 +24,16 @@ including loading states and metadata.
 ## Done when
 - All three pages match boards and SSR pagination works.
 
+
+## GitHub delivery workflow
+- Start from the latest `main` after all listed prerequisites are merged. Work on a `task/Txx-<short-name>` branch.
+- After implementation, run the task-specific **Done when** checks that are possible in the task environment, then commit/push and open a PR to `main`.
+- Inspect the GitHub Actions run for the PR/head commit yourself.
+- If CI fails, read the failed job, failed step, and job logs; fix only files allowed by **Creates**, commit/push, and inspect the new Actions run. Repeat until green.
+- If a required fix would touch a file outside **Creates** or a locked 🔒 contract not explicitly allowed here, stop and report the blocker instead of changing scope.
+- CI green is mandatory but does not replace task-specific checks that CI cannot cover (for example visual comparison, Docker migration, E2E, or VPS deployment).
+- When CI is green and **Done when** passes, squash-merge the PR into `main`.
+- Do not ask the user to run CI, Desktop Commander, or paste CI logs when GitHub tools are available.
 
 ## Rules for this chat
 - Work on exactly this task only.
