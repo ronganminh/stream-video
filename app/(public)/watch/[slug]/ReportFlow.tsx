@@ -196,11 +196,6 @@ export function ReportFlow({
       return;
     }
 
-    if (reason === "PRIVACY") {
-      window.location.assign(routeWithVideo("/content-removal/request", pageUrl));
-      return;
-    }
-
     setStep("details");
     setFailed(false);
   };
@@ -378,6 +373,30 @@ export function ReportFlow({
                   </button>
                 </div>
               </>
+            ) : reason === "PRIVACY" ? (
+              <div className={styles.routePanel}>
+                <Icon name="person_remove" />
+                <h3>Person depicted / privacy</h3>
+                <p>
+                  Use the removal request form for a person depicted or privacy request.
+                  The current video URL will be carried over.
+                </p>
+                <Link
+                  className={styles.primaryButton}
+                  href={routeWithVideo("/content-removal/request", pageUrl)}
+                >
+                  Open removal request
+                </Link>
+                <div className={styles.footer}>
+                  <button
+                    type="button"
+                    className={styles.cancelButton}
+                    onClick={() => setStep("reason")}
+                  >
+                    Back
+                  </button>
+                </div>
+              </div>
             ) : (
               <form onSubmit={submit}>
                 {urgent ? (
@@ -468,11 +487,6 @@ export function ReportFlow({
           </>
         )}
 
-        {step === "details" && reason === "PRIVACY" ? (
-          <Link href={routeWithVideo("/content-removal/request", pageUrl)}>
-            Request removal
-          </Link>
-        ) : null}
       </div>
     </div>
   );
