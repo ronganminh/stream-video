@@ -1,0 +1,154 @@
+.page {
+  max-width: 980px;
+  margin: 0 auto;
+}
+
+.eyebrow {
+  margin: 0 0 6px;
+  color: var(--gv-violet-300);
+  font: 600 10px var(--gv-font-mono);
+  letter-spacing: .14em;
+}
+
+.page h1 {
+  margin: 0;
+  font-size: 30px;
+  letter-spacing: -.04em;
+}
+
+.intro {
+  max-width: 680px;
+  margin: 8px 0 24px;
+  color: var(--gv-text-secondary);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.form {
+  display: grid;
+  gap: 14px;
+}
+
+.table {
+  overflow: hidden;
+  border: 1px solid var(--gv-border);
+  border-radius: var(--gv-radius-lg);
+  background: var(--gv-surface-1);
+}
+
+.headerRow,
+.hostRow {
+  display: grid;
+  grid-template-columns: 72px minmax(180px, 1fr) 130px 130px;
+  align-items: center;
+}
+
+.headerRow {
+  min-height: 40px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--gv-border);
+  color: var(--gv-text-muted);
+  font: 600 10px var(--gv-font-mono);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.hostRow {
+  min-height: 68px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--gv-border);
+}
+
+.hostRow:last-child {
+  border-bottom: 0;
+}
+
+.handle {
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: var(--gv-radius-sm);
+  background: transparent;
+  color: var(--gv-text-muted);
+  font-family: "Material Symbols Rounded";
+  font-size: 22px;
+  cursor: grab;
+}
+
+.hostName {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.hostName strong {
+  font-size: 14px;
+}
+
+.hostName code {
+  color: var(--gv-text-muted);
+  font: 500 11px var(--gv-font-mono);
+}
+
+.check {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--gv-text-secondary);
+  font-size: 13px;
+}
+
+.check input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--gv-violet);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.actions button {
+  min-height: 42px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: var(--gv-radius-md);
+  background: var(--gv-gradient);
+  color: var(--gv-text);
+  font: 600 13px var(--gv-font);
+  cursor: pointer;
+}
+
+.error,
+.success {
+  margin: 0;
+  font-size: 13px;
+}
+
+.error {
+  color: var(--gv-danger-300);
+}
+
+.success {
+  color: var(--gv-violet-300);
+}
+
+.handle:focus-visible,
+.actions button:focus-visible,
+.check input:focus-visible {
+  outline: none;
+  box-shadow: var(--gv-focus);
+}
+
+@media (max-width: 720px) {
+  .table {
+    overflow-x: auto;
+  }
+
+  .headerRow,
+  .hostRow {
+    min-width: 620px;
+  }
+}
