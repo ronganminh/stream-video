@@ -1,0 +1,116 @@
+.badge {
+  width: max-content;
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
+  font-family: var(--gv-font-mono);
+  white-space: nowrap;
+}
+
+.hot {
+  gap: 2px;
+  padding: 4px 7px 4px 4px;
+  border-radius: var(--gv-radius-xs);
+  background: var(--gv-gradient);
+  color: var(--gv-text);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: .08em;
+}
+
+.hotIcon {
+  font-size: 13px;
+  font-variation-settings: "FILL" 1;
+}
+
+.trending {
+  gap: 4px;
+  padding: 4px 7px 4px 5px;
+  border-radius: var(--gv-radius-xs);
+  background: var(--gv-surface-hover);
+  color: var(--gv-text);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: .08em;
+}
+
+.trendingIcon {
+  color: var(--gv-magenta);
+  font-size: 14px;
+}
+
+.new {
+  padding: 4px 7px;
+  border-radius: var(--gv-radius-xs);
+  background: color-mix(in srgb, var(--gv-violet) 16%, transparent);
+  color: var(--gv-violet-300);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: .08em;
+}
+
+.quality {
+  padding: 4px 6px;
+  border-radius: 5px;
+  background: var(--gv-surface-hover);
+  color: color-mix(in srgb, var(--gv-text) 84%, var(--gv-text-secondary));
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.duration {
+  padding: 3px 6px;
+  border-radius: 5px;
+  background: var(--gv-surface-hover);
+  color: var(--gv-text);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.age {
+  padding: 4px 8px;
+  border: 1px solid color-mix(in srgb, var(--gv-magenta) 50%, transparent);
+  border-radius: 7px;
+  color: var(--gv-pink-300);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.ad {
+  padding: 4px 7px;
+  border-radius: 5px;
+  background: var(--gv-text);
+  color: var(--gv-bg);
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: .14em;
+}
+
+.mostWatched {
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: var(--gv-radius-xs);
+  background: color-mix(in srgb, var(--gv-bg) 78%, transparent);
+  color: var(--gv-text);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: .1em;
+}
+
+.rank {
+  background: var(--gv-gradient-v);
+  background-clip: text;
+  color: transparent;
+  font-family: var(--gv-font);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: -.02em;
+}
