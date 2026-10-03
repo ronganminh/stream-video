@@ -1,0 +1,166 @@
+.page {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.eyebrow {
+  margin: 0 0 6px;
+  color: var(--gv-violet-300);
+  font: 600 10px var(--gv-font-mono);
+  letter-spacing: .14em;
+}
+
+.page h1 {
+  margin: 0;
+  font-size: 30px;
+  letter-spacing: -.04em;
+}
+
+.intro {
+  max-width: 680px;
+  margin: 8px 0 24px;
+  color: var(--gv-text-secondary);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.panel {
+  margin-top: 16px;
+  padding: 18px;
+  border: 1px solid var(--gv-border);
+  border-radius: var(--gv-radius-lg);
+  background: var(--gv-surface-1);
+}
+
+.panelHeading {
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--gv-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.panelHeading h2 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.panelHeading span {
+  color: var(--gv-text-muted);
+  font-size: 12px;
+}
+
+.form {
+  padding-top: 16px;
+  display: grid;
+  gap: 16px;
+}
+
+.twoColumns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.field {
+  display: grid;
+  gap: 7px;
+  color: var(--gv-text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.field input {
+  min-height: 42px;
+  padding: 0 12px;
+  border: 1px solid var(--gv-border-input);
+  border-radius: var(--gv-radius-md);
+  outline: 0;
+  background: var(--gv-surface-2);
+  color: var(--gv-text);
+  font: 400 14px var(--gv-font);
+}
+
+.field small,
+.toggle small {
+  color: var(--gv-text-muted);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.45;
+}
+
+.toggle {
+  min-height: 58px;
+  padding: 12px;
+  border: 1px solid var(--gv-border);
+  border-radius: var(--gv-radius-md);
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: var(--gv-surface-2);
+}
+
+.toggle input {
+  width: 17px;
+  height: 17px;
+  margin-top: 2px;
+  accent-color: var(--gv-violet);
+}
+
+.toggle span {
+  display: grid;
+  gap: 3px;
+}
+
+.toggle strong {
+  font-size: 13px;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.actions button {
+  min-height: 42px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: var(--gv-radius-md);
+  background: var(--gv-gradient);
+  color: var(--gv-text);
+  font: 600 13px var(--gv-font);
+  cursor: pointer;
+}
+
+.success,
+.error {
+  margin: 0 0 12px;
+  font-size: 13px;
+}
+
+.success {
+  color: var(--gv-violet-300);
+}
+
+.error {
+  color: var(--gv-danger-300);
+}
+
+.field input:focus-visible,
+.toggle input:focus-visible,
+.actions button:focus-visible {
+  outline: none;
+  box-shadow: var(--gv-focus);
+}
+
+@media (max-width: 640px) {
+  .twoColumns {
+    grid-template-columns: 1fr;
+  }
+
+  .panelHeading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
