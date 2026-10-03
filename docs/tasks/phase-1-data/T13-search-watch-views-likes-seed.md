@@ -6,21 +6,26 @@ T12 merged.
 ## Creates
 - `lib/data/prisma/search.ts`
 - `lib/data/prisma/watch.ts`
+- existing `lib/data/index.ts`, signature-preserving implementation swap only
 - `app/api/videos/[id]/view/route.ts`
 - `app/api/videos/[id]/like/route.ts`
 - `prisma/seed.ts`
 
 ## Implement
-- Search: full-text + trigram similarity over title, tags, category, with filters.
-- `getWatch`: OK mirrors ordered by Host.sortOrder, plus Up Next, Related, Popular.
+- Search: full-text + trigram similarity over title, tags and category, with filters and the shared public visibility rule.
+- Implement Prisma-backed suggestions for the existing `getSuggestions` signature: trending terms, tags, categories and matching **publicly visible** videos.
+- Implement `getWatch` with OK mirrors ordered by `Host.sortOrder`, plus Up Next, Related and Popular.
+- Direct Watch lookup must support the later T24 wrapper states for a known published, non-hidden slug: AVAILABLE, PROCESSING, REMOVED, BLOCKED, AGE_RESTRICTED, REGION_RESTRICTED and FAILED. Draft/hidden videos still resolve as not found. Do not expose unavailable videos in listing/search results.
+- Update `lib/data/index.ts` so `search`, `getSuggestions`, `getWatch` and `getPopularTags` no longer fall back to fixtures in production data access. Do not change any 🔒 signature.
 - View API: max one view per cookie per 6h and increment `VideoDailyStat`.
 - Like API: cookie-limited.
-- Seed fixtures, create three hosts, with Dood initially primary, plus fake mirrors.
+- Seed fixtures, create the three Host rows with Dood initially primary, plus deterministic fake mirrors/data needed for local development.
 - Do not hardcode Dood as permanent primary in application logic.
 
 ## Done when
-- Search/watch APIs work against Prisma seed data.
-
+- Search, suggestions and Watch work against Prisma seed data.
+- The public data API does not mix fixture-backed search/watch/suggestion/popular-tag results with Prisma listing data.
+- Draft/hidden lookup is not exposed; unavailable published states remain available only to the Watch wrapper logic.
 
 ## GitHub delivery workflow
 - Start from the latest `main` after all listed prerequisites are merged. Work on a `task/Txx-<short-name>` branch.

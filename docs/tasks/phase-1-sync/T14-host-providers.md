@@ -3,8 +3,13 @@
 ## Prerequisite
 T04 and T03 merged.
 
-## Current API documentation required
-Use current official API documentation for DoodStream, VOE and EarnVids. If web access is available, retrieve the official documentation yourself; otherwise the user must attach it. Do not invent endpoints, authentication, limits, or response fields.
+## Official API sources
+Retrieve the current official documentation yourself before coding; do not wait for the user to paste it unless these sources are unavailable:
+- DoodStream: https://doodstream.com/api-docs
+- VOE: https://voe.sx/api-1-reference-index
+- EarnVids: https://earnvids.com/api.html
+
+Do not invent endpoints, authentication, limits, response fields or embed URL patterns. If an official page has materially changed, use the current official page and update recorded fixtures accordingly.
 
 ## Creates
 - `lib/hosts/types.ts` 🔒
@@ -16,18 +21,21 @@ Use current official API documentation for DoodStream, VOE and EarnVids. If web 
 - `lib/hosts/*.test.ts`
 - `lib/sync/normalize.test.ts`
 - `lib/hosts/__fixtures__/*.json`
+- existing `.env.example`, only to document `HOST_DOOD_API_KEY`, `HOST_VOE_API_KEY`, `HOST_EARNVIDS_API_KEY`
 
 ## Implement
-- HostProvider interface from the Implementation Plan.
-- Registry maps host IDs to providers.
-- Timeouts, retry with backoff, per-host rate limiting.
-- API keys via `HOST_<ID>_API_KEY`.
+- HostProvider interface from the Implementation Plan exactly.
+- Registry maps host IDs to providers; adding a host later means one provider file plus one registry line.
+- Timeouts, retry with backoff and per-host rate limiting.
+- API keys via `HOST_<ID>_API_KEY`; never commit real keys.
 - `normalize()`: strip extension → lowercase → remove diacritics → non-alphanumeric runs to one space → trim.
-- Tests use recorded JSON fixtures.
+- Tests use recorded official-shape JSON fixtures and must not require live API keys/network access in CI.
+- `embedDomains` and `embedUrl(code)` must be derived from documented/current host behavior, never from the database primary-host choice.
 
 ## Done when
-- Provider tests pass using real documented API shapes.
-
+- Provider/normalization tests pass against recorded real API shapes.
+- CI passes with no live host credentials.
+- A temporary outage of an official docs page is the only acceptable documentation blocker after the three URLs above have been attempted.
 
 ## GitHub delivery workflow
 - Start from the latest `main` after all listed prerequisites are merged. Work on a `task/Txx-<short-name>` branch.

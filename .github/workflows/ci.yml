@@ -10,7 +10,9 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
+    env:
+      DATABASE_URL: postgresql://gayvideo:gayvideo@localhost:5432/gayvideo?schema=public
 
     steps:
       - name: Checkout
@@ -23,18 +25,6 @@ jobs:
 
       - name: Install dependencies
         run: npm install --no-audit --no-fund
-
-      - name: Typecheck
-        run: npm run typecheck
-
-      - name: Lint
-        run: npm run lint
-
-      - name: Test
-        run: npm run test
-
-      - name: Build
-        run: npm run build
 
       - name: Start PostgreSQL 16
         if: ${{ hashFiles('docker-compose.yml') != '' }}
@@ -55,9 +45,19 @@ jobs:
 
       - name: Run Prisma migration
         if: ${{ hashFiles('docker-compose.yml') != '' }}
-        env:
-          DATABASE_URL: postgresql://gayvideo:gayvideo@localhost:5432/gayvideo?schema=public
         run: npm run db:migrate
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm run test
+
+      - name: Build
+        run: npm run build
 
       - name: Stop PostgreSQL
         if: ${{ always() && hashFiles('docker-compose.yml') != '' }}

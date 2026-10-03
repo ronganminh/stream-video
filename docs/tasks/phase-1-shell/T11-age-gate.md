@@ -9,19 +9,27 @@ Boards 1i, 3f and Handoff “Age gate behavior”.
 ## Creates
 - `components/shell/AgeGate.tsx`
 - `components/shell/AgeGate.module.css`
-- `middleware.ts`
+- existing `app/(public)/layout.tsx`, only to mount the gate and pass server-derived acknowledgement/settings
+- `lib/settings/ageGate.ts`
+- `middleware.ts`, only if request/cookie handling actually needs middleware; if used, its matcher must exclude `/api`, `/_next`, static assets, `robots.txt` and sitemap metadata routes
 
 ## Implement
-- Modal desktop, full-screen mobile.
-- “I'm 18 or older” sets acknowledgement cookie.
-- Cookie lifetime comes from settings.
-- “Leave” navigates away.
-- Server-rendered HTML remains crawlable.
-- Do not add compliance claims.
+- Desktop modal and mobile full-screen treatment matching the supplied boards.
+- “I'm 18 or older” sets an acknowledgement cookie and continues to the requested URL.
+- Read the acknowledgement server-side so acknowledged users do not receive unnecessary gate UI.
+- Cookie persistence comes from `Setting.key = "ageGateCookieLifetimeDays"`.
+- If that setting is absent/invalid, use a **session cookie** (omit persistent max-age/expiry); do not invent a persistent legal/product lifetime.
+- Keep the setting key/parsing in `lib/settings/ageGate.ts` so T16 can write the same key later.
+- “Leave” navigates away; the final external destination is not defined by the design, so keep it configurable/localized to this component rather than inventing a compliance destination.
+- Public page HTML remains server-rendered behind the gate. Do not redirect anonymous users to a separate gate-only route and do not add crawler bypass claims.
+- Legal/body placeholder copy is exactly `LEGAL COPY — FINAL TEXT REQUIRED`.
+- Focus trap, sensible initial focus, Escape behavior, focus return, 44px mobile targets and reduced-motion support.
 
 ## Done when
-- Gate behavior matches Handoff and remains accessible.
-
+- Gate is visibly mounted in the public shell on an unacknowledged visit.
+- Acknowledgement suppresses the gate according to the database setting, or for the browser session when the setting is missing.
+- Server-rendered public HTML is preserved.
+- Keyboard/focus behavior and desktop/mobile visuals match the Handoff.
 
 ## GitHub delivery workflow
 - Start from the latest `main` after all listed prerequisites are merged. Work on a `task/Txx-<short-name>` branch.

@@ -1,33 +1,42 @@
 # T24 — Watch page and player
 
 ## Prerequisite
-Phase 1 merged.
+Phase 1 merged, including T13 watch data and T11 age-gate behavior.
 
 ## Attach
-Boards 1d, 1h, 1k, 2j, 2v.
+Boards 1d, 1h, 1k, 2j, 2v plus Handoff availability/SEO/ad rules.
 
 ## Creates
 - `app/(public)/watch/[slug]/**`
-- existing `middleware.ts`, but only the minimal Watch-specific change required to return a true HTTP 410 for REMOVED videos; preserve all T11 age-gate behavior.
+- `app/(public)/watch/_gone/**`, internal renderer used only for true 410 responses
+- existing `middleware.ts`, only for the minimal Watch-specific status rewrite; preserve all T11 age-gate/cookie behavior
 
-Keep page, player, loading, metadata, and route-local CSS/components inside the Watch route directory unless the middleware exception above is required.
+Keep page, player, loading, metadata and route-local CSS/components inside the Watch directories unless the middleware exception above is required.
 
 ## Implement
-- Poster with Play button; mount first OK mirror iframe only after Play.
-- Server 1/2/3 switcher + “Not playing? Try another server”.
-- Loading state until iframe `onLoad`.
-- Count one view on first Play.
-- REMOVED renders the supplied removed state and returns a true HTTP 410; do not fake this as a 200 response. Preserve the visible requested URL.
-- PROCESSING/BLOCKED/FAILED neutral wrapper states.
-- Age-restricted state.
-- Draft/hidden: 404.
-- Actions: Like, Save(localStorage), Share, Report.
-- Tags, description, Up Next, More like this, Popular, Related tags.
-- `VideoObject` JSON-LD.
+- Poster with Play button; mount the first OK mirror iframe only after Play.
+- Server 1/2/3 switcher ordered by data-layer `Host.sortOrder`, plus “Not playing? Try another server”.
+- Loading state until iframe `onLoad`; count one view only on first Play.
+- Availability HTTP behavior must match the Handoff:
+  - AVAILABLE: player, HTTP 200, indexed.
+  - PROCESSING: neutral processing state, HTTP 200, `noindex`.
+  - REMOVED: neutral removed state with related + Hot, HTTP 410.
+  - BLOCKED: same neutral removed treatment, never expose internal reason, HTTP 410.
+  - AGE_RESTRICTED: age-restricted player state / age-gate actions, HTTP 200.
+  - FAILED: unavailable + Play next video, HTTP 200, `noindex`.
+  - REGION_RESTRICTED: only if supported by product data; optional 451 behavior from Handoff.
+  - Draft/hidden: real 404.
+- Next App Router pages cannot simply choose an arbitrary status from `page.tsx`. For 410 states, use middleware to **rewrite** to the internal `/watch/_gone` renderer with status 410 while preserving the requested visible URL; do not return an HTML body directly from middleware.
+- Actions: Like, Save(localStorage), Share and a Report trigger that T25 will complete.
+- Tags, description, Up Next, More like this, Popular and Related tags.
+- Add `VideoObject` JSON-LD for the available Watch page with Handoff fields.
+- Use T19 `watch-below-player` and `watch-sidebar` ad data where designed; no-fill collapses.
 
 ## Done when
-- Player and all availability states match boards.
-
+- Player and all supplied availability states match boards.
+- REMOVED/BLOCKED requests return a verified HTTP 410 while preserving the original Watch URL.
+- Draft/hidden returns 404; PROCESSING/FAILED are 200 noindex.
+- Switching servers never depends on which host is primary.
 
 ## GitHub delivery workflow
 - Start from the latest `main` after all listed prerequisites are merged. Work on a `task/Txx-<short-name>` branch.

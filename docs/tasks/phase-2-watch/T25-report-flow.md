@@ -4,7 +4,7 @@
 T24 merged.
 
 ## Attach
-Boards 2m, 2w.
+Boards 2m, 2w and Handoff report-flow states.
 
 ## Creates
 - `app/(public)/watch/[slug]/**`, only for integrating the Report action/flow into the existing Watch page
@@ -14,15 +14,19 @@ Boards 2m, 2w.
 ## Implement
 - Desktop modal, mobile bottom sheet.
 - Steps: reason → details → received.
-- Attach current URL automatically; email optional.
-- Underage/non-consensual/illegal reasons labelled “Urgent safety report” with no promises about outcome.
-- Copyright routes to `/content-removal/dmca`.
-- States: idle, selected, submitting, success, failed, offline.
-- Spam protection: rate limit + honeypot.
+- Attach current video URL **and timestamp** automatically; details/email optional.
+- Person depicted/privacy provides a link to `/content-removal/request`.
+- Copyright routes to `/content-removal/dmca` with the current video URL carried over.
+- Underage/non-consensual/illegal reasons are labelled “Urgent safety report”; never claim they are prioritized/reviewed first.
+- States: idle, selected, details, submitting, success, failed and offline exactly as the Handoff describes.
+- During submit, fields are disabled and Escape must not dismiss the dialog mid-request.
+- Failure keeps user input; offline disables submit with the supplied message.
+- API validates with zod, writes `Report`, rate-limits abuse and includes a honeypot.
 
 ## Done when
 - Full report flow works keyboard-first and mobile.
-
+- Copyright/privacy handoffs preserve the current video context.
+- Failed/offline/submitting behavior matches the Handoff without outcome promises.
 
 ## GitHub delivery workflow
 - Start from the latest `main` after all listed prerequisites are merged. Work on a `task/Txx-<short-name>` branch.

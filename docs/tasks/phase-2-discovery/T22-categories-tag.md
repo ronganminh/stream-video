@@ -4,24 +4,28 @@
 Phase 1 merged.
 
 ## Attach
-Boards 2d, 2e, 2f, 2r, 2s, 3a.
+Boards 2d, 2e, 2f, 2r, 2s, 3a plus Handoff SEO/pagination rules.
 
 ## Creates
 - `app/(public)/categories/**`
 - `app/(public)/category/[slug]/**`
 - `app/(public)/tag/[slug]/**`
 
-Keep page, loading, metadata exports, and route-local CSS/components inside those directories.
+Keep page, loading, metadata exports and route-local CSS/components inside those directories.
 
 ## Implement
-- SSR pagination.
-- Match category/tag layouts exactly.
-- Tag page is `noindex` when it has fewer than 5 videos.
-- Use existing data contracts/components only.
+- `/categories` includes the designed client-side category filter while its initial category content remains server-rendered.
+- Category pages support `sort`, `duration`, `date` and `page` from the URL; real `?page=n` links work with JS disabled.
+- Tag pages are `noindex` when the tag has fewer than 5 visible videos.
+- Filtered/sorted list variants use Handoff canonical/noindex behavior.
+- Match category/tag layouts exactly and use existing data contracts/components only.
+- Add loading/empty/error states and BreadcrumbList structured data as specified by the Handoff.
+- Use the shared list ad slot only where shown in the supplied designs.
 
 ## Done when
-- Routes match boards and handle empty/loading states.
-
+- Routes match boards and handle loading/empty states.
+- Category/tag pagination works with JS disabled.
+- Thin-tag indexing and filtered canonical rules are correct.
 
 ## GitHub delivery workflow
 - Start from the latest `main` after all listed prerequisites are merged. Work on a `task/Txx-<short-name>` branch.

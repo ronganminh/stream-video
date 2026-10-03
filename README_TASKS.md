@@ -33,6 +33,15 @@ For every tab:
 
 CI is a mandatory gate, but it does not replace checks that GitHub Actions does not cover, such as visual comparison, Docker migration, full E2E, or a real VPS deployment.
 
+## Scheduled runner selection
+
+For scheduled/autonomous runs:
+- Choose the lowest-numbered unmerged task whose listed prerequisites **and required external inputs** are currently satisfied.
+- If a task is blocked only by missing external input (for example host documentation, credentials, or a VPS), record that blocker and select the next independent eligible task in another lane for that run.
+- Never skip an unmet prerequisite inside the same lane and never start more than one Txx in one run.
+- A scope omission in a packet is not an external blocker: stop that task and fix the packet scope before implementation.
+- When no task in any lane is eligible, report the concrete blockers and do not create speculative code.
+
 ## Parallel schedule
 
 ### Phase 0 — sequential

@@ -4,26 +4,31 @@
 T20 merged.
 
 ## Attach
-Boards 2a, 2b, 2c, 2n, 2o, 2p, 2q, 3b.
+Boards 2a, 2b, 2c, 2n, 2o, 2p, 2q, 3b plus Handoff SEO/pagination/ad rules.
 
 ## Creates
 - `app/(public)/hot/**`
 - `app/(public)/most-viewed/**`
 - `app/(public)/latest/**`
 
-Keep page, loading, metadata exports, and route-local CSS/components inside those directories.
+Keep page, loading, metadata exports and route-local CSS/components inside those directories.
 
 ## Implement
-- SSR `?page=n`.
-- Hot: top 5 RankCards.
-- Most Viewed: “#1 MOST WATCHED” badge + empty state.
-- Latest: group into “Last hour” and “Earlier today”.
-- Non-default windows/filters: `noindex,follow`.
-- JS-off pagination remains functional.
+- Every `?page=n` is directly SSR with full content, a Page-n title and self-canonical URL; real Prev/page-number/Next links remain in HTML without JS.
+- Hot: top 5 RankCards and window handling.
+- Most Viewed: “#1 MOST WATCHED” badge + supplied empty state.
+- Latest: group initial content into “Last hour” and “Earlier today”.
+- Non-default windows, sorting and filters are `noindex,follow` and canonical to the unfiltered list.
+- Use existing FilterToolbar/Pagination/LoadMore without removing the server pager fallback.
+- Use T19 `list-in-feed` / mobile ad data only where the boards/Handoff place it; no-fill collapses.
+- Add BreadcrumbList structured data where the Handoff requires breadcrumbs.
+- Loading/error/empty states follow the supplied skeleton and recovery states.
 
 ## Done when
-- All three pages match boards and SSR pagination works.
-
+- All three pages match boards.
+- SSR pagination works with JS disabled.
+- Filtered/window variants have correct index/canonical behavior.
+- Load More does not remove the underlying crawlable pager.
 
 ## GitHub delivery workflow
 - Start from the latest `main` after all listed prerequisites are merged. Work on a `task/Txx-<short-name>` branch.

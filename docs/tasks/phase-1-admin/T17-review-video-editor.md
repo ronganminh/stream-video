@@ -1,25 +1,30 @@
 # T17 — Review queue, video list, video editor
 
 ## Prerequisite
-T16 merged.
+T16, T14 and T15 merged.
+
+T14 is required for real host re-checks; T15 is required for shared thumbnail/media behavior. Do not start T17 with stubbed host logic.
 
 ## Creates
-- `app/admin/review/*`
-- `app/admin/videos/*`
-- `app/admin/videos/[id]/*`
+- `app/admin/review/**`
+- `app/admin/videos/**`
+- `app/admin/videos/[id]/**`
 
 ## Implement
 - Review drafts newest first, thumbnail + embed preview + inline title/slug/category/tags/quality.
 - Actions: Approve & publish, Reject (hide), bulk approve.
 - Video table search + filters for status/published/hidden/category/missing host.
 - Bulk category/tag and hide/unhide.
-- Editor for all editable fields + thumbnail replacement.
+- Editor for all editable fields + thumbnail replacement using the established T15 media/WebP behavior.
 - Mirrors panel per enabled host with status, search/similarity suggestions, link/unlink/re-check.
+- Re-check a mirror through the host registry/provider; never hardcode Dood/VOE/EarnVids branches in admin logic.
+- Manual link/unlink must preserve the one-mirror-per-host invariant and mark manual links as `MANUAL`.
 - zod server actions + audit rows.
 
 ## Done when
-- Admin can fully review and edit a draft safely.
-
+- Admin can fully review/edit a draft and manually manage mirrors.
+- A mirror re-check calls the matching provider and updates status without touching unrelated mirrors.
+- Thumbnail replacement produces the same public media-path convention as sync thumbnails.
 
 ## GitHub delivery workflow
 - Start from the latest `main` after all listed prerequisites are merged. Work on a `task/Txx-<short-name>` branch.

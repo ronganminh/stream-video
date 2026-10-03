@@ -4,7 +4,7 @@
 Phase 1 merged.
 
 ## Attach
-Boards 2k, 2l, 2x.
+Boards 2k, 2l, 2x and Handoff route metadata/form states.
 
 ## Creates
 - `app/(public)/content-removal/**`
@@ -13,19 +13,23 @@ Boards 2k, 2l, 2x.
 - `app/(public)/cookies/**`
 - `app/api/requests/route.ts`
 
-Keep route-local loading, form, metadata, and CSS files inside those directories.
+Keep route-local loading, form, metadata and CSS files inside those directories.
 
 ## Implement
 - Narrow reading column + section navigation.
-- Every legal passage must be exactly a placeholder block labelled:
-  `LEGAL COPY — FINAL TEXT REQUIRED`
-- Forms include validation, error, success.
-- Mobile sticky submit button.
-- Do not create compliance claims.
+- Every legal passage is exactly a placeholder block labelled `LEGAL COPY — FINAL TEXT REQUIRED`; do not write compliance claims.
+- `/content-removal`, `/privacy`, `/terms`, `/cookies` use the Handoff indexing rules.
+- `/content-removal/dmca` and `/content-removal/request` are `noindex`.
+- Forms have labelled fields, inline validation, an error summary, submitting disabled state, network error handling and success state.
+- Mobile form submit remains sticky as designed.
+- Accept the carried video/page URL from T25 query parameters and prefill/attach it without treating it as trusted HTML.
+- `app/api/requests/route.ts` validates input and writes the appropriate DMCA/REMOVAL `RemovalRequest`.
 
 ## Done when
-- Pages match boards and forms submit correctly.
-
+- Pages match boards and all legal prose remains the required placeholder.
+- Forms submit correctly across validation/error/success states.
+- Copyright/privacy handoffs from Watch preserve the originating URL.
+- Route index/noindex metadata matches the Handoff.
 
 ## GitHub delivery workflow
 - Start from the latest `main` after all listed prerequisites are merged. Work on a `task/Txx-<short-name>` branch.

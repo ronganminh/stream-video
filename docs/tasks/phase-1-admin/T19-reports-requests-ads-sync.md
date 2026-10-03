@@ -4,21 +4,30 @@
 T18 merged.
 
 ## Creates
-- `app/admin/reports/*`
-- `app/admin/requests/*`
-- `app/admin/ads/*`
-- `app/admin/sync/*`
+- `app/admin/reports/**`
+- `app/admin/requests/**`
+- `app/admin/ads/**`
+- `app/admin/sync/**`
+- `lib/data/prisma/ads.ts`
 
 ## Implement
 - Reports: urgent categories first; hide video + resolve actions.
 - Requests: DMCA/removal requests with status and notes.
 - Ads: one HTML snippet + enabled flag per slot.
-- Sync log: SyncRun history + error details.
+- Use these stable `AdSlot.key` values so Phase 2 pages do not guess names:
+  - `home-leaderboard`
+  - `list-in-feed`
+  - `watch-below-player`
+  - `watch-sidebar`
+  - `mobile-in-feed`
+- `lib/data/prisma/ads.ts` exposes a small server-only getter that returns HTML only for an enabled/fill-present slot; public pages may import it read-only.
+- Sync log: `SyncRun` history + error details.
 - zod server actions + audit rows.
 
 ## Done when
 - Admin operational queues are usable and audited.
-
+- Ad slot keys are deterministic and toggling a slot requires no page-code edit.
+- The public ad getter collapses disabled/no-fill slots by returning no HTML.
 
 ## GitHub delivery workflow
 - Start from the latest `main` after all listed prerequisites are merged. Work on a `task/Txx-<short-name>` branch.
