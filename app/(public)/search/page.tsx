@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { AdSlot } from "@/components/ads/AdSlot";
-import { CategoryCard } from "@/components/cards/CategoryCard";
 import { VideoCard } from "@/components/cards/VideoCard";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { Pagination } from "@/components/filters/Pagination";
