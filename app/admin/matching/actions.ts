@@ -7,7 +7,6 @@ import { writeAdminAudit } from "@/lib/auth/audit";
 import { requireAdmin } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { getHostProvider } from "@/lib/hosts/registry";
-import { normalize } from "@/lib/sync/normalize";
 
 const linkSchema = z.object({
   hostFileId: z.string().min(1),
