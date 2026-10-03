@@ -1,0 +1,98 @@
+.grid {
+  margin-top: 28px;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 28px 20px;
+}
+
+.controls {
+  padding: 48px 0 56px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.button,
+.fallback {
+  min-height: 48px;
+  padding: 0 28px;
+  border: 1px solid var(--gv-border-input);
+  border-radius: var(--gv-radius-md);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--gv-surface-2);
+  color: var(--gv-text);
+  font: 600 14px var(--gv-font);
+  text-decoration: none;
+}
+
+.button {
+  cursor: pointer;
+}
+
+.button:disabled {
+  cursor: progress;
+  opacity: .7;
+}
+
+.icon {
+  font-size: 20px;
+}
+
+.count {
+  color: var(--gv-text-muted);
+  font-size: 12px;
+}
+
+.button:focus-visible,
+.fallback:focus-visible {
+  outline: none;
+  box-shadow: var(--gv-focus);
+}
+
+@media (max-width: 1279px) {
+  .grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1023px) {
+  .grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 767px) {
+  .grid {
+    margin-top: 24px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 22px 10px;
+  }
+
+  .controls {
+    padding: 28px 0 36px;
+    gap: 8px;
+  }
+
+  .button,
+  .fallback {
+    width: 100%;
+    padding-inline: 18px;
+  }
+}
+
+@media (max-width: 339px) {
+  .grid {
+    gap-inline: 8px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .button,
+  .fallback {
+    transition: none;
+  }
+}
