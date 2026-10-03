@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 
 import { VideoCard } from "@/components/cards/VideoCard";
 import { Icon } from "@/components/primitives";
@@ -39,6 +39,18 @@ export function CategoryLoadMore({
   const [nextHref, setNextHref] = useState(initialNextHref);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState("");
+  const pagerRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    const pager = document.querySelector<HTMLElement>(
+      '[data-gv-pagination="category-pagination"]',
+    );
+    pagerRef.current = pager;
+    if (pager && initialNextHref) pager.hidden = true;
+    return () => {
+      if (pager) pager.hidden = false;
+    };
+  }, [initialNextHref]);
 
   const loadMore = () => {
     if (!nextHref || pending) return;
@@ -56,12 +68,14 @@ export function CategoryLoadMore({
         setItems((current) => [...current, ...result.items]);
         setNextHref(result.nextHref);
         setError("");
+        if (pagerRef.current) pagerRef.current.hidden = Boolean(result.nextHref);
         window.history.replaceState(
           window.history.state,
           "",
           nextHref,
         );
       } catch {
+        if (pagerRef.current) pagerRef.current.hidden = false;
         setError("Couldn’t load more videos. Use the pagination links below.");
       }
     });
