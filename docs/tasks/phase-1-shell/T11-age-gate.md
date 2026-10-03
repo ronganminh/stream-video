@@ -11,7 +11,7 @@ Boards 1i, 3f and Handoff “Age gate behavior”.
 - `components/shell/AgeGate.module.css`
 - existing `app/(public)/layout.tsx`, only to mount the gate and pass server-derived acknowledgement/settings
 - `lib/settings/ageGate.ts`
-- `middleware.ts`, only if request/cookie handling actually needs middleware
+- `middleware.ts`, only if request/cookie handling actually needs middleware; if used, its matcher must exclude `/api`, `/_next`, static assets, `robots.txt` and sitemap metadata routes
 
 ## Implement
 - Desktop modal and mobile full-screen treatment matching the supplied boards.

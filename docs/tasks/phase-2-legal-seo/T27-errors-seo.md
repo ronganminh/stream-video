@@ -4,7 +4,7 @@
 T26 merged.
 
 ## Attach
-Board 2i and Handoff route map.
+Board 2i and Handoff route map / SEO-paging rules.
 
 ## Creates
 - `app/not-found.tsx`
@@ -13,19 +13,24 @@ Board 2i and Handoff route map.
 - `app/error.module.css`
 - `app/robots.ts`
 - `app/sitemap.ts`
+- `app/sitemap.xml/**`, only if a custom index Route Handler is required
 - `app/sitemaps/**`
 - `lib/seo/**`
 
 ## Implement
-- Real 404 with Trending row.
-- `app/error.tsx` must be a Client Component as required by the Next.js error-boundary convention; keep the rest server-first.
-- Sitemap index split into videos, categories, tags, static pages.
-- `robots.txt` disallows `/admin`, `/api`, `/search`.
-- Follow route metadata rules from Handoff.
+- Real 404 response with the designed Trending row; do not render a 200 “not found” page.
+- `app/error.tsx` is a Client Component as required by the Next.js error-boundary convention; keep the rest server-first.
+- Sitemap output is split into videos, categories, tags and static pages, with a discoverable sitemap index.
+- Prefer Next 15 metadata APIs/`generateSitemaps` where they satisfy the required index. If a custom sitemap-index handler is needed, use the allowed `app/sitemap.xml/**` / `app/sitemaps/**` scope and do not create conflicting sitemap handlers.
+- Only publicly indexable videos/categories/tags are emitted.
+- `robots.txt` disallows `/admin`, `/api` and `/search` and references the sitemap index.
+- Verify any existing middleware matcher does not intercept robots/sitemap/static metadata routes.
+- Follow route metadata/canonical rules already implemented by T20–T26 rather than rewriting those pages in this task.
 
 ## Done when
-- Error pages render correctly and SEO endpoints validate.
-
+- 404/error pages render with correct HTTP/error-boundary behavior.
+- Robots and every sitemap endpoint validate.
+- Sitemap contains no draft/hidden/unavailable video URLs and is reachable by crawlers without age-gate middleware interference.
 
 ## GitHub delivery workflow
 - Start from the latest `main` after all listed prerequisites are merged. Work on a `task/Txx-<short-name>` branch.

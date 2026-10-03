@@ -7,29 +7,42 @@ T20–T27 merged.
 - `playwright.config.ts`
 - `tests/e2e/**`
 - `docs/QA.md`
-- existing `.github/workflows/ci.yml`, only to add the services/setup and Playwright E2E gate required by this task
+- existing `.github/workflows/ci.yml`, only to add deterministic database seed/setup, browser install and Playwright E2E gates
+- existing `prisma/seed.ts`, only when deterministic E2E records are missing
+- existing **non-locked** app/component/lib files only when necessary to fix a defect proven by T28 E2E, responsive or accessibility checks
+
+T28 is the integration/QA task: it may fix discovered implementation defects, but it must not redesign the product or change 🔒 contracts/schema. A required locked-contract change remains a blocker and must be reported.
 
 ## Implement
 Playwright E2E:
 - Desktop: age gate → home → search → results → watch → switch server → related → category → filter → Hot → home.
 - Mobile path.
 - Report flow.
-- Load More.
+- Load More with server-pagination fallback.
 - Admin approve.
 - Manual mirror link.
 - Change primary host.
+- Verify REMOVED/BLOCKED Watch responses return 410 and draft/hidden return 404.
 
 Responsive/accessibility:
 - widths 1440, 1280, 1024, 768, 390, 375, 360, 320.
 - no horizontal overflow.
 - 1-column grid below 340px.
 - axe-core: no serious issues.
+- keyboard/focus flows for search, dialogs, report and age gate.
+
+GitHub Actions E2E gate:
+- PostgreSQL migrated and deterministically seeded before the app starts.
+- Install the required Playwright browser/dependencies in CI.
+- Start the production build (or configured Playwright webServer), run E2E, preserve useful failure traces/screenshots, then clean up.
+- If QA exposes a bug in an allowed non-locked file, fix it in this T28 branch and rerun CI rather than stopping only because the original QA file list was narrow.
 
 ## Done when
+- Unit/lint/type/build checks are green.
 - E2E suite passes in GitHub Actions.
 - Documented responsive/a11y checks pass.
+- No serious axe findings or known route/status regressions remain.
 - The PR's final GitHub Actions run is green before merge.
-
 
 ## GitHub delivery workflow
 - Start from the latest `main` after all listed prerequisites are merged. Work on a `task/Txx-<short-name>` branch.
