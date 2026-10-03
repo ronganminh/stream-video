@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 
 import { Icon } from "@/components/primitives";
 
@@ -20,7 +21,7 @@ type Props = {
   introPlaceholder?: boolean;
   sections: LegalSection[];
   breadcrumbs?: Array<{ label: string; href?: string }>;
-  children?: React.ReactNode;
+  children?: ReactNode;
 };
 
 export function LegalPlaceholder() {
