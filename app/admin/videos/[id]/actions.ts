@@ -92,44 +92,44 @@ export async function saveVideoAction(formData: FormData) {
     ageRestricted: checked(formData, "ageRestricted"),
   });
 
-  await assertUniqueSlug(parsed.data.id, parsed.data.slug);
+  await assertUniqueSlug(parsed.id, parsed.slug);
   const current = await db.video.findUnique({
-    where: { id: parsed.data.id },
+    where: { id: parsed.id },
     select: { publishedAt: true },
   });
   if (!current) throw new Error("Video not found.");
 
   await db.$transaction(async (tx) => {
     await tx.video.update({
-      where: { id: parsed.data.id },
+      where: { id: parsed.id },
       data: {
-        title: parsed.data.title,
-        slug: parsed.data.slug,
-        description: parsed.data.description,
-        durationSeconds: parsed.data.durationSeconds,
-        quality: parsed.data.quality,
-        status: parsed.data.status,
-        categoryId: parsed.data.categoryId,
-        isPublished: parsed.data.isPublished,
-        isHidden: parsed.data.isHidden,
-        hotOverride: parsed.data.hotOverride,
-        ageRestricted: parsed.data.ageRestricted,
+        title: parsed.title,
+        slug: parsed.slug,
+        description: parsed.description,
+        durationSeconds: parsed.durationSeconds,
+        quality: parsed.quality,
+        status: parsed.status,
+        categoryId: parsed.categoryId,
+        isPublished: parsed.isPublished,
+        isHidden: parsed.isHidden,
+        hotOverride: parsed.hotOverride,
+        ageRestricted: parsed.ageRestricted,
         publishedAt:
-          parsed.data.isPublished && !current.publishedAt
+          parsed.isPublished && !current.publishedAt
             ? new Date()
             : current.publishedAt,
       },
     });
 
     await tx.videoTag.deleteMany({
-      where: { videoId: parsed.data.id },
+      where: { videoId: parsed.id },
     });
 
-    const tagIds = [...new Set(parsed.data.tagIds)];
+    const tagIds = [...new Set(parsed.tagIds)];
     if (tagIds.length) {
       await tx.videoTag.createMany({
         data: tagIds.map((tagId) => ({
-          videoId: parsed.data.id,
+          videoId: parsed.id,
           tagId,
         })),
         skipDuplicates: true,
@@ -137,8 +137,8 @@ export async function saveVideoAction(formData: FormData) {
     }
   });
 
-  await writeAdminAudit(admin.id, "VIDEO_UPDATE", parsed.data.id);
-  revalidatePath(`/admin/videos/${parsed.data.id}`);
+  await writeAdminAudit(admin.id, "VIDEO_UPDATE", parsed.id);
+  revalidatePath(`/admin/videos/${parsed.id}`);
   revalidatePath("/admin/videos");
   revalidatePath("/admin/review");
 }
@@ -160,22 +160,22 @@ export async function replaceThumbnailAction(formData: FormData) {
   const base64 = Buffer.from(await file.arrayBuffer()).toString("base64");
   const thumbnailPath = await storeThumbnail({
     url: `data:${file.type};base64,${base64}`,
-    videoId: parsed.data.id,
+    videoId: parsed.id,
   });
 
   if (!thumbnailPath) throw new Error("Thumbnail conversion failed.");
 
   await db.video.update({
-    where: { id: parsed.data.id },
+    where: { id: parsed.id },
     data: { thumbnailPath },
   });
   await writeAdminAudit(
     admin.id,
     "VIDEO_THUMBNAIL_REPLACE",
-    parsed.data.id,
+    parsed.id,
   );
 
-  revalidatePath(`/admin/videos/${parsed.data.id}`);
+  revalidatePath(`/admin/videos/${parsed.id}`);
   revalidatePath("/admin/review");
 }
 
@@ -195,14 +195,14 @@ export async function linkMirrorAction(formData: FormData) {
 
   const [host, existing] = await Promise.all([
     db.host.findUnique({
-      where: { id: parsed.data.hostId },
+      where: { id: parsed.hostId },
       select: { id: true, enabled: true },
     }),
     db.mirror.findUnique({
       where: {
         videoId_hostId: {
-          videoId: parsed.data.videoId,
-          hostId: parsed.data.hostId,
+          videoId: parsed.videoId,
+          hostId: parsed.hostId,
         },
       },
       select: { id: true },
@@ -212,17 +212,17 @@ export async function linkMirrorAction(formData: FormData) {
   if (!host?.enabled) throw new Error("Host is not enabled.");
   if (existing) throw new Error("This video already has a mirror on that host.");
 
-  const provider = getHostProvider(parsed.data.hostId);
+  const provider = getHostProvider(parsed.hostId);
   if (!provider) throw new Error("Host provider is not registered.");
 
-  const info = await provider.getFileInfo(parsed.data.fileCode);
+  const info = await provider.getFileInfo(parsed.fileCode);
   if (!info) throw new Error("Host file was not found.");
 
   await db.$transaction(async (tx) => {
     await tx.mirror.create({
       data: {
-        videoId: parsed.data.videoId,
-        hostId: parsed.data.hostId,
+        videoId: parsed.videoId,
+        hostId: parsed.hostId,
         fileCode: info.code,
         rawTitle: info.title,
         normalizedName: normalize(info.title),
@@ -238,21 +238,21 @@ export async function linkMirrorAction(formData: FormData) {
     await tx.hostFile.upsert({
       where: {
         hostId_fileCode: {
-          hostId: parsed.data.hostId,
+          hostId: parsed.hostId,
           fileCode: info.code,
         },
       },
       create: {
-        hostId: parsed.data.hostId,
+        hostId: parsed.hostId,
         fileCode: info.code,
         rawTitle: info.title,
         normalizedName: normalize(info.title),
-        linkedVideoId: parsed.data.videoId,
+        linkedVideoId: parsed.videoId,
       },
       update: {
         rawTitle: info.title,
         normalizedName: normalize(info.title),
-        linkedVideoId: parsed.data.videoId,
+        linkedVideoId: parsed.videoId,
       },
     });
   });
@@ -260,10 +260,10 @@ export async function linkMirrorAction(formData: FormData) {
   await writeAdminAudit(
     admin.id,
     "MIRROR_LINK",
-    `${parsed.data.videoId}:${parsed.data.hostId}:${info.code}`,
+    `${parsed.videoId}:${parsed.hostId}:${info.code}`,
   );
 
-  revalidatePath(`/admin/videos/${parsed.data.videoId}`);
+  revalidatePath(`/admin/videos/${parsed.videoId}`);
   revalidatePath("/admin/videos");
 }
 
@@ -281,8 +281,8 @@ export async function unlinkMirrorAction(formData: FormData) {
 
   const mirror = await db.mirror.findFirst({
     where: {
-      id: parsed.data.mirrorId,
-      videoId: parsed.data.videoId,
+      id: parsed.mirrorId,
+      videoId: parsed.videoId,
     },
   });
   if (!mirror) throw new Error("Mirror not found.");
@@ -293,7 +293,7 @@ export async function unlinkMirrorAction(formData: FormData) {
       where: {
         hostId: mirror.hostId,
         fileCode: mirror.fileCode,
-        linkedVideoId: parsed.data.videoId,
+        linkedVideoId: parsed.videoId,
       },
       data: { linkedVideoId: null },
     }),
@@ -302,10 +302,10 @@ export async function unlinkMirrorAction(formData: FormData) {
   await writeAdminAudit(
     admin.id,
     "MIRROR_UNLINK",
-    `${parsed.data.videoId}:${mirror.hostId}:${mirror.fileCode}`,
+    `${parsed.videoId}:${mirror.hostId}:${mirror.fileCode}`,
   );
 
-  revalidatePath(`/admin/videos/${parsed.data.videoId}`);
+  revalidatePath(`/admin/videos/${parsed.videoId}`);
   revalidatePath("/admin/videos");
 }
 
@@ -323,8 +323,8 @@ export async function recheckMirrorAction(formData: FormData) {
 
   const mirror = await db.mirror.findFirst({
     where: {
-      id: parsed.data.mirrorId,
-      videoId: parsed.data.videoId,
+      id: parsed.mirrorId,
+      videoId: parsed.videoId,
     },
   });
   if (!mirror) throw new Error("Mirror not found.");
@@ -355,7 +355,7 @@ export async function recheckMirrorAction(formData: FormData) {
     await writeAdminAudit(
       admin.id,
       "MIRROR_RECHECK",
-      `${parsed.data.videoId}:${mirror.hostId}:${mirror.fileCode}`,
+      `${parsed.videoId}:${mirror.hostId}:${mirror.fileCode}`,
     );
   } catch (error) {
     await db.mirror.update({
@@ -368,7 +368,7 @@ export async function recheckMirrorAction(formData: FormData) {
     await writeAdminAudit(
       admin.id,
       "MIRROR_RECHECK_ERROR",
-      `${parsed.data.videoId}:${mirror.hostId}:${mirror.fileCode}`,
+      `${parsed.videoId}:${mirror.hostId}:${mirror.fileCode}`,
     );
 
     if (error instanceof Error) {
@@ -376,6 +376,6 @@ export async function recheckMirrorAction(formData: FormData) {
     }
   }
 
-  revalidatePath(`/admin/videos/${parsed.data.videoId}`);
+  revalidatePath(`/admin/videos/${parsed.videoId}`);
   revalidatePath("/admin/videos");
 }
