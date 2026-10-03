@@ -69,11 +69,11 @@ export default async function AdminVideoEditorPage({
   searchParams: SearchParams;
 }) {
   await requireAdmin();
-  const [{ id }, query] = await Promise.all([params, searchParams]);
+  const [routeParams, query] = await Promise.all([params, searchParams]);
 
   const [video, categories, tags, hosts] = await Promise.all([
     db.video.findUnique({
-      where: { id: (await params).id },
+      where: { id: routeParams.id },
       include: {
         category: true,
         videoTags: { include: { tag: true } },
