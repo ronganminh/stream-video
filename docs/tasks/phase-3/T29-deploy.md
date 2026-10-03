@@ -4,11 +4,13 @@
 T28 merged and green.
 
 ## Creates
-Deployment files only:
-- production Dockerfiles for web/worker
-- final Docker Compose
-- Caddyfile
-- backup scripts/config
+- `Dockerfile.web`
+- `Dockerfile.worker`
+- existing `docker-compose.yml` (replace the T03 dev-only compose with the final production compose)
+- `Caddyfile`
+- `scripts/backup.sh`
+- `ops/backup/**`
+- existing `.env.example`, only for production deployment variables required by this task
 - `docs/DEPLOY.md`
 
 ## Implement
@@ -23,6 +25,16 @@ Deployment files only:
 ## Done when
 - Fresh VPS deployment can be completed from docs and health-checked.
 
+
+## GitHub delivery workflow
+- Start from the latest `main` after all listed prerequisites are merged. Work on a `task/Txx-<short-name>` branch.
+- After implementation, run the task-specific **Done when** checks that are possible in the task environment, then commit/push and open a PR to `main`.
+- Inspect the GitHub Actions run for the PR/head commit yourself.
+- If CI fails, read the failed job, failed step, and job logs; fix only files allowed by **Creates**, commit/push, and inspect the new Actions run. Repeat until green.
+- If a required fix would touch a file outside **Creates** or a locked 🔒 contract not explicitly allowed here, stop and report the blocker instead of changing scope.
+- CI green is mandatory but does not replace task-specific checks that CI cannot cover (for example visual comparison, Docker migration, E2E, or VPS deployment).
+- When CI is green and **Done when** passes, squash-merge the PR into `main`.
+- Do not ask the user to run CI, Desktop Commander, or paste CI logs when GitHub tools are available.
 
 ## Rules for this chat
 - Work on exactly this task only.
