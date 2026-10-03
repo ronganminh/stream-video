@@ -15,9 +15,11 @@ None. This is the first implementation task.
 - `.eslintrc`
 - `.prettierrc`
 - `vitest.config.ts`
+- `.github/workflows/ci.yml`
 - `styles/tokens.css`
 - `styles/globals.css`
 - `app/layout.tsx`
+- `app/page.tsx`
 - `components/primitives/Icon.tsx`
 
 ## Implement
@@ -29,13 +31,16 @@ None. This is the first implementation task.
 - `Icon` renders Material Symbols Rounded ligatures and defaults to `aria-hidden`.
 - Body background must be `#09090B`.
 - Add reduced-motion rules from the Handoff.
+- `app/page.tsx` renders no content so `/` is an actual empty dark page rather than Next.js 404.
+- Add GitHub Actions CI for pushes to `main` and `task/**`, pull requests to `main`, and manual dispatch.
+- CI runs install, typecheck, lint, tests with `--passWithNoTests`, and build.
 
 ## Done when
-- `npm run dev` shows an empty dark page.
+- `npm run dev` shows an empty dark page at `/`.
 - `npm run typecheck` passes.
 - `npm run lint` passes.
 - `npm run build` passes.
-
+- GitHub Actions CI passes on the T01 branch.
 
 ## Rules for this chat
 - Work on exactly this task only.
@@ -43,7 +48,7 @@ None. This is the first implementation task.
 - Modify/create only files listed under **Creates**.
 - Do not modify 🔒 contract files unless this task explicitly allows it.
 - Return complete files, not diffs.
-- Server Components by default; use "use client" only when interaction requires it.
+- Server Components by default; use "use client" only where interaction requires it.
 - Accessibility: visible focus ring using `var(--gv-focus)`, aria-labels for icon buttons, keyboard support, reduced-motion support.
 - Use CSS Modules and existing `--gv-*` tokens only. No Tailwind or UI libraries.
 - All product UI copy is English.
