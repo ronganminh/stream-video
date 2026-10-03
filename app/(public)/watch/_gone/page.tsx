@@ -1,4 +1,10 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+
+export const metadata: Metadata = {
+  title: "Video unavailable | GayVideo.fun",
+  robots: { index: false, follow: true },
+};
 import { notFound } from "next/navigation";
 
 import { VideoCard } from "@/components/cards/VideoCard";
