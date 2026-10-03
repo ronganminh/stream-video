@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { Icon } from "@/components/primitives";
 
+import { SearchBox } from "./SearchBox";
 import styles from "./Header.module.css";
 
 const PRIMARY_LINKS = [
@@ -49,11 +50,7 @@ export function Header() {
           {PRIMARY_LINKS.map((item) => <Link key={item.href} className={styles.navLink} href={item.href}>{item.label}</Link>)}
         </nav>
 
-        <Link className={styles.search} href="/search" aria-label="Search videos, categories or tags">
-          <Icon name="search" className={styles.searchIcon} />
-          <span className={styles.searchText}>Search videos, categories or tags</span>
-          <span className={styles.shortcut} aria-hidden="true">/</span>
-        </Link>
+        <SearchBox />
 
         <div className={styles.actions}>
           <span className={styles.adults}>18+</span>
