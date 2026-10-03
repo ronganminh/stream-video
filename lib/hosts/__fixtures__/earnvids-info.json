@@ -1,0 +1,25 @@
+{
+  "msg": "OK",
+  "server_time": "2021-08-12 21:10:07",
+  "status": 200,
+  "result": [
+    {
+      "file_views_full": "0",
+      "cat_id": "3",
+      "player_img": "http://img.xvs.tt/fb5asfuj2snh.jpg",
+      "status": 200,
+      "file_code": "fb5asfuj2snh",
+      "file_last_download": "2021-08-12 20:56:54",
+      "canplay": 1,
+      "file_public": "1",
+      "file_length": "60",
+      "file_title": "big buck bunny.mp4",
+      "file_views": "0",
+      "file_created": "2021-08-12 20:51:52",
+      "file_premium_only": "0",
+      "file_adult": "1",
+      "file_fld_id": "25",
+      "tags": "promo, high quality"
+    }
+  ]
+}
