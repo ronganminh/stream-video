@@ -1,0 +1,38 @@
+{
+  "server_time": "2023-03-31 00:00:00",
+  "msg": "OK",
+  "message": "successful.",
+  "status": 200,
+  "success": true,
+  "result": {
+    "current_page": 1,
+    "data": [
+      {
+        "filecode": "abc123456789",
+        "name": "Test.mp4",
+        "title": "Test.mp4",
+        "uploaded": "2023-03-31 00:00:00",
+        "size": 0,
+        "file_money": "0.00000",
+        "video": {
+          "width": 1920,
+          "height": 1080,
+          "aspect_ratio": "16:9",
+          "orientation": "landscape",
+          "source_quality": "n"
+        }
+      }
+    ],
+    "first_page_url": "https://voe.sx/api/file/list?page=1",
+    "from": 1,
+    "last_page": 2,
+    "last_page_url": "https://voe.sx/api/file/list?page=2",
+    "links": [],
+    "next_page_url": "https://voe.sx/api/file/list?page=2",
+    "path": "https://voe.sx/api/file/list",
+    "per_page": 20,
+    "prev_page_url": null,
+    "to": 1,
+    "total": 21
+  }
+}
