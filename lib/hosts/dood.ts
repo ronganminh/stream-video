@@ -61,13 +61,24 @@ function uploadedAtOrNull(value: string | undefined): string | null {
   return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
 }
 
-function toDto(file: DoodListFile | DoodInfoFile): HostFileDTO | null {
-  const code = "file_code" in file ? file.file_code : file.filecode;
-  if (!code) return null;
+function listToDto(file: DoodListFile): HostFileDTO | null {
+  if (!file.file_code) return null;
 
   return {
-    code,
-    title: file.title ?? code,
+    code: file.file_code,
+    title: file.title ?? file.file_code,
+    lengthSeconds: numberOrNull(file.length),
+    thumbnailUrl: file.single_img ?? null,
+    uploadedAt: uploadedAtOrNull(file.uploaded),
+  };
+}
+
+function infoToDto(file: DoodInfoFile): HostFileDTO | null {
+  if (!file.filecode) return null;
+
+  return {
+    code: file.filecode,
+    title: file.title ?? file.filecode,
     lengthSeconds: numberOrNull(file.length),
     thumbnailUrl: file.single_img ?? null,
     uploadedAt: uploadedAtOrNull(file.uploaded),
@@ -147,7 +158,7 @@ export function createDoodProvider(
       }
 
       const files = (response.result.files ?? [])
-        .map(toDto)
+        .map(listToDto)
         .filter((file): file is HostFileDTO => file !== null);
 
       return {
@@ -169,7 +180,7 @@ export function createDoodProvider(
       const file = response.result?.find(
         (item) => item.filecode === code && item.status !== 404,
       );
-      return file ? toDto(file) : null;
+      return file ? infoToDto(file) : null;
     },
 
     embedUrl(code) {
