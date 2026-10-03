@@ -1,0 +1,104 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: color-mix(in srgb, var(--gv-bg) 60%, transparent);
+  opacity: 1;
+  transition: opacity var(--gv-dur) var(--gv-ease);
+}
+
+.sheet {
+  width: min(520px, 100%);
+  max-height: min(88dvh, 760px);
+  padding: 0 20px calc(20px + env(safe-area-inset-bottom));
+  border-radius: var(--gv-radius-xl) var(--gv-radius-xl) 0 0;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--gv-surface-2);
+  box-shadow: 0 -24px 60px color-mix(in srgb, var(--gv-bg) 42%, transparent);
+  touch-action: pan-y;
+  transition:
+    transform var(--gv-dur) var(--gv-ease),
+    opacity var(--gv-dur) var(--gv-ease);
+}
+
+.dragArea {
+  height: 20px;
+  margin-inline: -20px;
+  padding-top: 8px;
+  display: flex;
+  justify-content: center;
+  flex: none;
+  cursor: grab;
+  touch-action: none;
+}
+
+.dragArea:active {
+  cursor: grabbing;
+}
+
+.handle {
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--gv-surface-3);
+}
+
+.header {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.title,
+.titleSpacer {
+  min-width: 0;
+  flex: 1;
+}
+
+.title {
+  margin: 0;
+  color: var(--gv-text);
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.close {
+  width: 44px;
+  height: 44px;
+  margin-right: -10px;
+  flex: none;
+  background: transparent;
+}
+
+.closeIcon {
+  font-size: 22px;
+}
+
+.body {
+  min-width: 0;
+}
+
+.actions {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+@media (min-width: 768px) {
+  .sheet {
+    width: min(520px, calc(100vw - 32px));
+  }
+}
