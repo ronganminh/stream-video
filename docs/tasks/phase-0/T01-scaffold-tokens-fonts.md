@@ -28,12 +28,12 @@ None. This is the first implementation task.
 - Copy the Handoff `:root` token block verbatim.
 - Add responsive gutter variables, `.gv-container`, and `.gv-grid` matching the Handoff breakpoints.
 - Load Geist and Geist Mono with `next/font`.
+- Load Material Symbols Rounded for the `Icon` ligatures without replacing Geist / Geist Mono.
 - `Icon` renders Material Symbols Rounded ligatures and defaults to `aria-hidden`.
 - Body background must be `#09090B`.
 - Add reduced-motion rules from the Handoff.
 - `app/page.tsx` renders no content so `/` is an actual empty dark page rather than Next.js 404.
-- Add GitHub Actions CI for pushes to `main` and `task/**`, pull requests to `main`, and manual dispatch.
-- CI runs install, typecheck, lint, tests with `--passWithNoTests`, and build.
+- Add GitHub Actions CI that verifies install, typecheck, lint, test, and build.
 
 ## Done when
 - `npm run dev` shows an empty dark page at `/`.
