@@ -10,6 +10,7 @@ import { getAdHtml } from "@/lib/data/prisma/ads";
 import { formatViews, timeAgo } from "@/lib/format";
 
 import { Player } from "./Player";
+import { ReportFlow } from "./ReportFlow";
 import { WatchActions } from "./WatchActions";
 import styles from "./page.module.css";
 
@@ -184,6 +185,12 @@ export default async function WatchPage({ params }: { params: Params }) {
             videoId={video.id}
             slug={video.slug}
             initialLikes={video.likes}
+          />
+          <ReportFlow
+            videoId={video.id}
+            slug={video.slug}
+            title={video.title}
+            thumbnailUrl={video.thumbnailUrl}
           />
 
           {video.tags.length ? (
