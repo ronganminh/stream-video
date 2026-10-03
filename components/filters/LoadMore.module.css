@@ -1,0 +1,105 @@
+.root {
+  width: 100%;
+  min-width: 0;
+}
+
+.appendGrid {
+  --cols: 5;
+
+  display: grid;
+  gap: 28px 20px;
+  grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
+  margin-top: 28px;
+}
+
+.controls {
+  padding-top: 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.button {
+  min-width: 220px;
+  height: 48px;
+  padding-inline: 28px;
+  border: 1px solid var(--gv-border-input);
+  border-radius: var(--gv-radius-md);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--gv-surface-2);
+  color: var(--gv-text);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.button:hover:not(:disabled) {
+  background: var(--gv-surface-hover);
+}
+
+.button:focus-visible {
+  outline: 0;
+  box-shadow: var(--gv-focus);
+}
+
+.button:disabled {
+  color: var(--gv-text-muted);
+  cursor: wait;
+}
+
+.buttonIcon {
+  font-size: 20px;
+}
+
+.count {
+  color: var(--gv-text-muted);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.error {
+  color: var(--gv-danger-300);
+  font-size: 12px;
+  line-height: 16px;
+  text-align: center;
+}
+
+@media (max-width: 1439px) {
+  .appendGrid {
+    --cols: 4;
+  }
+}
+
+@media (max-width: 1023px) {
+  .appendGrid {
+    --cols: 3;
+    column-gap: 16px;
+  }
+}
+
+@media (max-width: 767px) {
+  .appendGrid {
+    --cols: 2;
+    gap: 18px 10px;
+    margin-top: 18px;
+  }
+
+  .controls {
+    padding-top: 28px;
+  }
+
+  .button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 339px) {
+  .appendGrid {
+    --cols: 1;
+    column-gap: 0;
+  }
+}

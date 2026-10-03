@@ -1,0 +1,93 @@
+.pagination {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.pagination[hidden] {
+  display: none;
+}
+
+.direction,
+.page {
+  min-height: 38px;
+  border-radius: var(--gv-radius-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  color: var(--gv-text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.direction {
+  gap: 4px;
+  padding-inline: 10px;
+}
+
+.direction:hover,
+.page:hover {
+  background: var(--gv-surface-1);
+  color: var(--gv-text);
+  text-decoration: none;
+}
+
+.direction:focus-visible,
+.page:focus-visible {
+  box-shadow: var(--gv-focus);
+}
+
+.directionIcon {
+  font-size: 18px;
+}
+
+.disabled {
+  color: var(--gv-text-muted);
+}
+
+.pages {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.page {
+  min-width: 38px;
+  padding-inline: 8px;
+}
+
+.active {
+  background: var(--gv-surface-hover);
+  color: var(--gv-text);
+}
+
+.ellipsis {
+  min-width: 24px;
+  color: var(--gv-text-muted);
+  text-align: center;
+}
+
+@media (max-width: 767px) {
+  .pagination {
+    gap: 6px;
+  }
+
+  .direction {
+    min-height: 36px;
+    padding-inline: 7px;
+    font-size: 12px;
+  }
+
+  .page {
+    min-width: 34px;
+    min-height: 36px;
+  }
+
+  .pages {
+    gap: 2px;
+  }
+}

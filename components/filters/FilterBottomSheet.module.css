@@ -1,0 +1,131 @@
+.root {
+  display: none;
+}
+
+.trigger {
+  height: 40px;
+  padding-inline: 12px;
+  border: 1px solid var(--gv-border-input);
+  border-radius: var(--gv-radius-sm);
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: var(--gv-surface-1);
+  color: var(--gv-text);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.trigger:hover {
+  background: var(--gv-surface-2);
+}
+
+.trigger:focus-visible {
+  outline: 0;
+  box-shadow: var(--gv-focus);
+}
+
+.triggerIcon {
+  font-size: 18px;
+  color: var(--gv-text-secondary);
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.group {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.legend {
+  margin-bottom: 8px;
+  color: var(--gv-text-secondary);
+  font-family: var(--gv-font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.options {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.option {
+  position: relative;
+  min-height: 48px;
+  padding: 0 12px;
+  border-radius: var(--gv-radius-md);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: transparent;
+  color: var(--gv-text);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.option:hover {
+  background: var(--gv-surface-hover);
+}
+
+.optionSelected {
+  background: color-mix(in srgb, var(--gv-violet) 14%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--gv-violet-300) 46%, transparent);
+}
+
+.radio {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.option:has(.radio:focus-visible) {
+  box-shadow: var(--gv-focus);
+}
+
+.radioMark {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  border: 1.5px solid var(--gv-text-muted);
+  border-radius: var(--gv-radius-pill);
+  box-sizing: border-box;
+}
+
+.optionSelected .radioMark {
+  border: 5px solid var(--gv-violet);
+}
+
+.optionLabel {
+  min-width: 0;
+  flex: 1;
+}
+
+.check {
+  color: var(--gv-violet-300);
+  font-size: 18px;
+}
+
+.secondaryActions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+@media (max-width: 767px) {
+  .root {
+    display: block;
+  }
+}
