@@ -1,0 +1,157 @@
+.root {
+  min-width: 0;
+}
+
+.card {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  display: block;
+  background: var(--gv-surface-2);
+  color: var(--gv-text);
+  text-decoration: none;
+  isolation: isolate;
+}
+
+.card:hover {
+  text-decoration: none;
+}
+
+.card:focus-visible {
+  box-shadow: var(--gv-focus);
+}
+
+.tall {
+  aspect-ratio: 4 / 5;
+  border-radius: var(--gv-radius-lg);
+}
+
+.wide {
+  aspect-ratio: 16 / 10;
+  border-radius: var(--gv-radius-lg);
+}
+
+.mobile,
+.trending {
+  aspect-ratio: 16 / 9;
+  border-radius: var(--gv-radius-md);
+}
+
+.image,
+.fallback,
+.scrim {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.image {
+  object-fit: cover;
+  object-position: center;
+  transform: scale(1);
+  transition: transform var(--gv-dur-fast) var(--gv-ease);
+}
+
+.fallback {
+  background:
+    radial-gradient(
+      80% 80% at 20% 20%,
+      color-mix(in srgb, var(--gv-violet) 24%, transparent),
+      transparent 60%
+    ),
+    radial-gradient(
+      80% 80% at 80% 80%,
+      color-mix(in srgb, var(--gv-magenta) 18%, transparent),
+      transparent 60%
+    ),
+    var(--gv-surface-1);
+}
+
+.scrim {
+  background: linear-gradient(
+    180deg,
+    transparent 30%,
+    color-mix(in srgb, var(--gv-bg) 92%, transparent)
+  );
+}
+
+.copy {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 16px;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.name {
+  overflow: hidden;
+  color: var(--gv-text);
+  font-size: 19px;
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -.02em;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.count {
+  overflow: hidden;
+  color: color-mix(in srgb, var(--gv-text) 82%, var(--gv-text-secondary));
+  font-family: var(--gv-font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mobile .copy,
+.trending .copy {
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  gap: 3px;
+}
+
+.mobile .name,
+.trending .name {
+  font-size: 15px;
+  line-height: 1.2;
+  letter-spacing: -.01em;
+}
+
+.mobile .count,
+.trending .count {
+  font-size: 10px;
+  line-height: 13px;
+}
+
+.trendingBadge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 4;
+  background: color-mix(in srgb, var(--gv-bg) 70%, transparent);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .card:hover .image {
+    transform: scale(1.035);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .image {
+    transition-duration: 0ms;
+  }
+
+  .card:hover .image {
+    transform: none;
+  }
+}

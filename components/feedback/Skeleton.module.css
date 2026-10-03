@@ -1,0 +1,162 @@
+.skeleton {
+  min-width: 0;
+  animation: gv-skeleton-pulse 1.2s var(--gv-ease) infinite alternate;
+}
+
+.cardShape {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cardThumb {
+  aspect-ratio: 16 / 9;
+  border-radius: var(--gv-radius-sm);
+  background: var(--gv-surface-2);
+}
+
+.bar,
+.barSmall {
+  display: block;
+  border-radius: 4px;
+  background: var(--gv-surface-2);
+}
+
+.bar {
+  height: 14px;
+}
+
+.barSmall {
+  height: 10px;
+  background: var(--gv-surface-1);
+}
+
+.rankShape {
+  display: flex;
+  align-items: flex-end;
+}
+
+.rankNumeral {
+  flex: none;
+  margin-right: -6px;
+  padding: 0 6px 58px 0;
+  color: var(--gv-surface-2);
+  font-size: 120px;
+  font-weight: 800;
+  line-height: .78;
+  letter-spacing: -.06em;
+}
+
+.rankContent {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.rankThumb {
+  aspect-ratio: 16 / 10;
+  border-radius: var(--gv-radius-md);
+  background: var(--gv-surface-2);
+}
+
+.searchRow {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr);
+  gap: 16px;
+}
+
+.searchThumb {
+  aspect-ratio: 16 / 9;
+  border-radius: var(--gv-radius-sm);
+  background: var(--gv-surface-2);
+}
+
+.searchCopy {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.chips {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.chipWide,
+.chipNarrow {
+  height: 22px;
+  border-radius: var(--gv-radius-pill);
+  background: var(--gv-surface-1);
+}
+
+.chipWide {
+  width: 56px;
+}
+
+.chipNarrow {
+  width: 48px;
+}
+
+.sidebarShape {
+  display: grid;
+  grid-template-columns: 140px minmax(0, 1fr);
+  gap: 12px;
+}
+
+.sidebarThumb {
+  aspect-ratio: 16 / 9;
+  border-radius: 8px;
+  background: var(--gv-surface-2);
+}
+
+.sidebarCopy {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.sidebarCopy .bar {
+  height: 12px;
+}
+
+.sidebarCopy .barSmall {
+  height: 9px;
+}
+
+.textShape {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+@media (max-width: 767px) {
+  .rankNumeral {
+    margin-right: -4px;
+    padding: 0 4px 42px 0;
+    font-size: 84px;
+  }
+
+  .searchRow {
+    grid-template-columns: 128px minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .sidebarShape {
+    grid-template-columns: 120px minmax(0, 1fr);
+    gap: 10px;
+  }
+}
+
+@keyframes gv-skeleton-pulse {
+  from {
+    opacity: .58;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
