@@ -1,0 +1,24 @@
+{
+  "msg": "OK",
+  "server_time": "2017-08-11 04:30:07",
+  "status": 200,
+  "result": {
+    "total_pages": 2,
+    "files": [
+      {
+        "download_url": "https://dood.to/d/xxx",
+        "single_img": "https://img.doodcdn.io/snaps/xxx.jpg",
+        "file_code": "xxx",
+        "canplay": 1,
+        "length": "1234",
+        "views": "1",
+        "uploaded": "2017-08-11 04:30:07",
+        "public": "1",
+        "fld_id": "0",
+        "title": "test_file.mp4"
+      }
+    ],
+    "results_total": "201",
+    "results": 1
+  }
+}
