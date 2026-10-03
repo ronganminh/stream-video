@@ -22,10 +22,10 @@ export const durationOptions: readonly FilterOption[] = [
 ];
 
 export const dateOptions: readonly FilterOption[] = [
-  { value: "", label: "All Time" },
   { value: "today", label: "Today" },
   { value: "week", label: "Week" },
   { value: "month", label: "Month" },
+  { value: "", label: "All Time" },
 ];
 
 export const sortOptions: readonly FilterOption[] = [

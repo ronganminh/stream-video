@@ -25,6 +25,8 @@ export type FilterBottomSheetProps = {
   className?: string;
 };
 
+type GroupVariant = "chips" | "segmented" | "rows";
+
 function joinClasses(...classes: Array<string | false | undefined>) {
   return classes.filter(Boolean).join(" ");
 }
@@ -34,18 +36,27 @@ function FilterGroup({
   name,
   value,
   options,
+  variant,
   onChange,
 }: {
   title: string;
   name: FilterKey;
   value?: string;
   options: readonly FilterOption[];
+  variant: GroupVariant;
   onChange: (key: FilterKey, value: string) => void;
 }) {
   return (
     <fieldset className={styles.group}>
       <legend className={styles.legend}>{title}</legend>
-      <div className={styles.options}>
+      <div
+        className={joinClasses(
+          styles.options,
+          variant === "chips" && styles.chipOptions,
+          variant === "segmented" && styles.segmentedOptions,
+          variant === "rows" && styles.rowOptions,
+        )}
+      >
         {options.map((option) => {
           const id = `gv-filter-${name}-${option.value || "all"}`;
           const checked = (value ?? "") === option.value;
@@ -56,6 +67,9 @@ function FilterGroup({
               htmlFor={id}
               className={joinClasses(
                 styles.option,
+                variant === "chips" && styles.chip,
+                variant === "segmented" && styles.segment,
+                variant === "rows" && styles.row,
                 checked && styles.optionSelected,
               )}
             >
@@ -68,9 +82,26 @@ function FilterGroup({
                 checked={checked}
                 onChange={() => onChange(name, option.value)}
               />
-              <span className={styles.radioMark} aria-hidden="true" />
-              <span className={styles.optionLabel}>{option.label}</span>
-              {checked ? <Icon name="check" className={styles.check} /> : null}
+
+              {variant === "rows" ? (
+                <>
+                  <span className={styles.optionLabel}>{option.label}</span>
+                  <span
+                    className={joinClasses(
+                      styles.radioMark,
+                      checked && styles.radioMarkSelected,
+                    )}
+                    aria-hidden="true"
+                  />
+                </>
+              ) : (
+                <>
+                  {checked && variant === "chips" ? (
+                    <Icon name="check" className={styles.check} />
+                  ) : null}
+                  <span className={styles.optionLabel}>{option.label}</span>
+                </>
+              )}
             </label>
           );
         })}
@@ -122,7 +153,14 @@ export function FilterBottomSheet({
 
   return (
     <div className={joinClasses(styles.root, className)}>
-      <button type="button" className={styles.trigger} onClick={openSheet}>
+      <button
+        type="button"
+        className={joinClasses(
+          styles.trigger,
+          activeCount > 0 && styles.triggerActive,
+        )}
+        onClick={openSheet}
+      >
         <Icon name="tune" className={styles.triggerIcon} />
         <span>
           Filters{activeCount > 0 ? ` · ${activeCount}` : ""}
@@ -160,6 +198,7 @@ export function FilterBottomSheet({
               name="category"
               value={draft.category}
               options={[{ value: "", label: "All" }, ...categories]}
+              variant="chips"
               onChange={updateDraft}
             />
           ) : null}
@@ -169,6 +208,7 @@ export function FilterBottomSheet({
             name="duration"
             value={draft.duration}
             options={durationOptions}
+            variant="chips"
             onChange={updateDraft}
           />
 
@@ -177,6 +217,7 @@ export function FilterBottomSheet({
             name="date"
             value={draft.date}
             options={dateOptions}
+            variant="segmented"
             onChange={updateDraft}
           />
 
@@ -186,6 +227,7 @@ export function FilterBottomSheet({
               name="tag"
               value={draft.tag}
               options={[{ value: "", label: "Any" }, ...tags]}
+              variant="chips"
               onChange={updateDraft}
             />
           ) : null}
@@ -195,6 +237,7 @@ export function FilterBottomSheet({
             name="sort"
             value={draft.sort ?? defaultSort}
             options={sortOptions}
+            variant="rows"
             onChange={updateDraft}
           />
         </div>
