@@ -1,0 +1,259 @@
+.page {
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+.heading,
+.filterActions,
+.bulk,
+.badges {
+  display: flex;
+  align-items: center;
+}
+
+.heading {
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 22px;
+}
+
+.eyebrow {
+  margin: 0 0 6px;
+  color: var(--gv-violet-300);
+  font: 600 10px var(--gv-font-mono);
+  letter-spacing: .14em;
+}
+
+.heading h1 {
+  margin: 0;
+  font-size: 30px;
+  letter-spacing: -.04em;
+}
+
+.intro {
+  margin: 8px 0 0;
+  color: var(--gv-text-secondary);
+  font-size: 14px;
+}
+
+.reviewLink,
+.filterActions a,
+.filterActions button,
+.bulk button {
+  min-height: 40px;
+  padding: 0 13px;
+  border: 1px solid var(--gv-border-input);
+  border-radius: var(--gv-radius-md);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--gv-surface-2);
+  color: var(--gv-text);
+  font: 600 13px var(--gv-font);
+  text-decoration: none;
+}
+
+.filterActions button {
+  border-color: transparent;
+  background: var(--gv-gradient);
+  cursor: pointer;
+}
+
+.filters {
+  padding: 14px;
+  border: 1px solid var(--gv-border);
+  border-radius: var(--gv-radius-lg);
+  display: grid;
+  grid-template-columns: 1.4fr repeat(5, minmax(120px, 1fr));
+  gap: 10px;
+  align-items: end;
+  background: var(--gv-surface-1);
+}
+
+.field {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+  color: var(--gv-text-muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.field input,
+.field select,
+.bulk select {
+  width: 100%;
+  min-height: 40px;
+  padding: 0 10px;
+  border: 1px solid var(--gv-border-input);
+  border-radius: var(--gv-radius-sm);
+  outline: 0;
+  background: var(--gv-surface-2);
+  color: var(--gv-text);
+  font: 400 12px var(--gv-font);
+  box-sizing: border-box;
+}
+
+.filterActions {
+  gap: 6px;
+}
+
+.bulk {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--gv-border);
+  border-radius: var(--gv-radius-lg);
+  gap: 8px;
+  flex-wrap: wrap;
+  background: var(--gv-surface-1);
+}
+
+.bulk > span {
+  margin-right: auto;
+  color: var(--gv-text-muted);
+  font-size: 12px;
+}
+
+.bulk select {
+  width: 160px;
+}
+
+.bulk .tagSelect {
+  min-height: 64px;
+}
+
+.bulk button {
+  min-height: 36px;
+  cursor: pointer;
+}
+
+.tableWrap {
+  margin-top: 14px;
+  overflow-x: auto;
+  border: 1px solid var(--gv-border);
+  border-radius: var(--gv-radius-lg);
+  background: var(--gv-surface-1);
+}
+
+.table {
+  width: 100%;
+  min-width: 940px;
+  border-collapse: collapse;
+}
+
+.table th,
+.table td {
+  padding: 12px;
+  border-bottom: 1px solid var(--gv-border);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.table th {
+  color: var(--gv-text-muted);
+  font: 600 10px var(--gv-font-mono);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.table td {
+  color: var(--gv-text-secondary);
+  font-size: 12px;
+}
+
+.table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.table td strong,
+.table td code {
+  display: block;
+}
+
+.table td strong {
+  max-width: 340px;
+  color: var(--gv-text);
+  font-size: 13px;
+}
+
+.table td code {
+  margin-top: 3px;
+  color: var(--gv-text-muted);
+  font: 500 10px var(--gv-font-mono);
+}
+
+.table td > a {
+  color: var(--gv-violet-300);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.table input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--gv-violet);
+}
+
+.badges {
+  gap: 5px;
+  margin-top: 6px;
+}
+
+.badges span {
+  padding: 2px 5px;
+  border-radius: var(--gv-radius-xs);
+  background: var(--gv-surface-2);
+  color: var(--gv-text-muted);
+  font: 600 9px var(--gv-font-mono);
+  text-transform: uppercase;
+}
+
+.mirrorCount {
+  white-space: nowrap;
+}
+
+.empty {
+  padding: 32px;
+  color: var(--gv-text-muted);
+  text-align: center;
+  font-size: 13px;
+}
+
+.reviewLink:focus-visible,
+.filterActions a:focus-visible,
+.filterActions button:focus-visible,
+.bulk button:focus-visible,
+.field input:focus-visible,
+.field select:focus-visible,
+.bulk select:focus-visible,
+.table input:focus-visible,
+.table a:focus-visible {
+  outline: none;
+  box-shadow: var(--gv-focus);
+}
+
+@media (max-width: 1100px) {
+  .filters {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  .heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .filters {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .bulk {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .bulk select {
+    width: 100%;
+  }
+}
