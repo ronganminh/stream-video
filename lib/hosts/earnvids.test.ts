@@ -13,7 +13,11 @@ function jsonResponse(value: unknown, status = 200) {
 
 describe("EarnVids provider", () => {
   it("maps the documented file-list response", async () => {
-    const fetchImpl = vi.fn(async () => jsonResponse(listFixture));
+    let requestedUrl = "";
+    const fetchImpl: typeof fetch = vi.fn(async (input) => {
+      requestedUrl = String(input);
+      return jsonResponse(listFixture);
+    });
     const provider = createEarnVidsProvider({
       apiKey: "test-key",
       fetchImpl,
@@ -33,7 +37,7 @@ describe("EarnVids provider", () => {
       hasMore: true,
     });
 
-    const requested = new URL(String(fetchImpl.mock.calls[0]?.[0]));
+    const requested = new URL(requestedUrl);
     expect(requested.hostname).toBe("earnvidsapi.com");
     expect(requested.pathname).toBe("/api/file/list");
   });
