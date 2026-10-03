@@ -3,7 +3,6 @@
 import { useActionState } from "react";
 
 import { loginAction, type LoginState } from "./actions";
-import type { LoginState } from "./actions";
 import styles from "./page.module.css";
 
 const initialState: LoginState = {};
