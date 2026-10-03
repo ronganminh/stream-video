@@ -1,26 +1,29 @@
 # T23 — Search results page
 
 ## Prerequisite
-T22 merged.
+T22 merged and T13 merged.
 
 ## Attach
-Boards 2g, 2h, 2t, 2u.
+Boards 2g, 2h, 2t, 2u plus Handoff search/SEO/pagination states.
 
 ## Creates
 - `app/(public)/search/**`
 
-Keep page, loading, metadata exports, and route-local CSS/components inside that directory.
+Keep page, loading, metadata exports and route-local CSS/components inside that directory.
 
 ## Implement
 - Always `noindex,follow`.
-- Search results with filters/pagination.
-- Show related categories and tags.
-- Show recovery section when no results.
-- SSR `?page=n` must work without JS.
+- Query contract is `q`, `duration`, `date`, `category`, `sort`, `page`.
+- Search results use the Prisma-backed T13 `search` API with filters and real SSR pagination links.
+- Show related categories/tags and the supplied recovery section when there are no results.
+- Search loading state uses chips + grid skeletons; errors provide retry without discarding the query.
+- Keep the page canonical/indexing behavior from the Handoff and do not expose fixture data.
+- Use list ads only where the supplied search boards place them.
 
 ## Done when
 - Search states match boards.
-
+- `?page=n` works with JS disabled.
+- Page remains `noindex,follow` for every query/filter/page variant.
 
 ## GitHub delivery workflow
 - Start from the latest `main` after all listed prerequisites are merged. Work on a `task/Txx-<short-name>` branch.
