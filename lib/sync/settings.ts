@@ -22,8 +22,8 @@ export const DEFAULT_SYNC_SETTINGS: SyncSettings = {
 };
 
 const LOCK_KEYS: Record<SyncKind, number> = {
-  NEW: 7_151_501,
-  HEALTH: 7_151_502,
+  NEW: 7_151_500,
+  HEALTH: 7_151_500,
 };
 
 function positiveNumber(value: unknown, fallback: number): number {
