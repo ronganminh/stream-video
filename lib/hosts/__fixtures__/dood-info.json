@@ -1,0 +1,22 @@
+{
+  "msg": "OK",
+  "server_time": "2017-08-11 04:30:07",
+  "status": 200,
+  "result": [
+    {
+      "single_img": "https://img.doodcdn.io/snaps/xxx.jpg",
+      "status": 200,
+      "filecode": "xxx",
+      "splash_img": "https://img.doodcdn.io/splash/xxx.jpg",
+      "canplay": 1,
+      "size": "123456",
+      "views": "0",
+      "length": "1234",
+      "uploaded": "2017-08-11 04:30:07",
+      "last_view": "",
+      "protected_embed": "/e/yyy",
+      "protected_dl": "/d/zzz",
+      "title": "test_file.mp4"
+    }
+  ]
+}
