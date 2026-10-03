@@ -1,5 +1,7 @@
 "use client";
 
+import Image from "next/image";
+import type { ImageLoaderProps } from "next/image";
 import { useEffect, useId, useRef, useState } from "react";
 import type { ReactNode } from "react";
 
@@ -28,6 +30,10 @@ function joinClasses(...classes: Array<string | false | undefined>) {
   return classes.filter(Boolean).join(" ");
 }
 
+function passthroughLoader({ src }: ImageLoaderProps) {
+  return src;
+}
+
 export function Thumbnail({
   src,
   alt = "",
@@ -47,7 +53,7 @@ export function Thumbnail({
   const [previewActive, setPreviewActive] = useState(false);
 
   const showFallback = forceFallback || !src || failed;
-  const width = ratio === "rank" ? 640 : 640;
+  const width = 640;
   const height = ratio === "rank" ? 400 : 360;
 
   const clearPreviewTimer = () => {
@@ -81,7 +87,11 @@ export function Thumbnail({
   }, [instanceId]);
 
   useEffect(() => {
-    return () => clearPreviewTimer();
+    return () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+      }
+    };
   }, []);
 
   const canStartPreview = () => {
@@ -124,7 +134,9 @@ export function Thumbnail({
       onPointerLeave={onPointerLeave}
     >
       {!showFallback && src ? (
-        <img
+        <Image
+          loader={passthroughLoader}
+          unoptimized
           src={src}
           alt={alt}
           width={width}
@@ -182,34 +194,33 @@ export function Thumbnail({
       ) : null}
 
       {previewActive && previewUrl ? (
-        <video
-          key={previewUrl}
-          src={previewUrl}
-          className={styles.previewVideo}
-          autoPlay
-          muted
-          loop
-          playsInline
-          preload="none"
-          tabIndex={-1}
-          aria-hidden="true"
-          data-gv-hover-preview
-        />
+        <>
+          <video
+            key={previewUrl}
+            src={previewUrl}
+            className={styles.previewVideo}
+            autoPlay
+            muted
+            loop
+            playsInline
+            preload="none"
+            tabIndex={-1}
+            aria-hidden="true"
+            data-gv-hover-preview
+          />
+          <div className={styles.previewHud} aria-hidden="true" data-gv-hover-preview>
+            <span className={styles.previewPlay}>
+              <Icon name="play_arrow" className={styles.previewPlayIcon} />
+            </span>
+            <span className={styles.previewLabel}>
+              <span className={styles.previewDot} />
+              PREVIEW
+            </span>
+          </div>
+        </>
       ) : null}
 
       {children}
-
-      {previewUrl && !showFallback ? (
-        <div className={styles.previewHud} aria-hidden="true" data-gv-hover-preview>
-          <span className={styles.previewPlay}>
-            <Icon name="play_arrow" className={styles.previewPlayIcon} />
-          </span>
-          <span className={styles.previewLabel}>
-            <span className={styles.previewDot} />
-            PREVIEW
-          </span>
-        </div>
-      ) : null}
 
       {durationSeconds !== undefined ? (
         <Badge variant="duration" className={styles.duration}>
