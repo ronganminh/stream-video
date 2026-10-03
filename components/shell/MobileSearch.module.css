@@ -1,0 +1,139 @@
+.trigger {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--gv-radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: var(--gv-text);
+  cursor: pointer;
+}
+
+.triggerIcon {
+  font-size: 24px;
+}
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: flex;
+  flex-direction: column;
+  background: var(--gv-bg);
+  color: var(--gv-text);
+}
+
+.searchBar {
+  flex: none;
+  min-height: 60px;
+  padding: 4px 12px 8px 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.backButton,
+.clearButton {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  background: transparent;
+  color: var(--gv-text);
+  cursor: pointer;
+}
+
+.backButton {
+  border-radius: var(--gv-radius-sm);
+}
+
+.backIcon {
+  font-size: 24px;
+}
+
+.form {
+  min-width: 0;
+  height: 44px;
+  flex: 1;
+  padding-left: 12px;
+  border: 1px solid var(--gv-violet);
+  border-radius: var(--gv-radius-md);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--gv-surface-2);
+  box-shadow: var(--gv-focus);
+}
+
+.searchIcon,
+.loadingIcon {
+  flex: none;
+  color: var(--gv-text-secondary);
+  font-size: 20px;
+}
+
+.loadingIcon {
+  animation: spin 800ms linear infinite;
+}
+
+.input {
+  min-width: 0;
+  height: 100%;
+  flex: 1;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--gv-text);
+  font: 400 15px var(--gv-font);
+  text-overflow: ellipsis;
+}
+
+.input::placeholder {
+  color: var(--gv-text-muted);
+  opacity: 1;
+}
+
+.input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.clearCircle {
+  width: 22px;
+  height: 22px;
+  border-radius: var(--gv-radius-pill);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--gv-surface-3);
+}
+
+.clearIcon {
+  font-size: 15px;
+}
+
+.trigger:focus-visible,
+.backButton:focus-visible,
+.clearButton:focus-visible {
+  outline: none;
+  box-shadow: var(--gv-focus);
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (min-width: 768px) {
+  .trigger,
+  .overlay { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loadingIcon { animation: none; }
+}

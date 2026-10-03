@@ -1,0 +1,128 @@
+.root {
+  position: relative;
+  z-index: 52;
+  min-width: 220px;
+  max-width: 560px;
+  flex: 1 1 320px;
+  margin-left: auto;
+}
+
+.form {
+  position: relative;
+  z-index: 55;
+  height: 44px;
+  padding: 0 8px 0 14px;
+  border: 1px solid var(--gv-border-input);
+  border-radius: var(--gv-radius-md);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-sizing: border-box;
+  background: var(--gv-surface-1);
+  color: var(--gv-text-secondary);
+  transition:
+    border-color var(--gv-dur-fast) var(--gv-ease),
+    background var(--gv-dur-fast) var(--gv-ease),
+    box-shadow var(--gv-dur-fast) var(--gv-ease);
+}
+
+.form:hover {
+  border-color: color-mix(in srgb, var(--gv-text) 18%, transparent);
+  background: var(--gv-surface-2);
+}
+
+.form:focus-within {
+  border-color: var(--gv-violet);
+  background: var(--gv-surface-2);
+  box-shadow: var(--gv-focus);
+}
+
+.searchIcon,
+.loadingIcon {
+  flex: none;
+  color: var(--gv-text-secondary);
+  font-size: 20px;
+}
+
+.loadingIcon {
+  animation: spin 800ms linear infinite;
+}
+
+.input {
+  min-width: 0;
+  height: 100%;
+  flex: 1;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--gv-text);
+  font: 400 14px var(--gv-font);
+}
+
+.input::placeholder {
+  color: var(--gv-text-muted);
+  opacity: 1;
+}
+
+.input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.clearButton {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--gv-radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  background: transparent;
+  color: var(--gv-text-muted);
+  cursor: pointer;
+}
+
+.clearIcon {
+  font-size: 18px;
+}
+
+.shortcut {
+  flex: none;
+  padding: 3px 7px;
+  border: 1px solid var(--gv-border);
+  border-radius: var(--gv-radius-xs);
+  color: var(--gv-text-muted);
+  font: 500 11px var(--gv-font-mono);
+}
+
+.backdrop {
+  position: fixed;
+  inset: 68px 0 0;
+  z-index: 51;
+  border: 0;
+  background: color-mix(in srgb, var(--gv-bg) 60%, transparent);
+  cursor: default;
+}
+
+.clearButton:focus-visible {
+  outline: none;
+  box-shadow: var(--gv-focus);
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 1279px) {
+  .root { max-width: none; }
+}
+
+@media (max-width: 767px) {
+  .root { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .form { transition: none; }
+  .loadingIcon { animation: none; }
+}
