@@ -101,10 +101,8 @@
   position: absolute;
   inset: 0;
   z-index: 4;
-  opacity: 0;
   pointer-events: none;
   background: color-mix(in srgb, var(--gv-bg) 30%, transparent);
-  transition: opacity var(--gv-dur-fast) var(--gv-ease);
 }
 
 .previewPlay {
@@ -163,10 +161,6 @@
 @media (hover: hover) and (pointer: fine) {
   .zoomOnHover:hover .image {
     transform: scale(1.045);
-  }
-
-  .thumbnail:hover .previewHud {
-    opacity: 1;
   }
 }
 
