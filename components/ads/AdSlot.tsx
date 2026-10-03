@@ -33,6 +33,7 @@ export function AdSlot({
     <aside
       className={joinClasses(styles.root, className)}
       aria-label="Advertisement"
+      data-variant={variant}
     >
       <span className={styles.label}>ADVERTISEMENT</span>
       <div

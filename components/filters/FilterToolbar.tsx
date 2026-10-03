@@ -39,6 +39,7 @@ export type FilterToolbarProps = {
   values?: FilterState;
   categories?: readonly FilterOption[];
   tags?: readonly FilterOption[];
+  defaultSort?: string;
   className?: string;
 };
 
@@ -80,11 +81,13 @@ function FilterSelect({
   name,
   value,
   options,
+  defaultValue,
 }: {
   label: string;
   name: FilterKey;
   value?: string;
   options: readonly FilterOption[];
+  defaultValue?: string;
 }) {
   return (
     <label className={styles.selectShell}>
@@ -93,10 +96,13 @@ function FilterSelect({
         className={styles.select}
         aria-label={label}
         name={name}
-        value={value ?? ""}
-        onChange={(event) =>
-          navigateWithFilters({ [name]: event.currentTarget.value })
-        }
+        value={value ?? defaultValue ?? ""}
+        onChange={(event) => {
+          const selected = event.currentTarget.value;
+          navigateWithFilters({
+            [name]: selected === defaultValue ? "" : selected,
+          });
+        }}
       >
         {options.map((option) => (
           <option key={option.value || "all"} value={option.value}>
@@ -113,6 +119,7 @@ export function FilterToolbar({
   values = {},
   categories = [],
   tags = [],
+  defaultSort = "newest",
   className,
 }: FilterToolbarProps) {
   const activeCount = countActiveFilters(values);
@@ -167,7 +174,8 @@ export function FilterToolbar({
       <FilterSelect
         label="Sort"
         name="sort"
-        value={values.sort ?? "newest"}
+        value={values.sort}
+        defaultValue={defaultSort}
         options={sortOptions}
       />
 

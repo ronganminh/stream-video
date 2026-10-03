@@ -66,7 +66,7 @@ export function LoadMore({
     );
     pagerRef.current = pager;
 
-    if (pager) {
+    if (pager && initialNextHref) {
       pager.hidden = true;
     }
 
@@ -75,11 +75,17 @@ export function LoadMore({
         pager.hidden = false;
       }
     };
-  }, [pagerId]);
+  }, [initialNextHref, pagerId]);
 
   const revealFallbackPager = () => {
     if (pagerRef.current) {
       pagerRef.current.hidden = false;
+    }
+  };
+
+  const hideFallbackPager = () => {
+    if (pagerRef.current) {
+      pagerRef.current.hidden = true;
     }
   };
 
@@ -88,6 +94,7 @@ export function LoadMore({
 
     setLoading(true);
     setError("");
+    hideFallbackPager();
 
     try {
       const response = await fetch(apiHref(nextHref), {

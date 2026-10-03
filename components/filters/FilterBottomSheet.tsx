@@ -21,6 +21,7 @@ export type FilterBottomSheetProps = {
   values?: FilterState;
   categories?: readonly FilterOption[];
   tags?: readonly FilterOption[];
+  defaultSort?: string;
   className?: string;
 };
 
@@ -69,9 +70,7 @@ function FilterGroup({
               />
               <span className={styles.radioMark} aria-hidden="true" />
               <span className={styles.optionLabel}>{option.label}</span>
-              {checked ? (
-                <Icon name="check" className={styles.check} />
-              ) : null}
+              {checked ? <Icon name="check" className={styles.check} /> : null}
             </label>
           );
         })}
@@ -84,6 +83,7 @@ export function FilterBottomSheet({
   values = {},
   categories = [],
   tags = [],
+  defaultSort = "newest",
   className,
 }: FilterBottomSheetProps) {
   const [open, setOpen] = useState(false);
@@ -92,7 +92,7 @@ export function FilterBottomSheet({
   const draftCount = countActiveFilters(draft);
 
   const openSheet = () => {
-    setDraft(values);
+    setDraft({ ...values, sort: values.sort ?? defaultSort });
     setOpen(true);
   };
 
@@ -106,7 +106,7 @@ export function FilterBottomSheet({
       duration: "",
       date: "",
       tag: "",
-      sort: values.sort ?? "newest",
+      sort: defaultSort,
     });
   };
 
@@ -116,7 +116,7 @@ export function FilterBottomSheet({
       duration: draft.duration ?? "",
       date: draft.date ?? "",
       tag: draft.tag ?? "",
-      sort: draft.sort ?? "newest",
+      sort: draft.sort === defaultSort ? "" : (draft.sort ?? ""),
     });
   };
 
@@ -193,7 +193,7 @@ export function FilterBottomSheet({
           <FilterGroup
             title="Sort by"
             name="sort"
-            value={draft.sort ?? "newest"}
+            value={draft.sort ?? defaultSort}
             options={sortOptions}
             onChange={updateDraft}
           />

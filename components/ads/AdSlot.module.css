@@ -73,7 +73,7 @@
 }
 
 @media (max-width: 767px) {
-  .leaderboard {
+  .root[data-variant="leaderboard"] {
     display: none;
   }
 }

@@ -74,10 +74,15 @@
   }
 }
 
+@media (max-width: 1279px) {
+  .appendGrid {
+    column-gap: 16px;
+  }
+}
+
 @media (max-width: 1023px) {
   .appendGrid {
     --cols: 3;
-    column-gap: 16px;
   }
 }
 
