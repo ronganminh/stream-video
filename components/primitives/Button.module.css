@@ -123,7 +123,7 @@
   flex: 0 0 16px;
   border-radius: var(--gv-radius-pill);
   background: conic-gradient(var(--gv-text), transparent 75%);
-  mask: radial-gradient(circle, transparent 5px, #000 6px);
+  mask: radial-gradient(circle, transparent 5px, var(--gv-text) 6px);
   animation: gv-button-spin .8s linear infinite;
 }
 
