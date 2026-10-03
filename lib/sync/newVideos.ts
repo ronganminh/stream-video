@@ -43,6 +43,39 @@ async function uniqueSlug(title: string): Promise<string> {
   throw new Error("Unable to generate a unique video slug");
 }
 
+export function buildPrimaryVideoData(
+  hostId: string,
+  provider: HostProvider,
+  file: HostFileDTO,
+  slug: string,
+) {
+  const title = titleFromFilename(file.title) || file.code;
+
+  return {
+    slug,
+    title,
+    durationSeconds: file.lengthSeconds,
+    thumbnailPath: null,
+    status: "AVAILABLE" as const,
+    isPublished: false,
+    isHidden: false,
+    mirrors: {
+      create: {
+        hostId,
+        fileCode: file.code,
+        rawTitle: file.title,
+        normalizedName: normalize(file.title),
+        embedUrl: provider.embedUrl(file.code),
+        hostThumbnailUrl: file.thumbnailUrl,
+        lengthSeconds: file.lengthSeconds,
+        status: "OK" as const,
+        matchedBy: "PRIMARY" as const,
+        lastCheckedAt: new Date(),
+      },
+    },
+  };
+}
+
 async function createPrimaryVideo(
   host: Host,
   provider: HostProvider,
@@ -51,32 +84,9 @@ async function createPrimaryVideo(
 ): Promise<void> {
   const title = titleFromFilename(file.title) || file.code;
   const slug = await uniqueSlug(title);
-  const normalizedName = normalize(file.title);
 
   const video = await prisma.video.create({
-    data: {
-      slug,
-      title,
-      durationSeconds: file.lengthSeconds,
-      thumbnailPath: null,
-      status: "AVAILABLE",
-      isPublished: false,
-      isHidden: false,
-      mirrors: {
-        create: {
-          hostId: host.id,
-          fileCode: file.code,
-          rawTitle: file.title,
-          normalizedName,
-          embedUrl: provider.embedUrl(file.code),
-          hostThumbnailUrl: file.thumbnailUrl,
-          lengthSeconds: file.lengthSeconds,
-          status: "OK",
-          matchedBy: "PRIMARY",
-          lastCheckedAt: new Date(),
-        },
-      },
-    },
+    data: buildPrimaryVideoData(host.id, provider, file, slug),
     select: { id: true },
   });
 
