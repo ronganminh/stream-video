@@ -35,3 +35,30 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: Start PostgreSQL 16
+        if: ${{ hashFiles('docker-compose.yml') != '' }}
+        run: docker compose up -d
+
+      - name: Wait for PostgreSQL
+        if: ${{ hashFiles('docker-compose.yml') != '' }}
+        run: |
+          for attempt in {1..30}; do
+            if docker compose exec -T postgres pg_isready -U gayvideo -d gayvideo; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker compose ps
+          docker compose logs postgres
+          exit 1
+
+      - name: Run Prisma migration
+        if: ${{ hashFiles('docker-compose.yml') != '' }}
+        env:
+          DATABASE_URL: postgresql://gayvideo:gayvideo@localhost:5432/gayvideo?schema=public
+        run: npm run db:migrate
+
+      - name: Stop PostgreSQL
+        if: ${{ always() && hashFiles('docker-compose.yml') != '' }}
+        run: docker compose down -v
