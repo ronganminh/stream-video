@@ -51,6 +51,10 @@
   z-index: 5;
 }
 
+.trendingBadgeStyle {
+  background: color-mix(in srgb, var(--gv-bg) 70%, transparent);
+}
+
 .title {
   overflow: hidden;
   color: var(--gv-text);
