@@ -172,12 +172,6 @@ export default async function HomePage() {
                   />
                 ))}
               </div>
-
-              <LoadMore
-                initialNextHref={home.latest.nextHref}
-                initialShown={home.latest.items.length}
-                total={home.latest.total}
-              />
             </section>
           ) : null}
 
@@ -196,6 +190,16 @@ export default async function HomePage() {
                 ))}
               </div>
             </section>
+          ) : null}
+
+          {home.latest.items.length ? (
+            <div className={styles.loadMoreWrap}>
+              <LoadMore
+                initialNextHref={home.latest.nextHref}
+                initialShown={home.latest.items.length}
+                total={home.latest.total}
+              />
+            </div>
           ) : null}
         </>
       )}
