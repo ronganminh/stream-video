@@ -64,10 +64,8 @@
   right: 8px;
 }
 
-.statusBadge,
-.qualityBadge,
-.mostWatchedBadge {
-  background-color: color-mix(in srgb, var(--gv-bg) 72%, transparent);
+.qualityBadge {
+  background: color-mix(in srgb, var(--gv-bg) 72%, transparent);
 }
 
 .watchedScrim {
