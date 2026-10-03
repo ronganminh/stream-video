@@ -48,7 +48,7 @@ export function RankCard({
             zoomOnHover
           >
             <span className={styles.trendingBadge}>
-              <Badge variant="trending" />
+              <Badge variant="trending" className={styles.trendingBadgeStyle} />
             </span>
           </Thumbnail>
 
