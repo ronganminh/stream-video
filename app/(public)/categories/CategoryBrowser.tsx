@@ -14,10 +14,7 @@ type Props = {
 
 export function CategoryBrowser({ categories }: Props) {
   const groups = useMemo(
-    () =>
-      Array.from(new Set(categories.map((category) => category.group))).sort(
-        (a, b) => a.localeCompare(b),
-      ),
+    () => Array.from(new Set(categories.map((category) => category.group))),
     [categories],
   );
   const [group, setGroup] = useState("All");
