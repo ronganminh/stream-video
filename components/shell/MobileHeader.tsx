@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { Icon } from "@/components/primitives";
 
+import { MobileSearch } from "./MobileSearch";
 import styles from "./MobileHeader.module.css";
 
 const MENU_LINKS = [
@@ -42,9 +43,7 @@ export function MobileHeader() {
       <div className={styles.inner}>
         <Link className={styles.logoLink} href="/" aria-label="GayVideo.fun home"><MobileBrand /></Link>
         <div className={styles.actions}>
-          <Link className={styles.iconButton} href="/search" aria-label="Search">
-            <Icon name="search" className={styles.icon} />
-          </Link>
+          <MobileSearch />
           <details className={styles.menu}>
             <summary className={styles.iconButton} aria-label="Open navigation menu"><Icon name="menu" className={styles.icon} /></summary>
             <nav className={styles.menuPanel} aria-label="Mobile navigation">
