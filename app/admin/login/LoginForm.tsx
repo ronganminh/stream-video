@@ -3,9 +3,10 @@
 import { useActionState } from "react";
 
 import { loginAction } from "./actions";
+import type { LoginState } from "./actions";
 import styles from "./page.module.css";
 
-const initialState = {};
+const initialState: LoginState = {};
 
 export function LoginForm() {
   const [state, action, pending] = useActionState(
