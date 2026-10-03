@@ -24,15 +24,9 @@ export function ErrorState({
   className,
 }: ErrorStateProps) {
   return (
-    <section
-      className={joinClasses(styles.state, className)}
-      role="alert"
-      aria-labelledby={`error-${icon}-title`}
-    >
+    <section className={joinClasses(styles.state, className)} role="alert">
       <Icon name={icon} className={styles.icon} />
-      <h2 id={`error-${icon}-title`} className={styles.title}>
-        {title}
-      </h2>
+      <h2 className={styles.title}>{title}</h2>
       <p className={styles.body}>{body}</p>
       {actions ? <div className={styles.actions}>{actions}</div> : null}
     </section>

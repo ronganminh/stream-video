@@ -41,7 +41,7 @@ export function CompactVideoCard({
   className,
 }: CompactVideoCardProps) {
   const href = `/watch/${video.slug}`;
-  const rankLabel = String(rank ?? 0).padStart(2, "0");
+  const rankLabel = String(rank ?? 0);
 
   if (variant === "up-next-featured") {
     return (

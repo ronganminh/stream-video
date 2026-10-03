@@ -24,14 +24,9 @@ export function EmptyState({
   className,
 }: EmptyStateProps) {
   return (
-    <section
-      className={joinClasses(styles.state, className)}
-      aria-labelledby={`empty-${icon}-title`}
-    >
+    <section className={joinClasses(styles.state, className)}>
       <Icon name={icon} className={styles.icon} />
-      <h2 id={`empty-${icon}-title`} className={styles.title}>
-        {title}
-      </h2>
+      <h2 className={styles.title}>{title}</h2>
       <p className={styles.body}>{body}</p>
       {actions ? <div className={styles.actions}>{actions}</div> : null}
     </section>
