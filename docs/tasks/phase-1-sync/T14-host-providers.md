@@ -3,8 +3,8 @@
 ## Prerequisite
 T04 and T03 merged.
 
-## IMPORTANT INPUT REQUIRED
-Before coding, provide current API documentation for DoodStream, VOE and EarnVids. Do not invent endpoints or response fields.
+## Current API documentation required
+Use current official API documentation for DoodStream, VOE and EarnVids. If web access is available, retrieve the official documentation yourself; otherwise the user must attach it. Do not invent endpoints, authentication, limits, or response fields.
 
 ## Creates
 - `lib/hosts/types.ts` 🔒
@@ -13,7 +13,8 @@ Before coding, provide current API documentation for DoodStream, VOE and EarnVid
 - `lib/hosts/earnvids.ts`
 - `lib/hosts/registry.ts`
 - `lib/sync/normalize.ts`
-- tests
+- `lib/hosts/*.test.ts`
+- `lib/sync/normalize.test.ts`
 - `lib/hosts/__fixtures__/*.json`
 
 ## Implement
@@ -27,6 +28,16 @@ Before coding, provide current API documentation for DoodStream, VOE and EarnVid
 ## Done when
 - Provider tests pass using real documented API shapes.
 
+
+## GitHub delivery workflow
+- Start from the latest `main` after all listed prerequisites are merged. Work on a `task/Txx-<short-name>` branch.
+- After implementation, run the task-specific **Done when** checks that are possible in the task environment, then commit/push and open a PR to `main`.
+- Inspect the GitHub Actions run for the PR/head commit yourself.
+- If CI fails, read the failed job, failed step, and job logs; fix only files allowed by **Creates**, commit/push, and inspect the new Actions run. Repeat until green.
+- If a required fix would touch a file outside **Creates** or a locked 🔒 contract not explicitly allowed here, stop and report the blocker instead of changing scope.
+- CI green is mandatory but does not replace task-specific checks that CI cannot cover (for example visual comparison, Docker migration, E2E, or VPS deployment).
+- When CI is green and **Done when** passes, squash-merge the PR into `main`.
+- Do not ask the user to run CI, Desktop Commander, or paste CI logs when GitHub tools are available.
 
 ## Rules for this chat
 - Work on exactly this task only.
