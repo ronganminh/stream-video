@@ -1,0 +1,52 @@
+import type { Tag } from "../types";
+
+const names = [
+  "Fitness",
+  "Beach",
+  "Muscle",
+  "Latino",
+  "Asian",
+  "Couples",
+  "Outdoors",
+  "Travel",
+  "Gym",
+  "Workout",
+  "Yoga",
+  "Sports",
+  "Running",
+  "Locker Room",
+  "Rooftop",
+  "Poolside",
+  "Weekend",
+  "Road Trip",
+  "Golden Hour",
+  "Brunch",
+  "Marathon",
+  "City",
+  "Cabin",
+  "Cozy",
+  "Playful",
+  "Chill",
+  "Late Night",
+  "Sunny Days",
+  "Dance",
+  "Massage",
+  "Gaming",
+  "Hiking",
+  "Swimming",
+  "Cycling",
+  "Friends",
+  "Summer",
+  "Morning",
+  "Evening",
+  "Adventure",
+  "Stories",
+] as const;
+
+const slugify = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+
+export const tags: Tag[] = names.map((name, index) => ({
+  slug: slugify(name),
+  name,
+  count: Math.max(540, 24_000 - index * 570),
+}));
