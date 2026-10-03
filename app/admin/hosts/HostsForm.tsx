@@ -3,6 +3,7 @@
 import { useActionState, useMemo, useState } from "react";
 
 import { saveHostsAction } from "./actions";
+import type { HostsState } from "./actions";
 import styles from "./page.module.css";
 
 export type HostRow = {
@@ -13,7 +14,7 @@ export type HostRow = {
   sortOrder: number;
 };
 
-const initialState = {};
+const initialState: HostsState = {};
 
 function move<T>(items: T[], from: number, to: number): T[] {
   const next = [...items];
