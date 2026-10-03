@@ -1,0 +1,276 @@
+.page {
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+.heading,
+.headingActions,
+.actions,
+.selectRow,
+.mirrorLine {
+  display: flex;
+  align-items: center;
+}
+
+.heading {
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.eyebrow {
+  margin: 0 0 6px;
+  color: var(--gv-violet-300);
+  font: 600 10px var(--gv-font-mono);
+  letter-spacing: .14em;
+}
+
+.heading h1 {
+  margin: 0;
+  font-size: 30px;
+  letter-spacing: -.04em;
+}
+
+.intro {
+  margin: 8px 0 0;
+  color: var(--gv-text-secondary);
+  font-size: 14px;
+}
+
+.headingActions,
+.actions {
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.headingActions a,
+.actions a,
+.headingActions button,
+.actions button {
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--gv-border-input);
+  border-radius: var(--gv-radius-md);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--gv-surface-2);
+  color: var(--gv-text);
+  font: 600 13px var(--gv-font);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.headingActions button,
+.actions button:not(.secondary):not(.danger) {
+  border-color: transparent;
+  background: var(--gv-gradient);
+}
+
+.headingActions button:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}
+
+.queue {
+  display: grid;
+  gap: 18px;
+}
+
+.card,
+.empty {
+  border: 1px solid var(--gv-border);
+  border-radius: var(--gv-radius-lg);
+  background: var(--gv-surface-1);
+}
+
+.card {
+  padding: 18px;
+}
+
+.selectRow {
+  min-height: 36px;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--gv-text-muted);
+  font-size: 12px;
+}
+
+.selectRow label {
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--gv-text-secondary);
+}
+
+.selectRow input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--gv-violet);
+}
+
+.previewGrid {
+  display: grid;
+  grid-template-columns: minmax(220px, 36%) minmax(0, 1fr);
+  gap: 14px;
+}
+
+.thumbnail,
+.embed,
+.noPreview {
+  aspect-ratio: 16 / 9;
+  border-radius: var(--gv-radius-md);
+  overflow: hidden;
+  background: var(--gv-surface-2);
+}
+
+.thumbnail {
+  background-size: cover;
+  background-position: center;
+  display: grid;
+  place-items: center;
+  color: var(--gv-text-muted);
+  font-size: 12px;
+}
+
+.embed iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: var(--gv-bg);
+}
+
+.noPreview {
+  display: grid;
+  place-items: center;
+  color: var(--gv-text-muted);
+  font-size: 13px;
+}
+
+.form {
+  margin-top: 16px;
+  display: grid;
+  gap: 14px;
+}
+
+.twoColumns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.field {
+  display: grid;
+  gap: 7px;
+  color: var(--gv-text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.field input,
+.field select {
+  width: 100%;
+  min-height: 42px;
+  padding: 0 11px;
+  border: 1px solid var(--gv-border-input);
+  border-radius: var(--gv-radius-md);
+  outline: 0;
+  background: var(--gv-surface-2);
+  color: var(--gv-text);
+  font: 400 13px var(--gv-font);
+  box-sizing: border-box;
+}
+
+.field select[multiple] {
+  min-height: 112px;
+  padding-block: 8px;
+}
+
+.mirrorLine {
+  min-height: 36px;
+  gap: 8px;
+  flex-wrap: wrap;
+  color: var(--gv-text-muted);
+  font-size: 12px;
+}
+
+.mirrorLine code {
+  padding: 3px 7px;
+  border-radius: var(--gv-radius-xs);
+  background: var(--gv-surface-2);
+  color: var(--gv-text-secondary);
+  font: 500 10px var(--gv-font-mono);
+}
+
+.actions {
+  padding-top: 4px;
+}
+
+.actions .secondary {
+  background: var(--gv-surface-2);
+}
+
+.actions .danger {
+  border-color: color-mix(in srgb, var(--gv-danger) 50%, transparent);
+  background: color-mix(in srgb, var(--gv-danger) 12%, transparent);
+  color: var(--gv-danger-300);
+}
+
+.empty {
+  padding: 40px;
+  text-align: center;
+}
+
+.empty h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.empty p {
+  margin: 8px 0 18px;
+  color: var(--gv-text-muted);
+  font-size: 13px;
+}
+
+.empty a {
+  color: var(--gv-violet-300);
+}
+
+.field input:focus-visible,
+.field select:focus-visible,
+.selectRow input:focus-visible,
+.headingActions a:focus-visible,
+.headingActions button:focus-visible,
+.actions a:focus-visible,
+.actions button:focus-visible,
+.empty a:focus-visible {
+  outline: none;
+  box-shadow: var(--gv-focus);
+}
+
+@media (max-width: 760px) {
+  .heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .previewGrid,
+  .twoColumns {
+    grid-template-columns: 1fr;
+  }
+
+  .selectRow {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .headingActions a,
+  .headingActions button,
+  .actions a,
+  .actions button {
+    transition: none;
+  }
+}
