@@ -7,11 +7,10 @@ T05 merged.
 Boards 1d, 1h, 1j, 1m, 2n, 3b.
 
 ## Creates
-- CompactVideoCard under `components/cards`
-- CategoryCard under `components/cards`
-- Skeleton under `components/feedback`
-- EmptyState / ErrorState under `components/feedback`
-- Their CSS modules
+- `components/cards/{CompactVideoCard,CategoryCard}.tsx`
+- `components/cards/{CompactVideoCard,CategoryCard}.module.css`
+- `components/feedback/{Skeleton,EmptyState,ErrorState}.tsx`
+- `components/feedback/{Skeleton,EmptyState,ErrorState}.module.css`
 
 ## Implement
 - CompactVideoCard variants: sidebar, up-next, up-next-featured, ranked.
@@ -22,6 +21,16 @@ Boards 1d, 1h, 1j, 1m, 2n, 3b.
 ## Done when
 - Matches supplied boards at desktop/mobile breakpoints.
 
+
+## GitHub delivery workflow
+- Start from the latest `main` after all listed prerequisites are merged. Work on a `task/Txx-<short-name>` branch.
+- After implementation, run the task-specific **Done when** checks that are possible in the task environment, then commit/push and open a PR to `main`.
+- Inspect the GitHub Actions run for the PR/head commit yourself.
+- If CI fails, read the failed job, failed step, and job logs; fix only files allowed by **Creates**, commit/push, and inspect the new Actions run. Repeat until green.
+- If a required fix would touch a file outside **Creates** or a locked 🔒 contract not explicitly allowed here, stop and report the blocker instead of changing scope.
+- CI green is mandatory but does not replace task-specific checks that CI cannot cover (for example visual comparison, Docker migration, E2E, or VPS deployment).
+- When CI is green and **Done when** passes, squash-merge the PR into `main`.
+- Do not ask the user to run CI, Desktop Commander, or paste CI logs when GitHub tools are available.
 
 ## Rules for this chat
 - Work on exactly this task only.

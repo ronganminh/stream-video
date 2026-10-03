@@ -7,14 +7,18 @@ T26 merged.
 Board 2i and Handoff route map.
 
 ## Creates
-- not-found route
-- error route
-- sitemap implementation
-- robots implementation
-- supporting task-local SEO files only
+- `app/not-found.tsx`
+- `app/not-found.module.css`
+- `app/error.tsx`
+- `app/error.module.css`
+- `app/robots.ts`
+- `app/sitemap.ts`
+- `app/sitemaps/**`
+- `lib/seo/**`
 
 ## Implement
 - Real 404 with Trending row.
+- `app/error.tsx` must be a Client Component as required by the Next.js error-boundary convention; keep the rest server-first.
 - Sitemap index split into videos, categories, tags, static pages.
 - `robots.txt` disallows `/admin`, `/api`, `/search`.
 - Follow route metadata rules from Handoff.
@@ -22,6 +26,16 @@ Board 2i and Handoff route map.
 ## Done when
 - Error pages render correctly and SEO endpoints validate.
 
+
+## GitHub delivery workflow
+- Start from the latest `main` after all listed prerequisites are merged. Work on a `task/Txx-<short-name>` branch.
+- After implementation, run the task-specific **Done when** checks that are possible in the task environment, then commit/push and open a PR to `main`.
+- Inspect the GitHub Actions run for the PR/head commit yourself.
+- If CI fails, read the failed job, failed step, and job logs; fix only files allowed by **Creates**, commit/push, and inspect the new Actions run. Repeat until green.
+- If a required fix would touch a file outside **Creates** or a locked 🔒 contract not explicitly allowed here, stop and report the blocker instead of changing scope.
+- CI green is mandatory but does not replace task-specific checks that CI cannot cover (for example visual comparison, Docker migration, E2E, or VPS deployment).
+- When CI is green and **Done when** passes, squash-merge the PR into `main`.
+- Do not ask the user to run CI, Desktop Commander, or paste CI logs when GitHub tools are available.
 
 ## Rules for this chat
 - Work on exactly this task only.

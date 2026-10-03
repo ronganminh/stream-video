@@ -17,16 +17,21 @@ Each task packet lives under `docs/tasks/` and contains:
 
 Never modify files outside a task's `Creates` list. Never change a 🔒 contract file unless the packet explicitly permits it.
 
-## Recommended branch workflow
+## Mandatory branch / CI workflow
 
 For every tab:
-1. Read the matching packet.
-2. Create a branch named `task/Txx-short-name` from the latest required base.
-3. Implement only that task.
-4. Run the packet's checks.
-5. Commit as `Txx: <title>`.
-6. Open a PR back to `main`.
-7. Merge prerequisite tasks before starting dependent tasks.
+1. Read the matching packet and the current repository.
+2. Create a branch named `task/Txx-short-name` from the latest `main` after all prerequisites are merged.
+3. Implement only that task and only its allowed `Creates` scope.
+4. Run the packet's task-specific **Done when** checks.
+5. Commit as `Txx: <title>`, push the branch, and open a PR to `main`.
+6. Inspect the GitHub Actions run for the PR/head commit yourself.
+7. If CI fails, read the failed job/step logs, fix within the task scope, push, and inspect the new run. Repeat until green.
+8. Do not merge if the fix would require an out-of-scope or locked-file change; report that blocker instead.
+9. When CI is green and the task-specific checks pass, squash-merge the PR into `main`.
+10. Do not hand CI back to the user or ask for Desktop Commander when GitHub tools are available.
+
+CI is a mandatory gate, but it does not replace checks that GitHub Actions does not cover, such as visual comparison, Docker migration, full E2E, or a real VPS deployment.
 
 ## Parallel schedule
 
