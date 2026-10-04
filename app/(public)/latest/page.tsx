@@ -4,6 +4,7 @@ import Link from "next/link";
 import { AdSlot } from "@/components/ads/AdSlot";
 import { VideoCard } from "@/components/cards/VideoCard";
 import { EmptyState } from "@/components/feedback/EmptyState";
+import { FilterBottomSheet } from "@/components/filters/FilterBottomSheet";
 import { FilterToolbar } from "@/components/filters/FilterToolbar";
 import { LoadMore } from "@/components/filters/LoadMore";
 import { Pagination } from "@/components/filters/Pagination";
@@ -76,6 +77,7 @@ export default async function LatestPage({
   searchParams: SearchParams;
 }) {
   const query = parseQuery(await searchParams);
+  const filtered = hasFilters(query);
   const [result, categories, tags, today, newest, desktopAd, mobileAd] =
     await Promise.all([
       getLatest(query),
@@ -104,12 +106,6 @@ export default async function LatestPage({
   const earlier = isFirstPage
     ? result.items.filter((video) => new Date(video.publishedAt).getTime() < hourAgo)
     : result.items;
-  const activeFilterCount = [
-    query.category,
-    query.duration,
-    query.date,
-    query.tag,
-  ].filter(Boolean).length;
   const latestUpload = newest.items[0];
 
   const breadcrumb = {
@@ -119,6 +115,14 @@ export default async function LatestPage({
       { "@type": "ListItem", position: 1, name: "Home", item: "https://gayvideo.fun/" },
       { "@type": "ListItem", position: 2, name: "Latest", item: "https://gayvideo.fun/latest" },
     ],
+  };
+
+  const filterValues = {
+    category: query.category,
+    duration: query.duration,
+    date: query.date,
+    tag: query.tag,
+    sort: query.sort ?? "newest",
   };
 
   return (
@@ -144,13 +148,7 @@ export default async function LatestPage({
 
       <div className={styles.desktopFilters}>
         <FilterToolbar
-          values={{
-            category: query.category,
-            duration: query.duration,
-            date: query.date,
-            tag: query.tag,
-            sort: query.sort ?? "newest",
-          }}
+          values={filterValues}
           categories={categoryOptions}
           tags={tagOptions}
           defaultSort="newest"
@@ -158,57 +156,12 @@ export default async function LatestPage({
       </div>
 
       <div className={styles.mobileControls}>
-        <details>
-          <summary>
-            <Icon name="tune" />
-            Filter{activeFilterCount ? " · " + activeFilterCount : ""}
-          </summary>
-          <form method="get">
-            <input type="hidden" name="sort" value={query.sort ?? "newest"} />
-            <label>
-              Category
-              <select name="category" defaultValue={query.category ?? ""}>
-                <option value="">All</option>
-                {categoryOptions.map((option) => (
-                  <option value={option.value} key={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Duration
-              <select name="duration" defaultValue={query.duration ?? ""}>
-                <option value="">Any</option>
-                <option value="under-5">Under 5 min</option>
-                <option value="5-15">5–15 min</option>
-                <option value="15-30">15–30 min</option>
-                <option value="30-plus">30+ min</option>
-              </select>
-            </label>
-            <label>
-              Upload date
-              <select name="date" defaultValue={query.date ?? ""}>
-                <option value="">All Time</option>
-                <option value="today">Today</option>
-                <option value="week">Week</option>
-                <option value="month">Month</option>
-              </select>
-            </label>
-            <label>
-              Tags
-              <select name="tag" defaultValue={query.tag ?? ""}>
-                <option value="">Any</option>
-                {tagOptions.map((option) => (
-                  <option value={option.value} key={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <button type="submit">Apply filters</button>
-          </form>
-        </details>
+        <FilterBottomSheet
+          values={filterValues}
+          categories={categoryOptions}
+          tags={tagOptions}
+          defaultSort="newest"
+        />
 
         <form className={styles.mobileSort} method="get">
           {query.category ? <input type="hidden" name="category" value={query.category} /> : null}
@@ -226,7 +179,7 @@ export default async function LatestPage({
           </button>
         </form>
 
-        {activeFilterCount || (query.sort && query.sort !== "newest") ? (
+        {filtered ? (
           <Link className={styles.clear} href="/latest">
             Clear
           </Link>
@@ -303,12 +256,24 @@ export default async function LatestPage({
             id="latest-pagination"
           />
         </>
-      ) : (
+      ) : filtered ? (
         <EmptyState
+          className={styles.emptyState}
           icon="filter_alt_off"
           title="No videos match these filters"
           body="Clear the filters to see the latest videos."
-          actions={<Link href="/latest">Clear filters</Link>}
+          actions={
+            <div className={styles.emptyActions}>
+              <Link href="/latest">Clear filters</Link>
+            </div>
+          }
+        />
+      ) : (
+        <EmptyState
+          className={styles.emptyState}
+          icon="video_library"
+          title="No videos are available yet"
+          body="Published videos will appear here when they are available."
         />
       )}
     </main>

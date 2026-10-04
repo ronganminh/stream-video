@@ -4,6 +4,7 @@ import Link from "next/link";
 import { AdSlot } from "@/components/ads/AdSlot";
 import { RankCard } from "@/components/cards/RankCard";
 import { VideoCard } from "@/components/cards/VideoCard";
+import { EmptyState } from "@/components/feedback/EmptyState";
 import { LoadMore } from "@/components/filters/LoadMore";
 import { Pagination } from "@/components/filters/Pagination";
 import { TagChip } from "@/components/primitives";
@@ -121,6 +122,7 @@ export default async function HotPage({
                 key={value}
                 className={active ? styles.windowActive : undefined}
                 href={value === "today" ? "/hot" : "/hot?window=" + value}
+                aria-current={active ? "page" : undefined}
               >
                 {label}
               </Link>
@@ -213,7 +215,19 @@ export default async function HotPage({
             id="hot-pagination"
           />
         </>
-      ) : null}
+      ) : (
+        <EmptyState
+          className={styles.emptyState}
+          icon="local_fire_department"
+          title="No hot videos yet"
+          body="Check back soon or explore the latest uploads."
+          actions={
+            <div className={styles.emptyActions}>
+              <Link href="/latest">Browse Latest</Link>
+            </div>
+          }
+        />
+      )}
     </main>
   );
 }
