@@ -13,6 +13,9 @@ export default async function NotFound() {
 
   return (
     <>
+      <title>Page not found | GayVideo.fun</title>
+      <meta name="robots" content="noindex, follow" />
+
       <Header />
       <MobileHeader />
 
