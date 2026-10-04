@@ -38,8 +38,8 @@ test("Load More enhances but crawlable page links remain the fallback", async ({
 
   for (const { path, heading } of [
     { path: "/latest?page=2", heading: "Latest Videos" },
-    { path: "/hot?page=2", heading: "Hot Videos" },
-    { path: "/most-viewed?page=2", heading: "Most Viewed Videos" },
+    { path: "/hot?page=2", heading: "Hot Right Now" },
+    { path: "/most-viewed?page=2", heading: "Most Viewed" },
   ]) {
     await noJsPage.goto(path);
     await expect(noJsPage.getByRole("heading", { name: heading })).toBeVisible();
