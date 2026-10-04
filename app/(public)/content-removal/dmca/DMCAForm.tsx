@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState, type FormEvent } from "react";
+import { useMemo, useRef, useState, type FormEvent } from "react";
 
 import { Icon } from "@/components/primitives";
 
@@ -27,13 +27,16 @@ export function DMCAForm({ initialVideoUrl }: Props) {
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("");
   const [work, setWork] = useState("");
-  const [urls, setUrls] = useState([initialVideoUrl].filter(Boolean).length ? [initialVideoUrl] : [""]);
+  const [urls, setUrls] = useState(
+    [initialVideoUrl].filter(Boolean).length ? [initialVideoUrl] : [""],
+  );
   const [goodFaith, setGoodFaith] = useState(false);
   const [authority, setAuthority] = useState(false);
   const [signature, setSignature] = useState("");
   const [website, setWebsite] = useState("");
   const [errors, setErrors] = useState<Errors>({});
   const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
   const [networkError, setNetworkError] = useState("");
   const [reference, setReference] = useState("");
 
@@ -67,9 +70,12 @@ export function DMCAForm({ initialVideoUrl }: Props) {
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (submittingRef.current) return;
+
     const next = validate();
     if (Object.keys(next).length) return;
 
+    submittingRef.current = true;
     setSubmitting(true);
     setNetworkError("");
 
@@ -100,23 +106,24 @@ export function DMCAForm({ initialVideoUrl }: Props) {
         error?: string;
       };
 
-      if (!response.ok) {
+      if (!response.ok || !payload.reference) {
         throw new Error(payload.error || "Couldn’t submit this notice.");
       }
 
-      setReference(payload.reference || "");
+      setReference(payload.reference);
     } catch (error) {
       setNetworkError(
         error instanceof Error ? error.message : "Couldn’t submit this notice.",
       );
     } finally {
+      submittingRef.current = false;
       setSubmitting(false);
     }
   };
 
   if (reference) {
     return (
-      <div className={styles.success}>
+      <div className={styles.success} role="status">
         <span className={styles.successIcon} aria-hidden="true">
           <Icon name="check" />
         </span>
@@ -136,21 +143,37 @@ export function DMCAForm({ initialVideoUrl }: Props) {
   const summary = Object.values(errors);
 
   return (
-    <form className={styles.form} onSubmit={submit} noValidate>
-      <section className={styles.group}>
+    <form
+      className={styles.form}
+      method="post"
+      action="/api/requests"
+      onSubmit={submit}
+    >
+      <input type="hidden" name="type" value="DMCA" />
+
+      <section id="details" className={styles.group}>
         <h2 className={styles.groupTitle}>1 · YOUR DETAILS</h2>
         <label className={styles.field}>
           <span>
             Full legal name <span className={styles.required}>*</span>
           </span>
           <input
+            name="fullName"
+            autoComplete="name"
+            maxLength={200}
+            required
             value={name}
             onChange={(event) => setName(event.currentTarget.value)}
             onBlur={validate}
             aria-invalid={Boolean(errors.name)}
             disabled={submitting}
           />
-          {errors.name ? <p className={styles.error}><Icon name="error" />{errors.name}</p> : null}
+          {errors.name ? (
+            <p className={styles.error}>
+              <Icon name="error" />
+              {errors.name}
+            </p>
+          ) : null}
         </label>
 
         <label className={styles.field}>
@@ -159,13 +182,22 @@ export function DMCAForm({ initialVideoUrl }: Props) {
           </span>
           <input
             type="email"
+            name="email"
+            autoComplete="email"
+            maxLength={320}
+            required
             value={email}
             onChange={(event) => setEmail(event.currentTarget.value)}
             onBlur={validate}
             aria-invalid={Boolean(errors.email)}
             disabled={submitting}
           />
-          {errors.email ? <p className={styles.error}><Icon name="error" />{errors.email}</p> : null}
+          {errors.email ? (
+            <p className={styles.error}>
+              <Icon name="error" />
+              {errors.email}
+            </p>
+          ) : null}
         </label>
 
         <fieldset className={styles.choiceGroup}>
@@ -185,31 +217,44 @@ export function DMCAForm({ initialVideoUrl }: Props) {
                   checked={role === value}
                   onChange={() => setRole(value)}
                   disabled={submitting}
+                  required
                 />
                 <span>{label}</span>
               </label>
             ))}
           </div>
-          {errors.role ? <p className={styles.error}><Icon name="error" />{errors.role}</p> : null}
+          {errors.role ? (
+            <p className={styles.error}>
+              <Icon name="error" />
+              {errors.role}
+            </p>
+          ) : null}
         </fieldset>
       </section>
 
-      <section className={styles.group}>
+      <section id="work" className={styles.group}>
         <h2 className={styles.groupTitle}>2 · THE WORK</h2>
         <label className={styles.field}>
           <span>
             Description of the original work <span className={styles.required}>*</span>
           </span>
           <textarea
+            name="work"
             value={work}
             onChange={(event) => setWork(event.currentTarget.value)}
             onBlur={validate}
             placeholder="Describe the work and where the original can be found"
             maxLength={4000}
+            required
             aria-invalid={Boolean(errors.work)}
             disabled={submitting}
           />
-          {errors.work ? <p className={styles.error}><Icon name="error" />{errors.work}</p> : null}
+          {errors.work ? (
+            <p className={styles.error}>
+              <Icon name="error" />
+              {errors.work}
+            </p>
+          ) : null}
         </label>
 
         <div className={styles.field}>
@@ -221,6 +266,10 @@ export function DMCAForm({ initialVideoUrl }: Props) {
               <div className={styles.urlRow} key={index}>
                 <input
                   type="url"
+                  name="urls"
+                  autoComplete="off"
+                  maxLength={2000}
+                  required
                   value={url}
                   onChange={(event) =>
                     setUrls((current) =>
@@ -230,6 +279,7 @@ export function DMCAForm({ initialVideoUrl }: Props) {
                     )
                   }
                   onBlur={validate}
+                  aria-label={`Reported content URL ${index + 1}`}
                   aria-invalid={Boolean(errors.urls)}
                   disabled={submitting}
                 />
@@ -238,10 +288,12 @@ export function DMCAForm({ initialVideoUrl }: Props) {
                     type="button"
                     className={styles.removeButton}
                     onClick={() =>
-                      setUrls((current) => current.filter((_, itemIndex) => itemIndex !== index))
+                      setUrls((current) =>
+                        current.filter((_, itemIndex) => itemIndex !== index),
+                      )
                     }
                     disabled={submitting}
-                    aria-label="Remove URL"
+                    aria-label={`Remove reported content URL ${index + 1}`}
                   >
                     <Icon name="close" />
                   </button>
@@ -253,20 +305,28 @@ export function DMCAForm({ initialVideoUrl }: Props) {
             type="button"
             className={styles.addButton}
             onClick={() => setUrls((current) => [...current, ""])}
-            disabled={submitting}
+            disabled={submitting || urls.length >= 20}
           >
             Add another URL
           </button>
-          {errors.urls ? <p className={styles.error}><Icon name="error" />{errors.urls}</p> : null}
+          {errors.urls ? (
+            <p className={styles.error}>
+              <Icon name="error" />
+              {errors.urls}
+            </p>
+          ) : null}
         </div>
       </section>
 
-      <section className={styles.group}>
+      <section id="declarations" className={styles.group}>
         <h2 className={styles.groupTitle}>3 · DECLARATIONS</h2>
         <div className={styles.checks}>
           <label className={styles.check}>
             <input
               type="checkbox"
+              name="goodFaith"
+              value="true"
+              required
               checked={goodFaith}
               onChange={(event) => setGoodFaith(event.currentTarget.checked)}
               disabled={submitting}
@@ -276,6 +336,9 @@ export function DMCAForm({ initialVideoUrl }: Props) {
           <label className={styles.check}>
             <input
               type="checkbox"
+              name="authority"
+              value="true"
+              required
               checked={authority}
               onChange={(event) => setAuthority(event.currentTarget.checked)}
               disabled={submitting}
@@ -295,24 +358,34 @@ export function DMCAForm({ initialVideoUrl }: Props) {
             Electronic signature <span className={styles.required}>*</span>
           </span>
           <input
+            name="signature"
+            autoComplete="name"
+            maxLength={200}
+            required
             value={signature}
             onChange={(event) => setSignature(event.currentTarget.value)}
             onBlur={validate}
             aria-invalid={Boolean(errors.signature)}
             disabled={submitting}
           />
-          {errors.signature ? <p className={styles.error}><Icon name="error" />{errors.signature}</p> : null}
+          {errors.signature ? (
+            <p className={styles.error}>
+              <Icon name="error" />
+              {errors.signature}
+            </p>
+          ) : null}
         </label>
 
         <label className={styles.field}>
           <span>Date</span>
-          <input value={date} readOnly />
+          <input name="date" value={date} readOnly />
         </label>
       </section>
 
       <label className={styles.honeypot} aria-hidden="true">
         Website
         <input
+          name="website"
           tabIndex={-1}
           autoComplete="off"
           value={website}
@@ -322,14 +395,22 @@ export function DMCAForm({ initialVideoUrl }: Props) {
 
       {summary.length ? (
         <div className={styles.errorSummary} role="alert" tabIndex={-1}>
-          <strong>{summary.length} field{summary.length === 1 ? "" : "s"} need attention</strong>
+          <strong>
+            {summary.length} field{summary.length === 1 ? "" : "s"} need attention
+          </strong>
           <ul>
-            {summary.map((message) => <li key={message}>{message}</li>)}
+            {summary.map((message) => (
+              <li key={message}>{message}</li>
+            ))}
           </ul>
         </div>
       ) : null}
 
-      {networkError ? <p className={styles.networkError} role="alert">{networkError}</p> : null}
+      {networkError ? (
+        <p className={styles.networkError} role="alert">
+          {networkError}
+        </p>
+      ) : null}
 
       <div className={styles.submitBar}>
         <button className={styles.submitButton} type="submit" disabled={submitting}>
