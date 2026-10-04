@@ -35,9 +35,9 @@ T29 merged. This task is a production follow-up requested after the first real-v
 - `app/admin/review/page.module.css`
 
 ## Implementation
-- Store source-thumbnail URL and selected-thumbnail identity in namespaced `Setting` rows. Do not alter `prisma/schema.prisma`.
+- Store source-thumbnail URL and selected-thumbnail identity in namespaced `Setting` rows. Do not alter `prisma/schema.prisma`. Re-importing a source URL must never override a host thumbnail that an admin already selected.
 - Download every selected/default image through the existing Sharp WebP media pipeline so public pages do not hotlink the migration source.
-- Migration fanout emits a host-agnostic payload containing `postId`, `sourceThumbnailUrl`, and a map of host registry id to file code.
+- Migration fanout emits a host-agnostic payload containing `postId`, `sourceThumbnailUrl`, and a map of host registry id to file code. The payload is regenerated from the merged migration log for the requested `start`/`limit` range so a production-apply retry does not require re-uploading completed videos.
 - Production receives that payload only through a dedicated restricted SSH key/forced command. The receiver validates payload size/shape, runs `sync:new`, then applies source thumbnails idempotently.
 - Primary and secondary mirror sync keeps `Mirror.hostThumbnailUrl` current. VOE uses its documented storyboard URL convention because API v1 does not return an image field.
 - Review queue shows only available thumbnail choices and uses server actions; Source remains selectable after choosing a host thumbnail.
@@ -45,7 +45,7 @@ T29 merged. This task is a production follow-up requested after the first real-v
 - Existing primary mirrors refresh embed URL and host metadata during `sync:new`; health sync refreshes embed URL as well.
 
 ## Done when
-- A migrated video with CSV `thumbnail_url` receives a local `/media/*.webp` thumbnail and records Source as selected.
+- A migrated video with CSV `thumbnail_url` receives a local `/media/*.webp` thumbnail and records Source as selected on first import; later manifest retries preserve an explicit admin host-thumbnail choice.
 - Review queue can switch between Source and every linked host that has a thumbnail URL; switching never loses the Source option.
 - Dood/VOE/EarnVids mirror thumbnails are retained when available.
 - Existing Dood mirror embed URLs refresh away from the retired hardcoded `dood.so` base.
