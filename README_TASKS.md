@@ -96,3 +96,33 @@ When opening a new chat, upload:
 3. any contract files named in the packet if the chat cannot read this GitHub repo directly.
 
 Then message: `Implement Txx exactly from the attached packet and repository. Return complete files only.`
+
+
+### Phase 4 — production stabilization
+
+These tasks are derived from the 2026-10-04 production UI/UX audit. If a user opens a new chat and says only `T30` through `T38`, locate and follow the matching packet below.
+
+- Foundation: `T30`
+- Shell: `T31` (after T30)
+- Listings: `T32` (after T30)
+- Discovery: `T33` (after T30)
+- Legal/forms: `T34` (independent after T29)
+- Admin: `T35` (after T30)
+- SEO/document: `T36` (after T30)
+- Regression convergence: `T37` (after T30–T36)
+- Final legal copy: `T38` (after T34 and only when approved final legal text is supplied)
+
+Parallel-safe start after T29: T30 and T34. After T30 merges, T31, T32, T33, T35 and T36 may run in parallel because their packets own separate application files.
+
+Task packets:
+- `docs/tasks/phase-4-foundation/T30-icon-font-production-fix.md`
+- `docs/tasks/phase-4-shell/T31-navigation-footer-mobile-shell.md`
+- `docs/tasks/phase-4-lists/T32-latest-hot-states-responsive.md`
+- `docs/tasks/phase-4-discovery/T33-categories-search-states-responsive.md`
+- `docs/tasks/phase-4-legal/T34-removal-dmca-submission.md`
+- `docs/tasks/phase-4-admin/T35-admin-hosts-timestamps.md`
+- `docs/tasks/phase-4-seo/T36-favicon-404-metadata.md`
+- `docs/tasks/phase-5/T37-production-regression.md`
+- `docs/tasks/phase-5/T38-final-legal-copy.md`
+
+Important: the existing project rule remains authoritative until T38: legal prose must stay exactly `LEGAL COPY — FINAL TEXT REQUIRED`. Do not treat that placeholder as a code defect and do not author replacement legal prose.
