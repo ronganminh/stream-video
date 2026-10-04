@@ -37,7 +37,9 @@ test("desktop journey: age gate → search → watch → related → category �
     "true",
   );
 
-  const related = page.locator("section").filter({ hasText: "More like this" });
+  const related = page.locator("section").filter({
+    has: page.getByRole("heading", { name: "More like this", exact: true }),
+  });
   const relatedLink = related.getByRole("link").first();
   await expect(relatedLink).toBeVisible();
   await relatedLink.click();
