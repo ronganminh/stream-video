@@ -25,11 +25,13 @@
 }
 
 .form {
+  min-width: 0;
   display: grid;
   gap: 14px;
 }
 
 .table {
+  min-width: 0;
   overflow: hidden;
   border: 1px solid var(--gv-border);
   border-radius: var(--gv-radius-lg);
@@ -38,8 +40,9 @@
 
 .headerRow,
 .hostRow {
+  min-width: 0;
   display: grid;
-  grid-template-columns: 72px minmax(180px, 1fr) 130px 130px;
+  grid-template-columns: 154px minmax(180px, 1fr) 130px 130px;
   align-items: center;
 }
 
@@ -63,22 +66,76 @@
   border-bottom: 0;
 }
 
+.orderCell {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .handle {
+  width: 24px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  flex: none;
+  color: var(--gv-text-muted);
+  cursor: grab;
+}
+
+.handle > span {
+  font-size: 20px;
+}
+
+.orderPosition {
+  width: 20px;
+  flex: none;
+  color: var(--gv-text-muted);
+  font: 600 11px var(--gv-font-mono);
+  text-align: center;
+}
+
+.orderButton {
   width: 40px;
   height: 40px;
+  padding: 0;
   border: 0;
   border-radius: var(--gv-radius-sm);
+  display: grid;
+  place-items: center;
+  flex: none;
   background: transparent;
-  color: var(--gv-text-muted);
-  font-family: "Material Symbols Rounded";
-  font-size: 22px;
-  cursor: grab;
+  color: var(--gv-text-secondary);
+  cursor: pointer;
+}
+
+.orderButton > span {
+  font-size: 19px;
+}
+
+.orderButton:hover:not(:disabled) {
+  background: var(--gv-surface-hover);
+  color: var(--gv-text);
+}
+
+.orderButton:disabled {
+  opacity: .32;
+  cursor: default;
 }
 
 .hostName {
   min-width: 0;
+  padding-right: 12px;
   display: grid;
   gap: 4px;
+}
+
+.hostName strong,
+.hostName code {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .hostName strong {
@@ -91,6 +148,7 @@
 }
 
 .check {
+  min-width: 0;
   min-height: 44px;
   display: inline-flex;
   align-items: center;
@@ -100,8 +158,9 @@
 }
 
 .check input {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
+  flex: none;
   accent-color: var(--gv-violet);
 }
 
@@ -111,7 +170,7 @@
 }
 
 .actions button {
-  min-height: 42px;
+  min-height: 44px;
   padding: 0 16px;
   border: 0;
   border-radius: var(--gv-radius-md);
@@ -119,6 +178,11 @@
   color: var(--gv-text);
   font: 600 13px var(--gv-font);
   cursor: pointer;
+}
+
+.actions button:disabled {
+  opacity: .6;
+  cursor: progress;
 }
 
 .error,
@@ -135,7 +199,7 @@
   color: var(--gv-violet-300);
 }
 
-.handle:focus-visible,
+.orderButton:focus-visible,
 .actions button:focus-visible,
 .check input:focus-visible {
   outline: none;
@@ -143,12 +207,115 @@
 }
 
 @media (max-width: 720px) {
-  .table {
-    overflow-x: auto;
+  .page {
+    min-width: 0;
   }
 
-  .headerRow,
+  .intro {
+    margin-bottom: 18px;
+  }
+
+  .table {
+    overflow: visible;
+    border: 0;
+    border-radius: 0;
+    display: grid;
+    gap: 10px;
+    background: transparent;
+  }
+
+  .headerRow {
+    display: none;
+  }
+
   .hostRow {
-    min-width: 620px;
+    min-width: 0;
+    min-height: 0;
+    padding: 12px;
+    border: 1px solid var(--gv-border);
+    border-radius: var(--gv-radius-lg);
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas:
+      "host host"
+      "order order"
+      "enabled primary";
+    gap: 10px 12px;
+    background: var(--gv-surface-1);
+  }
+
+  .hostRow:last-child {
+    border-bottom: 1px solid var(--gv-border);
+  }
+
+  .hostName {
+    grid-area: host;
+    padding: 0 0 10px;
+    border-bottom: 1px solid var(--gv-border);
+  }
+
+  .hostName strong {
+    font-size: 15px;
+  }
+
+  .orderCell {
+    grid-area: order;
+    width: 100%;
+    min-height: 44px;
+  }
+
+  .handle {
+    width: 28px;
+  }
+
+  .orderPosition {
+    width: 24px;
+    margin-right: auto;
+  }
+
+  .orderButton {
+    width: 44px;
+    height: 44px;
+    border: 1px solid var(--gv-border-input);
+    background: var(--gv-surface-2);
+  }
+
+  .enabledCell {
+    grid-area: enabled;
+  }
+
+  .primaryCell {
+    grid-area: primary;
+  }
+
+  .check {
+    min-height: 48px;
+    padding: 0 10px;
+    border: 1px solid var(--gv-border);
+    border-radius: var(--gv-radius-md);
+    background: var(--gv-bg);
+  }
+
+  .actions button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 339px) {
+  .hostRow {
+    padding: 10px;
+    gap: 8px;
+  }
+
+  .check {
+    padding-inline: 8px;
+    font-size: 12px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orderButton,
+  .actions button {
+    transition: none;
   }
 }
