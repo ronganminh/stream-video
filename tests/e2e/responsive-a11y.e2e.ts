@@ -109,7 +109,7 @@ test("common Material Symbols render as icons instead of visible ligature text",
   await expectMaterialSymbolsReady(page);
 
   const leakedLigatures = await page.evaluate((names) => {
-    const expected = new Set(names);
+    const expected = new Set<string>(names);
     const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
     const leaks: string[] = [];
 
