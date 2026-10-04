@@ -16,12 +16,11 @@ RUN npm install --no-audit --no-fund
 FROM base AS builder
 
 COPY --from=dependencies /app/node_modules ./node_modules
-COPY package.json next.config.ts tsconfig.json next-env.d.ts middleware.ts ./
+COPY package.json next.config.ts tsconfig.json middleware.ts ./
 COPY app ./app
 COPY components ./components
 COPY lib ./lib
 COPY prisma ./prisma
-COPY public ./public
 COPY styles ./styles
 
 RUN npx prisma generate
@@ -36,7 +35,6 @@ ENV HOSTNAME=0.0.0.0
 RUN groupadd --system --gid 10001 nextjs \
   && useradd --system --uid 10001 --gid nextjs --home-dir /app nextjs
 
-COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nextjs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nextjs /app/.next/static ./.next/static
 
