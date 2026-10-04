@@ -35,13 +35,20 @@ test("Load More enhances but crawlable page links remain the fallback", async ({
   const noJs = await browser.newContext({ javaScriptEnabled: false });
   await addAgeCookie(noJs);
   const noJsPage = await noJs.newPage();
-  await noJsPage.goto("/latest?page=2");
 
-  await expect(noJsPage.getByRole("heading", { name: "Latest Videos" })).toBeVisible();
-  await expect(noJsPage.getByRole("link", { name: "2", exact: true })).toHaveAttribute(
-    "aria-current",
-    "page",
-  );
-  await expect(noJsPage.getByRole("link", { name: "Previous" })).toBeVisible();
+  for (const { path, heading } of [
+    { path: "/latest?page=2", heading: "Latest Videos" },
+    { path: "/hot?page=2", heading: "Hot Videos" },
+    { path: "/most-viewed?page=2", heading: "Most Viewed Videos" },
+  ]) {
+    await noJsPage.goto(path);
+    await expect(noJsPage.getByRole("heading", { name: heading })).toBeVisible();
+    await expect(noJsPage.getByRole("link", { name: "2", exact: true })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    await expect(noJsPage.getByRole("link", { name: "Previous" })).toBeVisible();
+  }
+
   await noJs.close();
 });
