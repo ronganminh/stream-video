@@ -131,9 +131,37 @@ async function syncPrimaryHost(
         hostId: host.id,
         fileCode: { in: files.map((file) => file.code) },
       },
-      select: { fileCode: true },
+      select: {
+        id: true,
+        fileCode: true,
+        hostThumbnailUrl: true,
+        lengthSeconds: true,
+      },
     });
-    const existingCodes = new Set(existing.map((mirror) => mirror.fileCode));
+    const existingByCode = new Map(
+      existing.map((mirror) => [mirror.fileCode, mirror]),
+    );
+
+    for (const file of files) {
+      const mirror = existingByCode.get(file.code);
+      if (!mirror) continue;
+
+      await prisma.mirror.update({
+        where: { id: mirror.id },
+        data: {
+          rawTitle: file.title,
+          normalizedName: normalize(file.title),
+          embedUrl: provider.embedUrl(file.code),
+          hostThumbnailUrl:
+            file.thumbnailUrl ?? mirror.hostThumbnailUrl,
+          lengthSeconds:
+            file.lengthSeconds ?? mirror.lengthSeconds,
+          lastCheckedAt: new Date(),
+        },
+      });
+    }
+
+    const existingCodes = new Set(existingByCode.keys());
     const newFiles = files.filter((file) => !existingCodes.has(file.code));
 
     if (newFiles.length === 0) break;
