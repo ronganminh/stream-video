@@ -2,6 +2,8 @@
 
 import { useActionState, useMemo, useState } from "react";
 
+import { Icon } from "@/components/primitives";
+
 import { saveHostsAction, type HostsState } from "./actions";
 import styles from "./page.module.css";
 
@@ -72,13 +74,14 @@ export function HostsForm({ hosts }: { hosts: HostRow[] }) {
           <span role="columnheader">Enabled</span>
           <span role="columnheader">Primary</span>
         </div>
-        {ordered.map((host) => (
+        {ordered.map((host, index) => (
           <div
             className={styles.hostRow}
             role="row"
             key={host.id}
             draggable
             onDragStart={() => setDraggedId(host.id)}
+            onDragEnd={() => setDraggedId(null)}
             onDragOver={(event) => event.preventDefault()}
             onDrop={() => {
               if (!draggedId || draggedId === host.id) return;
@@ -90,27 +93,39 @@ export function HostsForm({ hosts }: { hosts: HostRow[] }) {
               setDraggedId(null);
             }}
           >
-            <button
-              type="button"
-              className={styles.handle}
-              aria-label={`Reorder ${host.label}. Use Up or Down arrow keys.`}
-              onKeyDown={(event) => {
-                if (event.key === "ArrowUp") {
-                  event.preventDefault();
-                  reorder(host.id, -1);
-                } else if (event.key === "ArrowDown") {
-                  event.preventDefault();
-                  reorder(host.id, 1);
-                }
-              }}
-            >
-              drag_indicator
-            </button>
+            <div className={styles.orderCell} role="cell">
+              <span className={styles.handle} aria-hidden="true">
+                <Icon name="drag_indicator" />
+              </span>
+              <span className={styles.orderPosition} aria-label={`Order ${index + 1}`}>
+                {index + 1}
+              </span>
+              <button
+                type="button"
+                className={styles.orderButton}
+                aria-label={`Move ${host.label} up`}
+                disabled={index === 0}
+                onClick={() => reorder(host.id, -1)}
+              >
+                <Icon name="arrow_upward" />
+              </button>
+              <button
+                type="button"
+                className={styles.orderButton}
+                aria-label={`Move ${host.label} down`}
+                disabled={index === ordered.length - 1}
+                onClick={() => reorder(host.id, 1)}
+              >
+                <Icon name="arrow_downward" />
+              </button>
+            </div>
+
             <span className={styles.hostName} role="cell">
               <strong>{host.label}</strong>
               <code>{host.id}</code>
             </span>
-            <label className={styles.check} role="cell">
+
+            <label className={`${styles.check} ${styles.enabledCell}`} role="cell">
               <input
                 type="checkbox"
                 name="enabledHostId"
@@ -120,7 +135,8 @@ export function HostsForm({ hosts }: { hosts: HostRow[] }) {
               />
               <span>Enabled</span>
             </label>
-            <label className={styles.check} role="cell">
+
+            <label className={`${styles.check} ${styles.primaryCell}`} role="cell">
               <input
                 type="radio"
                 name="primaryHostId"
