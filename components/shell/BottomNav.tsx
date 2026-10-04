@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 
 import { Icon } from "@/components/primitives";
 
@@ -15,13 +16,13 @@ const NAV_ITEMS = [
 ] as const;
 
 const MORE_LINKS = [
-  { href: "/latest", label: "Latest" },
-  { href: "/most-viewed", label: "Most Viewed" },
-  { href: "/content-removal", label: "Content Removal" },
-  { href: "/content-removal/dmca", label: "DMCA" },
-  { href: "/terms", label: "Terms" },
-  { href: "/privacy", label: "Privacy" },
-  { href: "/cookies", label: "Cookies" },
+  { href: "/latest", label: "Latest", match: ["/latest"] },
+  { href: "/most-viewed", label: "Most Viewed", match: ["/most-viewed"] },
+  { href: "/content-removal", label: "Content Removal", match: ["/content-removal", "/content-removal/request"] },
+  { href: "/content-removal/dmca", label: "DMCA", match: ["/content-removal/dmca"] },
+  { href: "/terms", label: "Terms", match: ["/terms"] },
+  { href: "/privacy", label: "Privacy", match: ["/privacy"] },
+  { href: "/cookies", label: "Cookies", match: ["/cookies"] },
 ] as const;
 
 function matchesPath(pathname: string, matchers: readonly string[]): boolean {
@@ -34,9 +35,32 @@ function matchesPath(pathname: string, matchers: readonly string[]): boolean {
 
 export function BottomNav() {
   const pathname = usePathname();
+  const [moreOpen, setMoreOpen] = useState(false);
+  const moreButtonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    setMoreOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!moreOpen) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      setMoreOpen(false);
+      requestAnimationFrame(() => moreButtonRef.current?.focus());
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [moreOpen]);
+
   if (pathname.startsWith("/watch")) return null;
 
-  const moreActive = MORE_LINKS.some((item) => pathname === item.href || pathname.startsWith(`${item.href}/`));
+  const moreActive = MORE_LINKS.some((item) =>
+    matchesPath(pathname, item.match),
+  );
 
   return (
     <>
@@ -46,23 +70,54 @@ export function BottomNav() {
           {NAV_ITEMS.map((item) => {
             const active = matchesPath(pathname, item.match);
             return (
-              <Link key={item.href} className={styles.item} data-active={active || undefined} href={item.href} aria-current={active ? "page" : undefined}>
+              <Link
+                key={item.href}
+                className={styles.item}
+                data-active={active || undefined}
+                href={item.href}
+                aria-current={active ? "page" : undefined}
+              >
                 <Icon name={item.icon} className={styles.icon} />
                 <span className={styles.label}>{item.label}</span>
                 <span className={styles.indicator} aria-hidden="true" />
               </Link>
             );
           })}
-          <details className={styles.more}>
-            <summary className={styles.item} data-active={moreActive || undefined} aria-label="More navigation">
+          <div className={styles.more} data-open={moreOpen || undefined}>
+            <button
+              ref={moreButtonRef}
+              type="button"
+              className={styles.item}
+              data-active={moreActive || undefined}
+              aria-label="More navigation"
+              aria-expanded={moreOpen}
+              aria-controls="gv-bottom-more-navigation"
+              onClick={() => setMoreOpen((open) => !open)}
+            >
               <Icon name="more_horiz" className={styles.icon} />
               <span className={styles.label}>More</span>
               <span className={styles.indicator} aria-hidden="true" />
-            </summary>
-            <div className={styles.morePanel}>
-              {MORE_LINKS.map((item) => <Link key={item.href} className={styles.moreLink} href={item.href}>{item.label}</Link>)}
-            </div>
-          </details>
+            </button>
+            {moreOpen ? (
+              <div className={styles.morePanel} id="gv-bottom-more-navigation">
+                {MORE_LINKS.map((item) => {
+                  const active = matchesPath(pathname, item.match);
+                  return (
+                    <Link
+                      key={item.href}
+                      className={styles.moreLink}
+                      data-active={active || undefined}
+                      href={item.href}
+                      aria-current={active ? "page" : undefined}
+                      onClick={() => setMoreOpen(false)}
+                    >
+                      {item.label}
+                    </Link>
+                  );
+                })}
+              </div>
+            ) : null}
+          </div>
         </div>
       </nav>
     </>
