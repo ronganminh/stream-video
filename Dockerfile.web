@@ -1,0 +1,48 @@
+# syntax=docker/dockerfile:1.7
+
+FROM node:20-bookworm-slim AS base
+
+WORKDIR /app
+
+ENV NEXT_TELEMETRY_DISABLED=1
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ca-certificates openssl \
+  && rm -rf /var/lib/apt/lists/*
+
+FROM base AS dependencies
+
+COPY package.json ./
+RUN npm install --no-audit --no-fund
+
+FROM base AS builder
+
+COPY --from=dependencies /app/node_modules ./node_modules
+COPY package.json next.config.ts tsconfig.json middleware.ts ./
+COPY app ./app
+COPY components ./components
+COPY lib ./lib
+COPY prisma ./prisma
+COPY styles ./styles
+
+RUN npx prisma generate
+RUN --mount=type=secret,id=database_url,required=true \
+  DATABASE_URL="$(cat /run/secrets/database_url)" npm run build
+
+FROM base AS runner
+
+ENV NODE_ENV=production
+ENV PORT=3000
+ENV HOSTNAME=0.0.0.0
+
+RUN groupadd --system --gid 10001 nextjs \
+  && useradd --system --uid 10001 --gid nextjs --home-dir /app nextjs
+
+COPY --from=builder --chown=nextjs:nextjs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nextjs /app/.next/static ./.next/static
+
+USER nextjs
+
+EXPOSE 3000
+
+CMD ["node", "server.js"]

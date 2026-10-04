@@ -10,10 +10,19 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 45
     env:
+      SITE_DOMAIN: ci.example.test
+      POSTGRES_DB: gayvideo
+      POSTGRES_USER: gayvideo
+      POSTGRES_PASSWORD: gayvideo
+      POSTGRES_PORT: "5432"
       DATABASE_URL: postgresql://gayvideo:gayvideo@localhost:5432/gayvideo?schema=public
+      BUILD_DATABASE_URL: postgresql://gayvideo:gayvideo@127.0.0.1:5432/gayvideo?schema=public
       ADMIN_SESSION_SECRET: e2e-admin-session-secret
+      HOST_DOOD_API_KEY: ci-placeholder
+      HOST_VOE_API_KEY: ci-placeholder
+      HOST_EARNVIDS_API_KEY: ci-placeholder
 
     steps:
       - name: Checkout
@@ -24,15 +33,27 @@ jobs:
         with:
           node-version: 20
 
+      - name: Validate Compose
+        run: docker compose config --quiet
+
+      - name: Validate Caddy syntax
+        run: |
+          docker run --rm \
+            -e SITE_DOMAIN="$SITE_DOMAIN" \
+            -v "$PWD/Caddyfile:/etc/caddy/Caddyfile:ro" \
+            caddy:2-alpine \
+            caddy validate --config /etc/caddy/Caddyfile
+
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
+      - name: Check generated Caddy CSP
+        run: npm run caddy:check
+
       - name: Start PostgreSQL 16
-        if: ${{ hashFiles('docker-compose.yml') != '' }}
-        run: docker compose up -d
+        run: docker compose up -d postgres
 
       - name: Wait for PostgreSQL
-        if: ${{ hashFiles('docker-compose.yml') != '' }}
         run: |
           for attempt in {1..30}; do
             if docker compose exec -T postgres pg_isready -U gayvideo -d gayvideo; then
@@ -45,12 +66,13 @@ jobs:
           exit 1
 
       - name: Run Prisma migration
-        if: ${{ hashFiles('docker-compose.yml') != '' }}
         run: npm run db:migrate
 
       - name: Seed deterministic E2E data
-        if: ${{ hashFiles('docker-compose.yml') != '' }}
         run: npm run db:seed
+
+      - name: Build production images
+        run: docker compose build web worker
 
       - name: Typecheck
         run: npm run typecheck
@@ -82,5 +104,5 @@ jobs:
           retention-days: 7
 
       - name: Stop PostgreSQL
-        if: ${{ always() && hashFiles('docker-compose.yml') != '' }}
+        if: ${{ always() }}
         run: docker compose down -v
