@@ -76,6 +76,7 @@ export type ListQuery = {
   duration?: string;
   date?: string;
   category?: string;
+  tag?: string;
   page?: number;
 };
 
