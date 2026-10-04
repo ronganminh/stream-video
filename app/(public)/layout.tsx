@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { AgeGate } from "@/components/shell/AgeGate";
 import { BottomNav } from "@/components/shell/BottomNav";
 import { Footer } from "@/components/shell/Footer";
-import { Header } from "@/components/shell/Header";
+import { Header, PublicContent } from "@/components/shell/Header";
 import { MobileHeader } from "@/components/shell/MobileHeader";
 import { db } from "@/lib/db";
 import { AGE_GATE_COOKIE_NAME, getAgeGateCookieLifetimeDays } from "@/lib/settings/ageGate";
@@ -29,7 +29,7 @@ export default async function PublicLayout({ children }: Readonly<{ children: Re
     <>
       <Header />
       <MobileHeader />
-      <main>{children}</main>
+      <PublicContent>{children}</PublicContent>
       <Footer show2257={show2257} />
       <BottomNav />
       {!acknowledged ? <AgeGate cookieName={AGE_GATE_COOKIE_NAME} cookieLifetimeDays={cookieLifetimeDays} /> : null}
