@@ -18,6 +18,7 @@ jobs:
       POSTGRES_PASSWORD: gayvideo
       POSTGRES_PORT: "5432"
       DATABASE_URL: postgresql://gayvideo:gayvideo@localhost:5432/gayvideo?schema=public
+      BUILD_DATABASE_URL: postgresql://gayvideo:gayvideo@127.0.0.1:5432/gayvideo?schema=public
       ADMIN_SESSION_SECRET: e2e-admin-session-secret
       HOST_DOOD_API_KEY: ci-placeholder
       HOST_VOE_API_KEY: ci-placeholder
@@ -34,9 +35,6 @@ jobs:
 
       - name: Validate Compose
         run: docker compose config --quiet
-
-      - name: Build production images
-        run: docker compose build web worker
 
       - name: Validate Caddy syntax
         run: |
@@ -72,6 +70,9 @@ jobs:
 
       - name: Seed deterministic E2E data
         run: npm run db:seed
+
+      - name: Build production images
+        run: docker compose build web worker
 
       - name: Typecheck
         run: npm run typecheck
