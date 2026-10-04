@@ -37,9 +37,9 @@ test("desktop journey: age gate → search → watch → related → category �
     "true",
   );
 
-  const related = page.locator("section").filter({
-    has: page.getByRole("heading", { name: "More like this", exact: true }),
-  });
+  const related = page
+    .getByRole("heading", { name: "More like this", exact: true })
+    .locator("xpath=ancestor::section[1]");
   const relatedLink = related.getByRole("link").first();
   await expect(relatedLink).toBeVisible();
   await relatedLink.click();
