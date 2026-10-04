@@ -25,6 +25,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output", required=True)
     parser.add_argument("--thumbnail-output", required=True)
     parser.add_argument("--run-id", required=True)
+    parser.add_argument("--start", type=int, default=0)
+    parser.add_argument("--limit", type=int, default=1000)
     return parser.parse_args()
 
 
@@ -212,25 +214,34 @@ def merge_log(
 
 def build_thumbnail_payload(
     source_rows: list[dict[str, str]],
-    updates: list[dict[str, str]],
+    log_rows: list[dict[str, str]],
+    start: int = 0,
+    limit: int | None = None,
 ) -> list[dict[str, object]]:
-    source_by_id = {
+    log_by_id = {
         row.get("post_id", ""): row
-        for row in source_rows
+        for row in log_rows
         if row.get("post_id")
     }
+
+    first = max(0, start)
+    if limit is None:
+        selected_sources = source_rows[first:]
+    else:
+        selected_sources = source_rows[first : first + max(0, limit)]
+
     payload: list[dict[str, object]] = []
 
-    for row in updates:
-        post_id = row.get("post_id", "").strip()
+    for source in selected_sources:
+        post_id = source.get("post_id", "").strip()
         if not post_id:
             continue
 
-        source = source_by_id.get(post_id, {})
         thumbnail_url = source.get("thumbnail_url", "").strip()
         if not thumbnail_url.startswith(("https://", "http://")):
             continue
 
+        row = log_by_id.get(post_id, {})
         mirrors: dict[str, str] = {}
         for field, raw_value in row.items():
             if not field.endswith("_file_code"):
@@ -317,7 +328,9 @@ def main() -> None:
 
     thumbnail_payload = build_thumbnail_payload(
         source_rows,
-        shard_rows,
+        merged,
+        start=args.start,
+        limit=args.limit,
     )
     thumbnail_output_path.parent.mkdir(
         parents=True,
