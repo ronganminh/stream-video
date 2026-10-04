@@ -32,7 +32,7 @@ jobs:
   prepare:
     runs-on: ubuntu-latest
     outputs:
-      matrix: \${{ steps.matrix.outputs.matrix }}
+      matrix: ${{ steps.matrix.outputs.matrix }}
     steps:
       - name: Checkout app
         uses: actions/checkout@v4
@@ -41,7 +41,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: ronganminh/stream-video-data
-          token: \${{ secrets.MIGRATION_DATA_PAT }}
+          token: ${{ secrets.MIGRATION_DATA_PAT }}
           path: migration-data
 
       - name: Set up Python
@@ -53,21 +53,21 @@ jobs:
         id: matrix
         shell: bash
         run: |
-          matrix="$(python scripts/video-migration/prepare.py --csv migration-data/videos.csv --start "\${{ inputs.start }}" --limit "\${{ inputs.limit }}" --per-job "\${{ inputs.videos_per_job }}")"
+          matrix="$(python scripts/video-migration/prepare.py --csv migration-data/videos.csv --start "${{ inputs.start }}" --limit "${{ inputs.limit }}" --per-job "${{ inputs.videos_per_job }}")"
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
           echo "$matrix"
 
   seed:
     needs: prepare
-    if: \${{ needs.prepare.outputs.matrix != '{"include":[]}' }}
+    if: ${{ needs.prepare.outputs.matrix != '{"include":[]}' }}
     runs-on: windows-2025
     timeout-minutes: 330
     strategy:
       fail-fast: false
       max-parallel: 15
-      matrix: \${{ fromJson(needs.prepare.outputs.matrix) }}
+      matrix: ${{ fromJson(needs.prepare.outputs.matrix) }}
     env:
-      HOST_EARNVIDS_API_KEY: \${{ secrets.HOST_EARNVIDS_API_KEY }}
+      HOST_EARNVIDS_API_KEY: ${{ secrets.HOST_EARNVIDS_API_KEY }}
     steps:
       - name: Checkout app
         uses: actions/checkout@v4
@@ -76,7 +76,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: ronganminh/stream-video-data
-          token: \${{ secrets.MIGRATION_DATA_PAT }}
+          token: ${{ secrets.MIGRATION_DATA_PAT }}
           path: migration-data
 
       - name: Set up Python
@@ -109,36 +109,36 @@ jobs:
       - name: Download, watermark and seed
         shell: pwsh
         env:
-          GV_FORCE: \${{ inputs.force }}
+          GV_FORCE: ${{ inputs.force }}
         run: >-
           python scripts/video-migration/seed_worker.py
           --csv migration-data/videos.csv
           --log migration-data/migration-log.csv
-          --start "\${{ matrix.start }}"
-          --count "\${{ matrix.count }}"
+          --start "${{ matrix.start }}"
+          --count "${{ matrix.count }}"
           --logo public/brand/logo-mark.svg
           --work-root D:\gv-work
           --output result.csv
           --force "$env:GV_FORCE"
 
       - name: Upload shard result
-        if: \${{ always() }}
+        if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
-          name: migration-result-\${{ matrix.shard }}
+          name: migration-result-${{ matrix.shard }}
           path: result.csv
           if-no-files-found: error
           retention-days: 1
 
   fanout_and_log:
     needs: [prepare, seed]
-    if: \${{ always() && needs.prepare.result == 'success' }}
+    if: ${{ always() && needs.prepare.result == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 330
     env:
-      HOST_DOOD_API_KEY: \${{ secrets.HOST_DOOD_API_KEY }}
-      HOST_VOE_API_KEY: \${{ secrets.HOST_VOE_API_KEY }}
-      HOST_EARNVIDS_API_KEY: \${{ secrets.HOST_EARNVIDS_API_KEY }}
+      HOST_DOOD_API_KEY: ${{ secrets.HOST_DOOD_API_KEY }}
+      HOST_VOE_API_KEY: ${{ secrets.HOST_VOE_API_KEY }}
+      HOST_EARNVIDS_API_KEY: ${{ secrets.HOST_EARNVIDS_API_KEY }}
     steps:
       - name: Checkout app
         uses: actions/checkout@v4
@@ -147,7 +147,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: ronganminh/stream-video-data
-          token: \${{ secrets.MIGRATION_DATA_PAT }}
+          token: ${{ secrets.MIGRATION_DATA_PAT }}
           path: migration-data
 
       - name: Set up Python
@@ -168,7 +168,7 @@ jobs:
 
       - name: Fan out to Dood and VOE, then merge one log
         env:
-          GITHUB_RUN_ID_VALUE: \${{ github.run_id }}
+          GITHUB_RUN_ID_VALUE: ${{ github.run_id }}
         run: >-
           python scripts/video-migration/fanout_and_log.py
           --results migration-results
@@ -188,5 +188,5 @@ jobs:
             echo "No migration log changes."
             exit 0
           fi
-          git commit -m "Update migration log (run \${{ github.run_id }})"
+          git commit -m "Update migration log (run ${{ github.run_id }})"
           git push
