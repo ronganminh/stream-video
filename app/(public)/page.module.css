@@ -49,7 +49,7 @@
 }
 
 .subtleLabel {
-  color: var(--gv-text-muted);
+  color: var(--gv-text-secondary);
   font-family: var(--gv-font-mono);
   font-size: 10px;
   font-weight: 500;
