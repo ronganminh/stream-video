@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-import { getWatch } from "@/lib/data";
+import { db } from "@/lib/db";
 import {
   AGE_GATE_COOKIE_NAME,
   getAgeGateCookieLifetimeDays,
@@ -21,8 +21,22 @@ async function watchStatusResponse(request: NextRequest) {
   const slug = decodeURIComponent(match[1]);
   if (slug === "_gone") return null;
 
-  const result = await getWatch(slug);
-  const status = result?.video.availability;
+  const video = await db.video.findUnique({
+    where: { slug },
+    select: {
+      status: true,
+      isPublished: true,
+      isHidden: true,
+    },
+  });
+
+  if (!video) return null;
+
+  if (!video.isPublished || video.isHidden) {
+    return new NextResponse(null, { status: 404 });
+  }
+
+  const status = video.status;
 
   if (status !== "REMOVED" && status !== "BLOCKED") {
     return null;
