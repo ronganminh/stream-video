@@ -6,10 +6,12 @@ test("admin approve → manual mirror link → change primary host", async ({ pa
   await loginAdmin(page);
 
   await page.goto("/admin/review");
-  const draft = page.locator("article").filter({ hasText: "Draft Seed Video" });
+  const draft = page.locator("article").filter({
+    has: page.locator('input[name="title"][value="Draft Seed Video"]'),
+  });
   await expect(draft).toBeVisible();
   await draft.getByRole("button", { name: "Approve & publish" }).click();
-  await expect(page.locator("article").filter({ hasText: "Draft Seed Video" })).toHaveCount(0);
+  await expect(draft).toHaveCount(0);
 
   await page.goto("/admin/matching");
   const matchCard = page.locator("article").filter({ hasText: "Draft Seed Video.mp4" });
