@@ -187,6 +187,24 @@ async function seedVideos() {
 
   await prisma.video.create({
     data: {
+      id: "video-draft-status-seed",
+      slug: "draft-status-seed-video",
+      title: "Draft Status Seed Video",
+      description: "Seed-only draft HTTP status check.",
+      durationSeconds: 600,
+      quality: "HD",
+      status: "AVAILABLE",
+      isPublished: false,
+      isHidden: false,
+      categoryId: categoryId(0),
+      views: 0,
+      likes: 0,
+      createdAt: FIXED_NOW,
+    },
+  });
+
+  await prisma.video.create({
+    data: {
       id: "video-hidden-seed",
       slug: "hidden-seed-video",
       title: "Hidden Seed Video",
@@ -225,7 +243,7 @@ async function main() {
   await seedVideos();
 
   console.info(
-    `Seeded admin, ${hosts.length} hosts, ${categories.length} categories, ${tags.length} tags, and ${videos.length + 2} videos.`,
+    `Seeded admin, ${hosts.length} hosts, ${categories.length} categories, ${tags.length} tags, and ${videos.length + 3} videos.`,
   );
 }
 
