@@ -10,48 +10,105 @@ const httpUrl = z
   .max(2000)
   .refine((value) => value.startsWith("http://") || value.startsWith("https://"));
 
-const dmcaSchema = z.object({
-  type: z.literal("DMCA"),
-  fullName: z.string().trim().min(1).max(200),
-  email: z.string().trim().email().max(320),
-  role: z.enum(["OWNER", "REPRESENTATIVE"]),
-  work: z.string().trim().min(1).max(4000),
-  urls: z.array(httpUrl).min(1).max(20),
-  declarations: z.object({
-    goodFaith: z.literal(true),
-    authority: z.literal(true),
-  }),
-  signature: z.string().trim().min(1).max(200),
-  date: z.string().trim().min(1).max(80),
-  website: z.string().max(200).optional().default(""),
-});
+const dmcaSchema = z
+  .object({
+    type: z.literal("DMCA"),
+    fullName: z.string().trim().min(1).max(200),
+    email: z.string().trim().email().max(320),
+    role: z.enum(["OWNER", "REPRESENTATIVE"]),
+    work: z.string().trim().min(1).max(4000),
+    urls: z.array(httpUrl).min(1).max(20),
+    declarations: z.object({
+      goodFaith: z.literal(true),
+      authority: z.literal(true),
+    }),
+    signature: z.string().trim().min(1).max(200),
+    date: z.string().trim().min(1).max(80),
+    website: z.string().max(200).optional().default(""),
+  })
+  .strict();
 
-const removalSchema = z.object({
-  type: z.literal("REMOVAL"),
-  reason: z.enum([
-    "APPEAR",
-    "PRIVACY",
-    "NON_CONSENSUAL",
-    "SAFETY",
-    "OTHER",
-  ]),
-  urls: z.array(httpUrl).min(1).max(20),
-  email: z.string().trim().email().max(320),
-  details: z.string().trim().max(4000).optional().default(""),
-  confirmed: z.literal(true),
-  website: z.string().max(200).optional().default(""),
-});
+const removalSchema = z
+  .object({
+    type: z.literal("REMOVAL"),
+    reason: z.enum([
+      "APPEAR",
+      "PRIVACY",
+      "NON_CONSENSUAL",
+      "SAFETY",
+      "OTHER",
+    ]),
+    urls: z.array(httpUrl).min(1).max(20),
+    email: z.string().trim().email().max(320),
+    details: z.string().trim().max(4000).optional().default(""),
+    confirmed: z.literal(true),
+    website: z.string().max(200).optional().default(""),
+  })
+  .strict();
 
 const requestSchema = z.discriminatedUnion("type", [
   dmcaSchema,
   removalSchema,
 ]);
 
+function checked(value: FormDataEntryValue | null) {
+  return value === "on" || value === "true" || value === "1";
+}
+
+function normalizeFormData(form: FormData): unknown {
+  const type = form.get("type");
+
+  if (type === "DMCA") {
+    return {
+      type,
+      fullName: form.get("fullName"),
+      email: form.get("email"),
+      role: form.get("role"),
+      work: form.get("work"),
+      urls: form.getAll("urls"),
+      declarations: {
+        goodFaith: checked(form.get("goodFaith")),
+        authority: checked(form.get("authority")),
+      },
+      signature: form.get("signature"),
+      date: form.get("date"),
+      website: form.get("website") ?? "",
+    };
+  }
+
+  if (type === "REMOVAL") {
+    return {
+      type,
+      reason: form.get("reason"),
+      urls: form.getAll("urls"),
+      email: form.get("email"),
+      details: form.get("details") ?? "",
+      confirmed: checked(form.get("confirmed")),
+      website: form.get("website") ?? "",
+    };
+  }
+
+  return { type };
+}
+
+async function requestInput(request: NextRequest): Promise<unknown> {
+  const contentType = request.headers.get("content-type")?.toLowerCase() ?? "";
+
+  if (
+    contentType.includes("application/x-www-form-urlencoded") ||
+    contentType.includes("multipart/form-data")
+  ) {
+    return normalizeFormData(await request.formData());
+  }
+
+  return request.json();
+}
+
 export async function POST(request: NextRequest) {
   let input: unknown;
 
   try {
-    input = await request.json();
+    input = await requestInput(request);
   } catch {
     return NextResponse.json(
       { error: "Invalid request." },

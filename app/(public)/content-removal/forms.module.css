@@ -1,12 +1,15 @@
 .form {
+  min-width: 0;
   margin-top: 22px;
   display: grid;
   gap: 28px;
 }
 
 .group {
+  min-width: 0;
   display: grid;
   gap: 14px;
+  scroll-margin-top: 104px;
 }
 
 .groupTitle {
@@ -18,8 +21,15 @@
 
 .field,
 .choiceGroup {
+  min-width: 0;
   display: grid;
   gap: 7px;
+}
+
+.choiceGroup {
+  margin: 0;
+  padding: 0;
+  border: 0;
 }
 
 .field > span,
@@ -37,6 +47,8 @@
 .field textarea,
 .field select {
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
   box-sizing: border-box;
   border: 1px solid var(--gv-border-input);
   border-radius: var(--gv-radius-md);
@@ -64,7 +76,8 @@
 }
 
 .field input[aria-invalid="true"],
-.field textarea[aria-invalid="true"] {
+.field textarea[aria-invalid="true"],
+.field select[aria-invalid="true"] {
   border-color: var(--gv-danger);
 }
 
@@ -82,6 +95,7 @@
 }
 
 .errorSummary {
+  min-width: 0;
   padding: 12px 14px;
   border: 1px solid color-mix(in srgb, var(--gv-danger) 45%, transparent);
   border-radius: var(--gv-radius-md);
@@ -102,12 +116,14 @@
 
 .radios,
 .checks {
+  min-width: 0;
   display: grid;
   gap: 8px;
 }
 
 .radio,
 .check {
+  min-width: 0;
   min-height: 46px;
   padding: 10px 12px;
   border: 1px solid var(--gv-border);
@@ -131,13 +147,15 @@
 }
 
 .urlList {
+  min-width: 0;
   display: grid;
   gap: 8px;
 }
 
 .urlRow {
+  min-width: 0;
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 8px;
 }
 
@@ -153,7 +171,8 @@
 }
 
 .removeButton {
-  width: 42px;
+  width: 44px;
+  min-width: 44px;
 }
 
 .addButton {
@@ -162,6 +181,7 @@
 }
 
 .placeholderBlock {
+  min-width: 0;
   min-height: 58px;
   padding: 14px;
   border: 1px solid var(--gv-border);
@@ -175,11 +195,13 @@
 }
 
 .placeholderBlock > span:first-child {
+  flex: none;
   color: var(--gv-violet-300);
   font-size: 18px;
 }
 
 .submitBar {
+  min-width: 0;
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -209,6 +231,7 @@
 }
 
 .success {
+  min-width: 0;
   margin-top: 22px;
   padding: 32px 22px;
   border: 1px solid var(--gv-border);
@@ -239,7 +262,9 @@
 }
 
 .success code {
+  max-width: 100%;
   margin-top: 10px;
+  overflow-wrap: anywhere;
   color: var(--gv-text-muted);
   font: 500 11px var(--gv-font-mono);
 }
@@ -284,6 +309,10 @@
 @media (max-width: 767px) {
   .form {
     padding-bottom: 84px;
+  }
+
+  .group {
+    scroll-margin-top: 132px;
   }
 
   .submitBar {
