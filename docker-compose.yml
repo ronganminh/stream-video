@@ -1,19 +1,103 @@
 services:
   postgres:
     image: postgres:16-alpine
+    restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-gayvideo}
       POSTGRES_USER: ${POSTGRES_USER:-gayvideo}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-gayvideo}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
     ports:
-      - "5432:5432"
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 5s
       timeout: 5s
-      retries: 10
+      retries: 20
+      start_period: 5s
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+      ADMIN_SESSION_SECRET: ${ADMIN_SESSION_SECRET:?ADMIN_SESSION_SECRET is required}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    expose:
+      - "3000"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/robots.txt').then((response)=>process.exit(response.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+      HOST_DOOD_API_KEY: ${HOST_DOOD_API_KEY:-}
+      HOST_VOE_API_KEY: ${HOST_VOE_API_KEY:-}
+      HOST_EARNVIDS_API_KEY: ${HOST_EARNVIDS_API_KEY:-}
+      MEDIA_DIR: /data/media
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - media_data:/data/media
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "const {PrismaClient}=require('@prisma/client');const p=new PrismaClient();p.$$queryRawUnsafe('SELECT 1').then(()=>p.$$disconnect()).then(()=>process.exit(0)).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 15s
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      SITE_DOMAIN: ${SITE_DOMAIN:?SITE_DOMAIN is required}
+    depends_on:
+      web:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - media_data:/srv/media:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    healthcheck:
+      test: ["CMD", "caddy", "validate", "--config", "/etc/caddy/Caddyfile"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
 
 volumes:
   postgres_data:
+  media_data:
+  caddy_data:
+  caddy_config:
