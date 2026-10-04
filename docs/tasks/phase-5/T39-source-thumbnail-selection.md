@@ -29,6 +29,7 @@ T29 merged. This task is a production follow-up requested after the first real-v
 - `lib/sync/thumbnailSources.test.ts`
 - `scripts/apply-migration-thumbnails.ts`
 - `scripts/apply-migration-thumbnails-ssh.sh`
+- `scripts/video-migration/common.py`
 - `scripts/video-migration/fanout_and_log.py`
 - `app/admin/review/actions.ts`
 - `app/admin/review/page.tsx`
@@ -38,6 +39,7 @@ T29 merged. This task is a production follow-up requested after the first real-v
 - Store source-thumbnail URL and selected-thumbnail identity in namespaced `Setting` rows. Do not alter `prisma/schema.prisma`. Re-importing a source URL must never override a host thumbnail that an admin already selected.
 - Download every selected/default image through the existing Sharp WebP media pipeline so public pages do not hotlink the migration source.
 - Migration fanout emits a host-agnostic payload containing `postId`, `sourceThumbnailUrl`, and a map of host registry id to file code. The payload is regenerated from the merged migration log for the requested `start`/`limit` range so a production-apply retry does not require re-uploading completed videos.
+- Rename VOE remote uploads to the migration title after they become ready so host-agnostic normalized-name matching remains stable across all three providers.
 - Production receives that payload only through a dedicated restricted SSH key/forced command. The receiver validates payload size/shape, runs `sync:new`, then applies source thumbnails idempotently.
 - Primary and secondary mirror sync keeps `Mirror.hostThumbnailUrl` current. VOE uses its documented storyboard URL convention because API v1 does not return an image field.
 - Review queue shows only available thumbnail choices and uses server actions; Source remains selectable after choosing a host thumbnail.
