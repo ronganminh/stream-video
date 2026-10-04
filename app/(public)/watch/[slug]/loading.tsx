@@ -4,7 +4,7 @@ import styles from "./page.module.css";
 
 export default function WatchLoading() {
   return (
-    <div className={styles.page} aria-label="Loading video">
+    <div className={styles.page} role="status" aria-label="Loading video">
       <div className={styles.layout}>
         <section>
           <div className={styles.playerSkeleton} data-gv-motion="pulse" />

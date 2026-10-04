@@ -56,7 +56,7 @@
 }
 
 .count {
-  color: var(--gv-text-muted);
+  color: var(--gv-text-secondary);
   font-size: 12px;
   line-height: 16px;
 }

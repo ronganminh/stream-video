@@ -1,5 +1,3 @@
-import Image from "next/image";
-import type { ImageLoaderProps } from "next/image";
 import Link from "next/link";
 
 import { Badge } from "@/components/primitives";
@@ -20,9 +18,6 @@ function joinClasses(...classes: Array<string | false | undefined>) {
   return classes.filter(Boolean).join(" ");
 }
 
-function passthroughLoader({ src }: ImageLoaderProps) {
-  return src;
-}
 
 function formatCount(count: number) {
   return new Intl.NumberFormat("en-US", {
@@ -47,9 +42,8 @@ export function CategoryCard({
         aria-label={category.name}
       >
         {category.thumbnailUrl ? (
-          <Image
-            loader={passthroughLoader}
-            unoptimized
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
             src={category.thumbnailUrl}
             alt=""
             width={640}

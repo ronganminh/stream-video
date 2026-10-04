@@ -9,8 +9,8 @@ import { Icon, TagChip } from "@/components/primitives";
 import { getHome } from "@/lib/data";
 import { getAdHtml } from "@/lib/data/prisma/ads";
 
-import { LoadMore } from "./_home/LoadMore";
-import styles from "./page.module.css";
+import { LoadMore } from "../_home/LoadMore";
+import styles from "../page.module.css";
 
 export const metadata: Metadata = {
   title: "GayVideo.fun",

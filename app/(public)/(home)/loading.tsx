@@ -1,10 +1,10 @@
 import { Skeleton } from "@/components/feedback/Skeleton";
 
-import styles from "./page.module.css";
+import styles from "../page.module.css";
 
 export default function HomeLoading() {
   return (
-    <div className={styles.page} aria-label="Loading home">
+    <div className={styles.page} role="status" aria-label="Loading home">
       <section className={styles.trendingSection}>
         <div className={styles.loadingHeading} aria-hidden="true" />
         <div className={styles.trendingRail}>

@@ -1,4 +1,5 @@
 import { PrismaClient } from "@prisma/client";
+import bcrypt from "bcrypt";
 
 import { categories } from "../lib/fixtures/categories";
 import { tags } from "../lib/fixtures/tags";
@@ -36,6 +37,8 @@ function dayAtOffset(daysAgo: number): Date {
 
 async function reset() {
   await prisma.adminAction.deleteMany();
+  await prisma.adminUser.deleteMany();
+  await prisma.removalRequest.deleteMany();
   await prisma.report.deleteMany();
   await prisma.videoDailyStat.deleteMany();
   await prisma.videoTag.deleteMany();
@@ -45,6 +48,16 @@ async function reset() {
   await prisma.category.deleteMany();
   await prisma.tag.deleteMany();
   await prisma.host.deleteMany();
+}
+
+async function seedAdmin() {
+  await prisma.adminUser.create({
+    data: {
+      id: "admin-e2e",
+      email: "admin@gayvideo.test",
+      passwordHash: await bcrypt.hash("e2e-admin-password", 10),
+    },
+  });
 }
 
 async function seedHosts() {
@@ -174,6 +187,24 @@ async function seedVideos() {
 
   await prisma.video.create({
     data: {
+      id: "video-draft-status-seed",
+      slug: "draft-status-seed-video",
+      title: "Draft Status Seed Video",
+      description: "Seed-only draft HTTP status check.",
+      durationSeconds: 600,
+      quality: "HD",
+      status: "AVAILABLE",
+      isPublished: false,
+      isHidden: false,
+      categoryId: categoryId(0),
+      views: 0,
+      likes: 0,
+      createdAt: FIXED_NOW,
+    },
+  });
+
+  await prisma.video.create({
+    data: {
       id: "video-hidden-seed",
       slug: "hidden-seed-video",
       title: "Hidden Seed Video",
@@ -190,16 +221,29 @@ async function seedVideos() {
       createdAt: FIXED_NOW,
     },
   });
+
+  await prisma.hostFile.create({
+    data: {
+      id: "host-file-e2e-manual",
+      hostId: "voe",
+      fileCode: "e2e-draft-seed-voe",
+      rawTitle: "Draft Seed Video.mp4",
+      normalizedName: "draft seed video",
+      firstSeenAt: FIXED_NOW,
+      ignored: false,
+    },
+  });
 }
 
 async function main() {
   await reset();
+  await seedAdmin();
   await seedHosts();
   await seedTaxonomy();
   await seedVideos();
 
   console.info(
-    `Seeded ${hosts.length} hosts, ${categories.length} categories, ${tags.length} tags, and ${videos.length + 2} videos.`,
+    `Seeded admin, ${hosts.length} hosts, ${categories.length} categories, ${tags.length} tags, and ${videos.length + 3} videos.`,
   );
 }
 
