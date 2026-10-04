@@ -33,7 +33,26 @@ async function watchStatusResponse(request: NextRequest) {
   destination.search = "";
   destination.searchParams.set("slug", slug);
 
-  return NextResponse.rewrite(destination, { status: 410 });
+  const headers = new Headers();
+  const cookie = request.headers.get("cookie");
+  if (cookie) headers.set("cookie", cookie);
+
+  const rendered = await fetch(destination, {
+    method: "GET",
+    headers,
+  });
+  const contentType =
+    rendered.headers.get("content-type") ?? "text/html; charset=utf-8";
+  const body = request.method === "HEAD" ? null : await rendered.text();
+
+  return new NextResponse(body, {
+    status: 410,
+    headers: {
+      "content-type": contentType,
+      "cache-control":
+        rendered.headers.get("cache-control") ?? "private, no-cache",
+    },
+  });
 }
 
 export async function middleware(request: NextRequest) {
