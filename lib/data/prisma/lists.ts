@@ -58,7 +58,7 @@ function publicationStart(dateFilter?: string): Date | null {
   return null;
 }
 
-function queryWhere(query: ListQuery): Prisma.VideoWhereInput {
+export function queryWhere(query: ListQuery): Prisma.VideoWhereInput {
   const filters: Prisma.VideoWhereInput[] = [];
 
   if (query.category) {
@@ -66,6 +66,20 @@ function queryWhere(query: ListQuery): Prisma.VideoWhereInput {
       category: {
         is: {
           slug: query.category,
+        },
+      },
+    });
+  }
+
+  if (query.tag) {
+    filters.push({
+      videoTags: {
+        some: {
+          tag: {
+            is: {
+              slug: query.tag,
+            },
+          },
         },
       },
     });

@@ -30,6 +30,7 @@ function parseQuery(searchParams: URLSearchParams): ListQuery {
     duration: searchParams.get("duration") || undefined,
     date: searchParams.get("date") || undefined,
     category: searchParams.get("category") || undefined,
+    tag: searchParams.get("tag") || undefined,
     page: parsePositiveInt(searchParams.get("page")),
   };
 }
