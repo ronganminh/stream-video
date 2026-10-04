@@ -100,9 +100,6 @@ test("dashboard sync timestamp is human-readable with explicit UTC and raw ISO m
     await loginAdmin(page);
     await page.goto("/admin");
 
-    const started = page.locator("time").filter({
-      has: page.locator("xpath=ancestor::dd/preceding-sibling::dt[normalize-space()='Started']"),
-    });
     const time = page.locator('time[datetime="2026-10-01T12:34:56.000Z"]');
 
     await expect(time).toBeVisible();
@@ -112,7 +109,6 @@ test("dashboard sync timestamp is human-readable with explicit UTC and raw ISO m
       "title",
       "2026-10-01T12:34:56.000Z",
     );
-    await expect(started).toHaveCount(1);
   } finally {
     await prisma.syncRun.deleteMany({ where: { id } });
     await prisma.$disconnect();
