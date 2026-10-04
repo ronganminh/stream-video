@@ -29,6 +29,12 @@ function stringValue(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value : null;
 }
 
+export function shouldSelectSourceByDefault(
+  selected: string | null,
+): boolean {
+  return selected === null || selected === "source";
+}
+
 export async function loadThumbnailPreferences(
   videoIds: string[],
 ): Promise<Map<string, ThumbnailPreference>> {
@@ -85,8 +91,33 @@ export async function loadThumbnailPreferences(
 export async function applySourceThumbnail(
   videoId: string,
   sourceUrl: string,
-): Promise<string> {
+): Promise<string | null> {
   const normalizedUrl = normalizeRemoteThumbnailUrl(sourceUrl);
+  const selectedSetting = await prisma.setting.findUnique({
+    where: { key: selectedThumbnailSettingKey(videoId) },
+    select: { value: true },
+  });
+  const selected = stringValue(selectedSetting?.value);
+
+  if (!shouldSelectSourceByDefault(selected)) {
+    await prisma.setting.upsert({
+      where: { key: sourceThumbnailSettingKey(videoId) },
+      create: {
+        key: sourceThumbnailSettingKey(videoId),
+        value: normalizedUrl,
+      },
+      update: {
+        value: normalizedUrl,
+      },
+    });
+
+    const video = await prisma.video.findUnique({
+      where: { id: videoId },
+      select: { thumbnailPath: true },
+    });
+    return video?.thumbnailPath ?? null;
+  }
+
   const thumbnailPath = await storeThumbnail({
     url: normalizedUrl,
     videoId,
