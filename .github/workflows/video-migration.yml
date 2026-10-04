@@ -175,7 +175,42 @@ jobs:
           --source migration-data/videos.csv
           --existing migration-data/migration-log.csv
           --output migration-data/migration-log.csv
+          --thumbnail-output migration-thumbnail-payload.json
           --run-id "$GITHUB_RUN_ID_VALUE"
+
+      - name: Apply source thumbnails in production
+        shell: bash
+        env:
+          PROD_HOST: ${{ secrets.PROD_HOST }}
+          PROD_USER: ${{ secrets.PROD_USER }}
+          PROD_KNOWN_HOSTS: ${{ secrets.PROD_KNOWN_HOSTS }}
+          PROD_MIGRATION_SSH_KEY: ${{ secrets.PROD_MIGRATION_SSH_KEY }}
+        run: |
+          count="$(python -c 'import json; print(len(json.load(open("migration-thumbnail-payload.json", encoding="utf-8"))))')"
+          if [ "$count" -eq 0 ]; then
+            echo "No source thumbnails to apply."
+            exit 0
+          fi
+
+          : "${PROD_HOST:?PROD_HOST is required}"
+          : "${PROD_USER:?PROD_USER is required}"
+          : "${PROD_KNOWN_HOSTS:?PROD_KNOWN_HOSTS is required}"
+          : "${PROD_MIGRATION_SSH_KEY:?PROD_MIGRATION_SSH_KEY is required}"
+
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$PROD_MIGRATION_SSH_KEY" > "$HOME/.ssh/migration_key"
+          printf '%s\n' "$PROD_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/migration_key" "$HOME/.ssh/known_hosts"
+
+          ssh \
+            -i "$HOME/.ssh/migration_key" \
+            -o BatchMode=yes \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            "$PROD_USER@$PROD_HOST" \
+            < migration-thumbnail-payload.json
+
+          rm -f "$HOME/.ssh/migration_key"
 
       - name: Commit the single migration log
         shell: bash
