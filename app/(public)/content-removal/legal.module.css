@@ -110,6 +110,11 @@
   display: none;
 }
 
+.mobileTocLabel,
+.mobileTocLinks {
+  min-width: 0;
+}
+
 .section {
   padding-top: 42px;
   scroll-margin-top: 96px;
@@ -182,26 +187,51 @@
 
   .mobileToc {
     position: sticky;
-    top: 0;
+    top: 52px;
     z-index: 8;
+    min-width: 0;
     margin: 18px -16px 0;
-    padding: 10px 16px;
+    padding: 8px 16px 10px;
+    border-block: 1px solid var(--gv-border);
+    display: grid;
+    gap: 7px;
+    background: color-mix(in srgb, var(--gv-bg) 94%, transparent);
+    backdrop-filter: blur(14px);
+  }
+
+  .mobileTocLabel {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--gv-text-muted);
+    font: 600 10px var(--gv-font-mono);
+    letter-spacing: .1em;
+    text-transform: uppercase;
+  }
+
+  .mobileTocLabel > span {
+    font-size: 16px;
+  }
+
+  .mobileTocLinks {
     display: flex;
     gap: 8px;
     overflow-x: auto;
-    background: color-mix(in srgb, var(--gv-bg) 94%, transparent);
-    border-block: 1px solid var(--gv-border);
-    backdrop-filter: blur(14px);
-    scrollbar-width: none;
+    overscroll-behavior-inline: contain;
+    padding: 1px 20px 2px 1px;
+    scroll-padding-inline: 1px 20px;
+    scrollbar-width: thin;
   }
 
-  .mobileToc::-webkit-scrollbar {
-    display: none;
+  .mobileTocLinks::after {
+    content: "";
+    width: 12px;
+    flex: none;
   }
 
   .mobileToc a {
     flex: none;
-    min-height: 34px;
+    min-height: 38px;
     padding: 0 11px;
     border-radius: var(--gv-radius-pill);
     display: inline-flex;
@@ -213,9 +243,13 @@
     text-decoration: none;
   }
 
+  .section,
+  .group {
+    scroll-margin-top: 126px;
+  }
+
   .section {
     padding-top: 30px;
-    scroll-margin-top: 64px;
   }
 
   .legalPlaceholder {
