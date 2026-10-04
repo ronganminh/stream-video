@@ -1,7 +1,5 @@
 "use client";
 
-import Image from "next/image";
-import type { ImageLoaderProps } from "next/image";
 import { useEffect, useId, useRef, useState } from "react";
 import type { ReactNode } from "react";
 
@@ -30,9 +28,6 @@ function joinClasses(...classes: Array<string | false | undefined>) {
   return classes.filter(Boolean).join(" ");
 }
 
-function passthroughLoader({ src }: ImageLoaderProps) {
-  return src;
-}
 
 export function Thumbnail({
   src,
@@ -134,9 +129,8 @@ export function Thumbnail({
       onPointerLeave={onPointerLeave}
     >
       {!showFallback && src ? (
-        <Image
-          loader={passthroughLoader}
-          unoptimized
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
           src={src}
           alt={alt}
           width={width}
