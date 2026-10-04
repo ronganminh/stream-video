@@ -6,6 +6,7 @@ import { z } from "zod";
 import { writeAdminAudit } from "@/lib/auth/audit";
 import { requireAdmin } from "@/lib/auth/session";
 import { db } from "@/lib/db";
+import { applyThumbnailSelection } from "@/lib/sync/thumbnailSources";
 
 const optionalId = z.preprocess(
   (value) => (typeof value === "string" && value.trim() ? value : null),
@@ -114,6 +115,32 @@ export async function saveReviewAction(formData: FormData) {
 
   revalidatePath("/admin/review");
   revalidatePath(`/admin/videos/${data.id}`);
+}
+
+export async function selectReviewThumbnailAction(
+  formData: FormData,
+) {
+  const admin = await requireAdmin();
+  const parsed = z
+    .object({
+      id: z.string().min(1),
+      selection: z.string().trim().min(1).max(120),
+    })
+    .parse({
+      id: formData.get("id"),
+      selection: formData.get("selection"),
+    });
+
+  await applyThumbnailSelection(parsed.id, parsed.selection);
+  await writeAdminAudit(
+    admin.id,
+    "VIDEO_THUMBNAIL_SELECT",
+    `${parsed.id}:${parsed.selection}`,
+  );
+
+  revalidatePath("/admin/review");
+  revalidatePath("/admin/videos");
+  revalidatePath(`/admin/videos/${parsed.id}`);
 }
 
 export async function rejectReviewAction(formData: FormData) {
