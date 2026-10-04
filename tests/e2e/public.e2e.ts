@@ -50,7 +50,7 @@ test("desktop journey: age gate → search → watch → related → category �
   await categoryLink.click();
   await expect(page).toHaveURL(/\/category\//);
 
-  await page.getByLabel("Duration").selectOption("under-5");
+  await page.getByLabel("Duration", { exact: true }).selectOption("under-5");
   await expect(page).toHaveURL(/duration=under-5/);
 
   await page
