@@ -70,11 +70,17 @@ export function LegalShell({
           {introPlaceholder ? <LegalPlaceholder /> : null}
 
           <nav className={styles.mobileToc} aria-label="On this page">
-            {sections.map((section) => (
-              <a key={section.id} href={"#" + section.id}>
-                {section.title}
-              </a>
-            ))}
+            <span className={styles.mobileTocLabel} aria-hidden="true">
+              <Icon name="swipe" />
+              Sections
+            </span>
+            <div className={styles.mobileTocLinks}>
+              {sections.map((section) => (
+                <a key={section.id} href={"#" + section.id}>
+                  {section.title}
+                </a>
+              ))}
+            </div>
           </nav>
 
           {children ??
