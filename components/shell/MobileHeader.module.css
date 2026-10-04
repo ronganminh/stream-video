@@ -1,26 +1,152 @@
-.header { display: none; }
+.header {
+  display: none;
+}
 
 @media (max-width: 767px) {
-  .header { position: sticky; top: 0; z-index: 40; display: block; height: 52px; border-bottom: 1px solid var(--gv-border); background: color-mix(in srgb, var(--gv-bg) 94%, transparent); backdrop-filter: blur(16px); }
-  .inner { height: 52px; padding: 0 8px 0 var(--gv-gutter); display: flex; align-items: center; gap: 4px; box-sizing: border-box; }
-  .logoLink, .menuLink { text-decoration: none; }
-  .logoLink { min-width: 0; border-radius: var(--gv-radius-sm); color: var(--gv-text); }
-  .brand { min-width: 0; display: flex; align-items: center; gap: 6px; }
-  .mark { display: block; flex: none; }
-  .wordmark { min-width: 0; overflow: hidden; color: var(--gv-text); font-size: 17px; font-weight: 700; letter-spacing: -0.03em; text-overflow: ellipsis; white-space: nowrap; }
-  .wordmark span { color: var(--gv-magenta); }
-  .actions { margin-left: auto; display: flex; align-items: center; flex: none; }
-  .menu { position: relative; }
-  .iconButton { width: 44px; height: 44px; padding: 0; border: 0; border-radius: var(--gv-radius-sm); display: flex; align-items: center; justify-content: center; background: transparent; color: var(--gv-text); cursor: pointer; list-style: none; }
-  .iconButton::-webkit-details-marker { display: none; }
-  .icon { font-size: 24px; }
-  .menuPanel { position: absolute; top: calc(100% + 4px); right: 0; width: min(260px, calc(100vw - 24px)); padding: 8px; border: 1px solid var(--gv-border); border-radius: var(--gv-radius-md); display: flex; flex-direction: column; gap: 2px; background: var(--gv-surface-1); box-shadow: 0 20px 50px color-mix(in srgb, var(--gv-bg) 60%, transparent); }
-  .menuLink { min-height: 42px; padding-inline: 12px; border-radius: calc(var(--gv-radius-sm) - 1px); display: flex; align-items: center; color: var(--gv-text-secondary); font-size: 14px; font-weight: 500; }
-  .menuLink:hover { background: var(--gv-surface-hover); color: var(--gv-text); }
-  .logoLink:focus-visible, .iconButton:focus-visible, .menuLink:focus-visible { outline: none; box-shadow: var(--gv-focus); }
+  .header {
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    display: block;
+    height: 52px;
+    border-bottom: 1px solid var(--gv-border);
+    background: color-mix(in srgb, var(--gv-bg) 94%, transparent);
+    backdrop-filter: blur(16px);
+  }
+
+  .inner {
+    height: 52px;
+    padding: 0 8px 0 var(--gv-gutter);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    box-sizing: border-box;
+  }
+
+  .logoLink,
+  .menuLink {
+    text-decoration: none;
+  }
+
+  .logoLink {
+    min-width: 0;
+    border-radius: var(--gv-radius-sm);
+    color: var(--gv-text);
+  }
+
+  .brand {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .mark {
+    display: block;
+    flex: none;
+  }
+
+  .wordmark {
+    min-width: 0;
+    overflow: hidden;
+    color: var(--gv-text);
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .wordmark span {
+    color: var(--gv-magenta);
+  }
+
+  .actions {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    flex: none;
+  }
+
+  .menu {
+    position: relative;
+  }
+
+  .iconButton {
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border: 0;
+    border-radius: var(--gv-radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    color: var(--gv-text);
+    cursor: pointer;
+  }
+
+  .menu[data-open="true"] .iconButton {
+    background: var(--gv-surface-2);
+  }
+
+  .icon {
+    font-size: 24px;
+  }
+
+  .menuPanel {
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    width: min(260px, calc(100vw - 24px));
+    max-height: calc(100vh - 64px);
+    padding: 8px;
+    border: 1px solid var(--gv-border);
+    border-radius: var(--gv-radius-md);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    overflow-y: auto;
+    background: var(--gv-surface-1);
+    box-shadow: 0 20px 50px color-mix(in srgb, var(--gv-bg) 60%, transparent);
+  }
+
+  .menuLink {
+    min-height: 42px;
+    padding-inline: 12px;
+    border-radius: calc(var(--gv-radius-sm) - 1px);
+    display: flex;
+    align-items: center;
+    color: var(--gv-text-secondary);
+    font-size: 14px;
+    font-weight: 500;
+  }
+
+  .menuLink:hover,
+  .menuLink[data-active="true"] {
+    background: var(--gv-surface-hover);
+    color: var(--gv-text);
+  }
+
+  .menuLink[data-active="true"] {
+    font-weight: 600;
+  }
+
+  .logoLink:focus-visible,
+  .iconButton:focus-visible,
+  .menuLink:focus-visible {
+    outline: none;
+    box-shadow: var(--gv-focus);
+  }
 }
 
 @media (max-width: 339px) {
-  .inner { padding-left: var(--gv-gutter); padding-right: 0; }
-  .wordmark { font-size: 15px; }
+  .inner {
+    padding-left: var(--gv-gutter);
+    padding-right: 0;
+  }
+
+  .wordmark {
+    font-size: 15px;
+  }
 }
