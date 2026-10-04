@@ -3,8 +3,10 @@ from __future__ import annotations
 import argparse
 import csv
 import os
+import re
 import shutil
 import time
+from urllib.parse import parse_qs, urlparse
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -47,6 +49,16 @@ def load_existing(path: Path) -> dict[str, dict[str, str]]:
         }
 
 
+def drive_file_id(url: str) -> str | None:
+    match = re.search(r"/file/d/([^/?#]+)", url)
+    if match:
+        return match.group(1)
+
+    parsed = urlparse(url)
+    values = parse_qs(parsed.query).get("id")
+    return values[0] if values else None
+
+
 def download_sources(urls: list[str], target: Path) -> list[str]:
     errors: list[str] = []
     for index, url in enumerate(urls):
@@ -62,14 +74,18 @@ def download_sources(urls: list[str], target: Path) -> list[str]:
                 if not result:
                     errors.append("folder download returned no files")
             else:
+                file_id = drive_file_id(url)
+                if not file_id:
+                    errors.append("unsupported Google Drive file URL")
+                    continue
+
                 old_cwd = Path.cwd()
                 try:
                     os.chdir(destination)
                     result = gdown.download(
-                        url=url,
+                        id=file_id,
                         output=None,
                         quiet=True,
-                        fuzzy=True,
                     )
                 finally:
                     os.chdir(old_cwd)
