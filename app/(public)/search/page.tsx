@@ -85,7 +85,42 @@ function queryHref(
     if (value) params.set(key, value);
   }
 
-  return `/search?${params.toString()}`;
+  const query = params.toString();
+  return query ? `/search?${query}` : "/search";
+}
+
+function SearchForm({
+  id,
+  query,
+  clearHref,
+}: {
+  id: string;
+  query: string;
+  clearHref: string;
+}) {
+  return (
+    <form className={styles.searchField} method="get" action="/search">
+      <Icon name="search" className={styles.searchIcon} />
+      <label className={styles.srOnly} htmlFor={id}>
+        Search
+      </label>
+      <input
+        id={id}
+        name="q"
+        defaultValue={query}
+        placeholder="Search videos, categories or tags"
+        autoComplete="off"
+      />
+      {query ? (
+        <Link className={styles.clearSearch} href={clearHref} aria-label="Clear search">
+          <Icon name="close" />
+        </Link>
+      ) : null}
+      <button type="submit" aria-label="Submit search">
+        <Icon name="arrow_forward" />
+      </button>
+    </form>
+  );
 }
 
 export default async function SearchPage({
@@ -124,6 +159,12 @@ export default async function SearchPage({
     query.date,
     query.category,
   ].filter(Boolean).length;
+  const clearSearchHref = queryHref("", {
+    duration: query.duration,
+    date: query.date,
+    category: query.category,
+    sort: query.sort,
+  });
 
   const categoryOptions = categories.map((category) => ({
     value: category.slug,
@@ -140,25 +181,15 @@ export default async function SearchPage({
     return (
       <main className={styles.page}>
         <header className={styles.searchHeader}>
-          <form className={styles.searchField} method="get" action="/search">
-            <Icon name="search" className={styles.searchIcon} />
-            <label className={styles.srOnly} htmlFor="search-empty-query">
-              Search
-            </label>
-            <input
-              id="search-empty-query"
-              name="q"
-              defaultValue={query.q}
-              placeholder="Search videos, categories or tags"
-              autoComplete="off"
-            />
-            <button type="submit" aria-label="Submit search">
-              <Icon name="arrow_forward" />
-            </button>
-          </form>
+          <SearchForm
+            id="search-empty-query"
+            query={query.q}
+            clearHref={clearSearchHref}
+          />
         </header>
 
         <EmptyState
+          className={styles.emptyState}
           icon="search_off"
           title={
             query.q
@@ -241,22 +272,11 @@ export default async function SearchPage({
   return (
     <main className={styles.page}>
       <header className={styles.searchHeader}>
-        <form className={styles.searchField} method="get" action="/search">
-          <Icon name="search" className={styles.searchIcon} />
-          <label className={styles.srOnly} htmlFor="search-query">
-            Search
-          </label>
-          <input
-            id="search-query"
-            name="q"
-            defaultValue={query.q}
-            placeholder="Search videos, categories or tags"
-            autoComplete="off"
-          />
-          <button type="submit" aria-label="Submit search">
-            <Icon name="arrow_forward" />
-          </button>
-        </form>
+        <SearchForm
+          id="search-query"
+          query={query.q}
+          clearHref={clearSearchHref}
+        />
       </header>
 
       <nav className={styles.breadcrumbs} aria-label="Breadcrumb">
@@ -266,7 +286,7 @@ export default async function SearchPage({
         {query.q ? (
           <>
             <span aria-hidden="true">›</span>
-            <span>{query.q}</span>
+            <span className={styles.queryText}>{query.q}</span>
           </>
         ) : null}
       </nav>
@@ -275,7 +295,7 @@ export default async function SearchPage({
         <div>
           <h1>
             {query.q ? (
-              <>Results for “{query.q}”</>
+              <>Results for “<span className={styles.queryText}>{query.q}</span>”</>
             ) : (
               "Search results"
             )}
