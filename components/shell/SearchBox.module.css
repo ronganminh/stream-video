@@ -11,12 +11,12 @@
   position: relative;
   z-index: 55;
   height: 44px;
-  padding: 0 8px 0 14px;
+  padding: 0 4px 0 14px;
   border: 1px solid var(--gv-border-input);
   border-radius: var(--gv-radius-md);
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
   box-sizing: border-box;
   background: var(--gv-surface-1);
   color: var(--gv-text-secondary);
@@ -57,6 +57,7 @@
   background: transparent;
   color: var(--gv-text);
   font: 400 14px var(--gv-font);
+  text-overflow: ellipsis;
 }
 
 .input::placeholder {
@@ -69,8 +70,8 @@
 }
 
 .clearButton {
-  width: 30px;
-  height: 30px;
+  width: 44px;
+  height: 44px;
   padding: 0;
   border: 0;
   border-radius: var(--gv-radius-sm);
@@ -115,14 +116,27 @@
 }
 
 @media (max-width: 1279px) {
-  .root { max-width: none; }
+  .root {
+    max-width: none;
+  }
+
+  .shortcut {
+    display: none;
+  }
 }
 
 @media (max-width: 767px) {
-  .root { display: none; }
+  .root {
+    display: none;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .form { transition: none; }
-  .loadingIcon { animation: none; }
+  .form {
+    transition: none;
+  }
+
+  .loadingIcon {
+    animation: none;
+  }
 }
