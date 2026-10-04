@@ -15,7 +15,7 @@ export default defineConfig({
     ? [["line"], ["html", { outputFolder: "playwright-report", open: "never" }]]
     : "list",
   use: {
-    baseURL: "http://127.0.0.1:3000",
+    baseURL: "http://localhost:3000",
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
     video: "off",
@@ -29,8 +29,8 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "npm run start -- --hostname 127.0.0.1 --port 3000",
-    url: "http://127.0.0.1:3000",
+    command: "npm run start -- --hostname localhost --port 3000",
+    url: "http://localhost:3000",
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
     env: {
