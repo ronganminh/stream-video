@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 
 import { Icon } from "@/components/primitives";
 
@@ -32,13 +32,16 @@ const reasons = [
 
 export function RemovalRequestForm({ initialVideoUrl }: Props) {
   const [reason, setReason] = useState("");
-  const [urls, setUrls] = useState([initialVideoUrl].filter(Boolean).length ? [initialVideoUrl] : [""]);
+  const [urls, setUrls] = useState(
+    [initialVideoUrl].filter(Boolean).length ? [initialVideoUrl] : [""],
+  );
   const [email, setEmail] = useState("");
   const [details, setDetails] = useState("");
   const [confirmed, setConfirmed] = useState(false);
   const [website, setWebsite] = useState("");
   const [errors, setErrors] = useState<Errors>({});
   const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
   const [networkError, setNetworkError] = useState("");
   const [reference, setReference] = useState("");
 
@@ -58,9 +61,12 @@ export function RemovalRequestForm({ initialVideoUrl }: Props) {
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (submittingRef.current) return;
+
     const next = validate();
     if (Object.keys(next).length) return;
 
+    submittingRef.current = true;
     setSubmitting(true);
     setNetworkError("");
 
@@ -85,23 +91,24 @@ export function RemovalRequestForm({ initialVideoUrl }: Props) {
         error?: string;
       };
 
-      if (!response.ok) {
+      if (!response.ok || !payload.reference) {
         throw new Error(payload.error || "Couldn’t submit this request.");
       }
 
-      setReference(payload.reference || "");
+      setReference(payload.reference);
     } catch (error) {
       setNetworkError(
         error instanceof Error ? error.message : "Couldn’t submit this request.",
       );
     } finally {
+      submittingRef.current = false;
       setSubmitting(false);
     }
   };
 
   if (reference) {
     return (
-      <div className={styles.success}>
+      <div className={styles.success} role="status">
         <span className={styles.successIcon} aria-hidden="true">
           <Icon name="check" />
         </span>
@@ -121,7 +128,14 @@ export function RemovalRequestForm({ initialVideoUrl }: Props) {
   const summary = Object.values(errors);
 
   return (
-    <form className={styles.form} onSubmit={submit} noValidate>
+    <form
+      className={styles.form}
+      method="post"
+      action="/api/requests"
+      onSubmit={submit}
+    >
+      <input type="hidden" name="type" value="REMOVAL" />
+
       <section id="request" className={styles.group}>
         <h2 className={styles.groupTitle}>REQUEST</h2>
         <fieldset className={styles.choiceGroup}>
@@ -138,6 +152,7 @@ export function RemovalRequestForm({ initialVideoUrl }: Props) {
                   checked={reason === value}
                   onChange={() => setReason(value)}
                   disabled={submitting}
+                  required
                 />
                 <span>
                   {label}
@@ -146,7 +161,12 @@ export function RemovalRequestForm({ initialVideoUrl }: Props) {
               </label>
             ))}
           </div>
-          {errors.reason ? <p className={styles.error}><Icon name="error" />{errors.reason}</p> : null}
+          {errors.reason ? (
+            <p className={styles.error}>
+              <Icon name="error" />
+              {errors.reason}
+            </p>
+          ) : null}
         </fieldset>
 
         <div className={styles.field}>
@@ -158,6 +178,10 @@ export function RemovalRequestForm({ initialVideoUrl }: Props) {
               <div className={styles.urlRow} key={index}>
                 <input
                   type="url"
+                  name="urls"
+                  autoComplete="off"
+                  maxLength={2000}
+                  required
                   value={url}
                   onChange={(event) =>
                     setUrls((current) =>
@@ -167,6 +191,7 @@ export function RemovalRequestForm({ initialVideoUrl }: Props) {
                     )
                   }
                   onBlur={validate}
+                  aria-label={`Video URL ${index + 1}`}
                   aria-invalid={Boolean(errors.urls)}
                   disabled={submitting}
                 />
@@ -175,10 +200,12 @@ export function RemovalRequestForm({ initialVideoUrl }: Props) {
                     type="button"
                     className={styles.removeButton}
                     onClick={() =>
-                      setUrls((current) => current.filter((_, itemIndex) => itemIndex !== index))
+                      setUrls((current) =>
+                        current.filter((_, itemIndex) => itemIndex !== index),
+                      )
                     }
                     disabled={submitting}
-                    aria-label="Remove URL"
+                    aria-label={`Remove video URL ${index + 1}`}
                   >
                     <Icon name="close" />
                   </button>
@@ -190,11 +217,16 @@ export function RemovalRequestForm({ initialVideoUrl }: Props) {
             type="button"
             className={styles.addButton}
             onClick={() => setUrls((current) => [...current, ""])}
-            disabled={submitting}
+            disabled={submitting || urls.length >= 20}
           >
             Add another URL
           </button>
-          {errors.urls ? <p className={styles.error}><Icon name="error" />{errors.urls}</p> : null}
+          {errors.urls ? (
+            <p className={styles.error}>
+              <Icon name="error" />
+              {errors.urls}
+            </p>
+          ) : null}
         </div>
       </section>
 
@@ -214,13 +246,22 @@ export function RemovalRequestForm({ initialVideoUrl }: Props) {
           </span>
           <input
             type="email"
+            name="email"
+            autoComplete="email"
+            maxLength={320}
+            required
             value={email}
             onChange={(event) => setEmail(event.currentTarget.value)}
             onBlur={validate}
             aria-invalid={Boolean(errors.email)}
             disabled={submitting}
           />
-          {errors.email ? <p className={styles.error}><Icon name="error" />{errors.email}</p> : null}
+          {errors.email ? (
+            <p className={styles.error}>
+              <Icon name="error" />
+              {errors.email}
+            </p>
+          ) : null}
         </label>
 
         <label className={styles.field}>
@@ -228,6 +269,7 @@ export function RemovalRequestForm({ initialVideoUrl }: Props) {
             Details <small>· optional</small>
           </span>
           <textarea
+            name="details"
             value={details}
             onChange={(event) => setDetails(event.currentTarget.value)}
             placeholder="What should we know?"
@@ -239,18 +281,27 @@ export function RemovalRequestForm({ initialVideoUrl }: Props) {
         <label className={styles.check}>
           <input
             type="checkbox"
+            name="confirmed"
+            value="true"
+            required
             checked={confirmed}
             onChange={(event) => setConfirmed(event.currentTarget.checked)}
             disabled={submitting}
           />
           <span>LEGAL COPY — FINAL TEXT REQUIRED</span>
         </label>
-        {errors.confirmed ? <p className={styles.error}><Icon name="error" />{errors.confirmed}</p> : null}
+        {errors.confirmed ? (
+          <p className={styles.error}>
+            <Icon name="error" />
+            {errors.confirmed}
+          </p>
+        ) : null}
       </section>
 
       <label className={styles.honeypot} aria-hidden="true">
         Website
         <input
+          name="website"
           tabIndex={-1}
           autoComplete="off"
           value={website}
@@ -260,14 +311,22 @@ export function RemovalRequestForm({ initialVideoUrl }: Props) {
 
       {summary.length ? (
         <div className={styles.errorSummary} role="alert" tabIndex={-1}>
-          <strong>{summary.length} field{summary.length === 1 ? "" : "s"} need attention</strong>
+          <strong>
+            {summary.length} field{summary.length === 1 ? "" : "s"} need attention
+          </strong>
           <ul>
-            {summary.map((message) => <li key={message}>{message}</li>)}
+            {summary.map((message) => (
+              <li key={message}>{message}</li>
+            ))}
           </ul>
         </div>
       ) : null}
 
-      {networkError ? <p className={styles.networkError} role="alert">{networkError}</p> : null}
+      {networkError ? (
+        <p className={styles.networkError} role="alert">
+          {networkError}
+        </p>
+      ) : null}
 
       <div className={styles.submitBar}>
         <button className={styles.submitButton} type="submit" disabled={submitting}>
