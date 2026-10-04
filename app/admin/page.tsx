@@ -31,6 +31,19 @@ async function requestSyncAction(formData: FormData) {
   revalidatePath("/admin");
 }
 
+function formatAdminTimestamp(value: Date) {
+  return new Intl.DateTimeFormat("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit",
+    timeZone: "UTC",
+    timeZoneName: "short",
+  }).format(value);
+}
+
 export default async function AdminDashboardPage() {
   await requireAdmin();
 
@@ -139,7 +152,17 @@ export default async function AdminDashboardPage() {
           </div>
           {lastSync ? (
             <dl className={styles.syncMeta}>
-              <div><dt>Started</dt><dd>{lastSync.startedAt.toISOString()}</dd></div>
+              <div>
+                <dt>Started</dt>
+                <dd>
+                  <time
+                    dateTime={lastSync.startedAt.toISOString()}
+                    title={lastSync.startedAt.toISOString()}
+                  >
+                    {formatAdminTimestamp(lastSync.startedAt)}
+                  </time>
+                </dd>
+              </div>
               <div><dt>Created</dt><dd>{lastSync.created}</dd></div>
               <div><dt>Matched</dt><dd>{lastSync.matched}</dd></div>
               <div><dt>Missing</dt><dd>{lastSync.missing}</dd></div>
