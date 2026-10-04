@@ -9,7 +9,7 @@ test("admin approve → manual mirror link → change primary host", async ({ pa
 
   await page.goto("/admin/review");
   const draft = page.locator("article").filter({
-    hasText: /\bDraft Seed Video\b/,
+    has: page.locator('a[href="/admin/videos/video-draft-seed"]'),
   });
   await expect(draft).toBeVisible();
   await draft.getByRole("button", { name: "Approve & publish" }).click();
