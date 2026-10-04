@@ -177,6 +177,22 @@ jobs:
           --output migration-data/migration-log.csv
           --thumbnail-output migration-thumbnail-payload.json
           --run-id "$GITHUB_RUN_ID_VALUE"
+          --start "${{ inputs.start }}"
+          --limit "${{ inputs.limit }}"
+
+      - name: Commit the single migration log
+        shell: bash
+        working-directory: migration-data
+        run: |
+          git config user.name "gayvideo-migration[bot]"
+          git config user.email "gayvideo-migration[bot]@users.noreply.github.com"
+          git add migration-log.csv
+          if git diff --cached --quiet; then
+            echo "No migration log changes."
+            exit 0
+          fi
+          git commit -m "Update migration log (run ${{ github.run_id }})"
+          git push
 
       - name: Apply source thumbnails in production
         shell: bash
@@ -211,17 +227,3 @@ jobs:
             < migration-thumbnail-payload.json
 
           rm -f "$HOME/.ssh/migration_key"
-
-      - name: Commit the single migration log
-        shell: bash
-        working-directory: migration-data
-        run: |
-          git config user.name "gayvideo-migration[bot]"
-          git config user.email "gayvideo-migration[bot]@users.noreply.github.com"
-          git add migration-log.csv
-          if git diff --cached --quiet; then
-            echo "No migration log changes."
-            exit 0
-          fi
-          git commit -m "Update migration log (run ${{ github.run_id }})"
-          git push
