@@ -1,8 +1,10 @@
 .root {
+  min-width: 0;
   display: none;
 }
 
 .trigger {
+  max-width: 100%;
   height: 36px;
   padding-inline: 12px;
   border: 1px solid var(--gv-border-input);
@@ -10,10 +12,12 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  overflow: hidden;
   background: var(--gv-surface-2);
   color: var(--gv-text);
   font-size: 13px;
   font-weight: 600;
+  white-space: nowrap;
   cursor: pointer;
 }
 
@@ -33,6 +37,7 @@
 }
 
 .triggerIcon {
+  flex: none;
   font-size: 18px;
   color: var(--gv-text-secondary);
 }
@@ -42,6 +47,7 @@
 }
 
 .body {
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 22px;
@@ -64,6 +70,7 @@
 
 .options {
   min-width: 0;
+  max-width: 100%;
 }
 
 .chipOptions {
@@ -78,6 +85,7 @@
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 3px;
+  overflow: hidden;
   background: color-mix(in srgb, var(--gv-bg) 78%, transparent);
 }
 
@@ -88,6 +96,7 @@
 
 .option {
   position: relative;
+  min-width: 0;
   cursor: pointer;
 }
 
@@ -102,12 +111,15 @@
 }
 
 .chip {
+  max-width: 100%;
+  min-width: 0;
   height: 40px;
   padding-inline: 14px;
   border-radius: var(--gv-radius-pill);
   display: inline-flex;
   align-items: center;
   gap: 5px;
+  overflow: hidden;
   background: var(--gv-surface-hover);
   color: color-mix(in srgb, var(--gv-text) 82%, var(--gv-text-secondary));
   font-size: 13px;
@@ -121,11 +133,14 @@
 }
 
 .check {
+  flex: none;
   font-size: 16px;
 }
 
 .segment {
+  min-width: 0;
   height: 40px;
+  padding-inline: 4px;
   border-radius: 9px;
   display: flex;
   align-items: center;
@@ -133,6 +148,7 @@
   color: var(--gv-text-secondary);
   font-size: 13px;
   font-weight: 500;
+  text-align: center;
 }
 
 .segment.optionSelected {
@@ -141,6 +157,7 @@
 }
 
 .row {
+  min-width: 0;
   min-height: 48px;
   border-bottom: 1px solid color-mix(in srgb, var(--gv-text) 5%, transparent);
   display: flex;
@@ -157,6 +174,13 @@
 
 .optionLabel {
   min-width: 0;
+}
+
+.chip .optionLabel,
+.segment .optionLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .row .optionLabel {
@@ -177,13 +201,25 @@
 }
 
 .secondaryActions {
+  min-width: 0;
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
 }
 
 @media (max-width: 767px) {
   .root {
     display: block;
+  }
+}
+
+@media (max-width: 339px) {
+  .trigger {
+    padding-inline: 10px;
+  }
+
+  .segment {
+    padding-inline: 2px;
+    font-size: 12px;
   }
 }
