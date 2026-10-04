@@ -21,6 +21,10 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.web
+      network: host
+      secrets:
+        - source: build_database_url
+          target: database_url
     restart: unless-stopped
     environment:
       DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
@@ -95,6 +99,10 @@ services:
       timeout: 10s
       retries: 5
       start_period: 10s
+
+secrets:
+  build_database_url:
+    environment: BUILD_DATABASE_URL
 
 volumes:
   postgres_data:
