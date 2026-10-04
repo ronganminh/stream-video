@@ -48,38 +48,55 @@ openssl rand -hex 32
 openssl rand -hex 32
 ```
 
-Edit `.env`. Use the first generated value as `POSTGRES_PASSWORD` and put the same URL-safe value into `DATABASE_URL`. Use the second value as `ADMIN_SESSION_SECRET`. Set `SITE_DOMAIN` to the real hostname and add the enabled provider API keys.
+Edit `.env`. Use the first generated value as `POSTGRES_PASSWORD` and put the same URL-safe value into both database URLs. Use the second value as `ADMIN_SESSION_SECRET`. Set `SITE_DOMAIN` to the real hostname and add the enabled provider API keys.
 
-A production database URL must use the Compose service hostname `postgres`, for example:
+The runtime `DATABASE_URL` must use the Compose service hostname `postgres`:
 
 ```text
 postgresql://gayvideo:YOUR_URL_SAFE_PASSWORD@postgres:5432/gayvideo?schema=public
 ```
 
-Do not use `localhost` in the production `DATABASE_URL`; inside the web and worker containers, `localhost` means that container itself.
+The build-only `BUILD_DATABASE_URL` must point to the PostgreSQL port published on VPS loopback:
+
+```text
+postgresql://gayvideo:YOUR_URL_SAFE_PASSWORD@127.0.0.1:5432/gayvideo?schema=public
+```
+
+The web image uses `BUILD_DATABASE_URL` only as a BuildKit secret while Next.js prerenders database-backed states. It is not copied into the final image. Runtime web and worker containers use `DATABASE_URL`; do not replace its `postgres` hostname with `localhost`.
+
+Load the deployment variables into the current shell before Compose validation/builds so the BuildKit secret source is available:
+
+```bash
+set -a
+. ./.env
+set +a
+```
 
 ## 3. Validate deployment artifacts
 
 The committed `Caddyfile` is generated from `Caddyfile.template` and `lib/hosts/registry.ts`. When provider `embedDomains` change, run `npm run caddy:generate` during development and commit the regenerated file. CI runs `npm run caddy:check` and fails on drift.
 
-On the VPS, validate Compose and the committed Caddy syntax before starting services:
+On the VPS, validate Compose and the committed Caddy syntax, then build the worker image first. The worker image is needed to run production migrations before the web image can prerender against the database.
 
 ```bash
 docker compose config --quiet
 docker run --rm \
-  -e SITE_DOMAIN="$(grep '^SITE_DOMAIN=' .env | cut -d= -f2-)" \
+  -e SITE_DOMAIN="$SITE_DOMAIN" \
   -v "$PWD/Caddyfile:/etc/caddy/Caddyfile:ro" \
   caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile
-docker compose build web worker
+docker compose build worker
 ```
 
-## 4. Start PostgreSQL and migrate
+## 4. Start PostgreSQL, migrate, and build the web image
 
 ```bash
 docker compose up -d postgres
 until docker compose exec -T postgres pg_isready -U gayvideo -d gayvideo; do sleep 2; done
 docker compose run --rm worker ./node_modules/.bin/prisma migrate deploy
+docker compose build web
 ```
+
+The web build uses the already-exported `BUILD_DATABASE_URL` as a BuildKit secret and `network: host` only for its build stage, allowing Next.js prerendering to read the migrated database through the VPS loopback port. The final web image contains neither that secret nor host networking.
 
 Do not run `npm run db:seed` in production; the seed is deterministic QA data.
 
@@ -146,9 +163,12 @@ If a configured key is missing or rejected, the command/SyncRun reports the prov
 
 ## 8. Post-deploy health checks
 
-Run all of these after deployment:
+Run all of these after deployment. Reload the environment first if this is a new shell:
 
 ```bash
+set -a
+. ./.env
+set +a
 docker compose ps
 docker compose exec -T postgres pg_isready -U gayvideo -d gayvideo
 docker compose logs --tail=100 worker
@@ -202,15 +222,22 @@ Run the post-deploy health checks again after a restore.
 
 ## 11. Upgrade an existing VPS
 
+Build the new worker first, migrate with it, then build the database-aware web image:
+
 ```bash
 cd /opt/gayvideo
 git fetch origin
 git checkout main
 git pull --ff-only origin main
+set -a
+. ./.env
+set +a
 docker compose config --quiet
-docker compose build web worker
+docker compose build worker
 docker compose up -d postgres
+until docker compose exec -T postgres pg_isready -U gayvideo -d gayvideo; do sleep 2; done
 docker compose run --rm worker ./node_modules/.bin/prisma migrate deploy
+docker compose build web
 docker compose up -d worker web caddy
 docker compose ps
 ```
