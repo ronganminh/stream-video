@@ -50,6 +50,14 @@ def load_shards(root: Path) -> list[dict[str, str]]:
     return rows
 
 
+def migration_title(row: dict[str, str]) -> str:
+    return (
+        row.get("title", "")
+        or row.get("source_filename", "")
+        or row.get("post_id", "")
+    )
+
+
 def queue_remote(
     rows: list[dict[str, str]],
     earnvids: EarnVidsApi,
@@ -79,11 +87,7 @@ def queue_remote(
                 row["error"] = clean_error(exc)
                 continue
 
-        title = (
-            row.get("title", "")
-            or row.get("source_filename", "")
-            or row.get("post_id", "")
-        )
+        title = migration_title(row)
 
         if row.get("dood_status") != "OK":
             try:
@@ -135,9 +139,13 @@ def poll_ready(
                 pending = True
                 try:
                     if voe.ready(row["voe_file_code"]):
+                        voe.rename(
+                            row["voe_file_code"],
+                            migration_title(row),
+                        )
                         row["voe_status"] = "OK"
-                except Exception:
-                    pass
+                except Exception as exc:
+                    row["error"] = clean_error(exc)
 
         if not pending:
             return
