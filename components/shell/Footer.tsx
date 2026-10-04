@@ -18,11 +18,20 @@ function FooterMark({ size }: { size: number }) {
 }
 
 function FooterBrand({ mobile = false }: { mobile?: boolean }) {
-  return <span className={styles.brand} data-mobile={mobile || undefined}><FooterMark size={mobile ? 22 : 24} /><span>GayVideo.fun</span></span>;
+  return (
+    <span className={styles.brand} data-mobile={mobile || undefined}>
+      <FooterMark size={mobile ? 22 : 24} />
+      <span>GayVideo.fun</span>
+    </span>
+  );
 }
 
-export function Footer({ show2257 = false, section2257Href = "/2257" }: FooterProps) {
+export function Footer({
+  show2257 = false,
+  section2257Href,
+}: FooterProps) {
   const year = new Date().getUTCFullYear();
+  const show2257Link = show2257 && Boolean(section2257Href);
 
   return (
     <footer className={styles.footer}>
@@ -33,22 +42,39 @@ export function Footer({ show2257 = false, section2257Href = "/2257" }: FooterPr
           <span className={styles.adults}>18+ ONLY</span>
         </div>
         <div className={styles.column}>
-          <span className={styles.heading}>Platform</span><span>About</span><span>Contact</span><Link href="/categories">Categories</Link>
+          <span className={styles.heading}>Platform</span>
+          <Link href="/categories">Categories</Link>
         </div>
         <div className={styles.column}>
-          <span className={styles.heading}>Safety</span><span>Report Content</span><Link href="/content-removal">Content Removal</Link><Link href="/content-removal/dmca">DMCA</Link>{show2257 ? <Link href={section2257Href}>2257</Link> : null}
+          <span className={styles.heading}>Safety</span>
+          <Link href="/content-removal/request">Report Content</Link>
+          <Link href="/content-removal">Content Removal</Link>
+          <Link href="/content-removal/dmca">DMCA</Link>
+          {show2257Link ? <Link href={section2257Href!}>2257</Link> : null}
         </div>
         <div className={styles.column}>
-          <span className={styles.heading}>Legal</span><Link href="/terms">Terms</Link><Link href="/privacy">Privacy</Link><Link href="/cookies">Cookies</Link><span>Privacy settings</span>
+          <span className={styles.heading}>Legal</span>
+          <Link href="/terms">Terms</Link>
+          <Link href="/privacy">Privacy</Link>
+          <Link href="/cookies">Cookies</Link>
         </div>
         <div className={styles.copyright}>© {year} GayVideo.fun</div>
       </div>
 
       <div className={styles.mobile}>
-        <div className={styles.mobileTop}><FooterBrand mobile /><span className={styles.mobileAdults}>18+ ONLY</span></div>
+        <div className={styles.mobileTop}>
+          <FooterBrand mobile />
+          <span className={styles.mobileAdults}>18+ ONLY</span>
+        </div>
         <p>Adults only. Report content or request removal at any time.</p>
         <div className={styles.mobileLinks}>
-          <Link href="/content-removal/dmca">DMCA</Link><Link href="/content-removal">Content Removal</Link><span>Report Content</span><Link href="/terms">Terms</Link><Link href="/privacy">Privacy</Link><Link href="/cookies">Cookies</Link>{show2257 ? <Link href={section2257Href}>2257</Link> : null}
+          <Link href="/content-removal/dmca">DMCA</Link>
+          <Link href="/content-removal">Content Removal</Link>
+          <Link href="/content-removal/request">Report Content</Link>
+          <Link href="/terms">Terms</Link>
+          <Link href="/privacy">Privacy</Link>
+          <Link href="/cookies">Cookies</Link>
+          {show2257Link ? <Link href={section2257Href!}>2257</Link> : null}
         </div>
         <span className={styles.mobileCopyright}>© {year} GayVideo.fun</span>
       </div>
