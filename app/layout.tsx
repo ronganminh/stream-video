@@ -16,6 +16,9 @@ const geistMono = Geist_Mono({
   variable: "--gv-font-mono",
 });
 
+const materialSymbolsHref =
+  "https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,400,0,0&display=block";
+
 export const metadata: Metadata = {
   title: "GayVideo.fun",
 };
@@ -26,10 +29,7 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,400,0,0&display=swap"
-        />
+        <link rel="stylesheet" href={materialSymbolsHref} />
       </head>
       <body>{children}</body>
     </html>
