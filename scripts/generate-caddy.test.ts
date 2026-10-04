@@ -45,4 +45,18 @@ describe("generated Caddy CSP", () => {
 
     expect(rendered).not.toContain("{{FRAME_SRC}}");
   });
+
+  it("allows the Material Symbols stylesheet and font origins", async () => {
+    const template = await readFile(
+      path.join(process.cwd(), "Caddyfile.template"),
+      "utf8",
+    );
+
+    expect(template).toContain(
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;",
+    );
+    expect(template).toContain(
+      "font-src 'self' https://fonts.gstatic.com;",
+    );
+  });
 });
