@@ -14,7 +14,7 @@ export async function acceptAgeGate(page: Page) {
 export async function addAgeCookie(context: BrowserContext) {
   await context.addCookies([
     {
-      name: "gv_age_verified",
+      name: "gv_age_ack",
       value: "1",
       url: "http://127.0.0.1:3000",
       sameSite: "Lax",
