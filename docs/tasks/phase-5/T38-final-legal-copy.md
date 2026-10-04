@@ -16,8 +16,8 @@ GV-002.
 - `app/(public)/content-removal/page.tsx`
 - `app/(public)/content-removal/dmca/page.tsx`
 - `app/(public)/content-removal/request/page.tsx`
-- `app/(public)/content-removal/DMCAForm.tsx`
-- `app/(public)/content-removal/RemovalRequestForm.tsx`
+- `app/(public)/content-removal/dmca/DMCAForm.tsx`
+- `app/(public)/content-removal/request/RemovalRequestForm.tsx`
 
 ## Implement
 - Replace only placeholder blocks covered by the supplied approved text.
