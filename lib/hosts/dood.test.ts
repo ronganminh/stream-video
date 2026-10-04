@@ -53,8 +53,34 @@ describe("DoodStream provider", () => {
       code: "xxx",
       lengthSeconds: 1234,
     });
-    expect(provider.embedUrl("abc123")).toBe("https://dood.so/e/abc123");
+    expect(provider.embedUrl("abc123")).toBe(
+      "https://playmogo.com/e/abc123",
+    );
+    expect(provider.embedDomains).toContain("playmogo.com");
     expect(provider.embedDomains).toContain("dood.so");
+  });
+
+  it("accepts an operator-configured HTTPS embed base", () => {
+    const provider = createDoodProvider({
+      apiKey: "test-key",
+      embedBaseUrl: "https://current-dood.example/path-is-ignored",
+      minIntervalMs: 0,
+    });
+
+    expect(provider.embedUrl("abc123")).toBe(
+      "https://current-dood.example/e/abc123",
+    );
+    expect(provider.embedDomains).toContain("current-dood.example");
+  });
+
+  it("rejects a non-HTTPS embed base", () => {
+    expect(() =>
+      createDoodProvider({
+        apiKey: "test-key",
+        embedBaseUrl: "http://example.com",
+        minIntervalMs: 0,
+      }),
+    ).toThrow("DoodStream embed base must use https.");
   });
 
   it("retries retryable HTTP failures with backoff", async () => {
