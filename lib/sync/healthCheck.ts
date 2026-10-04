@@ -65,6 +65,9 @@ export async function runHealthCheck(): Promise<HealthJobResult> {
             hostThumbnailUrl: info?.thumbnailUrl ?? mirror.hostThumbnailUrl,
             lengthSeconds: info?.lengthSeconds ?? mirror.lengthSeconds,
             rawTitle: info?.title ?? mirror.rawTitle,
+            embedUrl: info
+              ? provider.embedUrl(info.code)
+              : mirror.embedUrl,
           },
         });
 
