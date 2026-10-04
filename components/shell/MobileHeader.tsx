@@ -1,4 +1,8 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 
 import { Icon } from "@/components/primitives";
 
@@ -6,17 +10,25 @@ import { MobileSearch } from "./MobileSearch";
 import styles from "./MobileHeader.module.css";
 
 const MENU_LINKS = [
-  { href: "/", label: "Home" },
-  { href: "/latest", label: "Latest" },
-  { href: "/hot", label: "Hot" },
-  { href: "/most-viewed", label: "Most Viewed" },
-  { href: "/categories", label: "Categories" },
-  { href: "/content-removal", label: "Content Removal" },
-  { href: "/content-removal/dmca", label: "DMCA" },
-  { href: "/terms", label: "Terms" },
-  { href: "/privacy", label: "Privacy" },
-  { href: "/cookies", label: "Cookies" },
+  { href: "/", label: "Home", match: ["/"] },
+  { href: "/latest", label: "Latest", match: ["/latest"] },
+  { href: "/hot", label: "Hot", match: ["/hot"] },
+  { href: "/most-viewed", label: "Most Viewed", match: ["/most-viewed"] },
+  { href: "/categories", label: "Categories", match: ["/categories", "/category/", "/tag/"] },
+  { href: "/content-removal", label: "Content Removal", match: ["/content-removal", "/content-removal/request"] },
+  { href: "/content-removal/dmca", label: "DMCA", match: ["/content-removal/dmca"] },
+  { href: "/terms", label: "Terms", match: ["/terms"] },
+  { href: "/privacy", label: "Privacy", match: ["/privacy"] },
+  { href: "/cookies", label: "Cookies", match: ["/cookies"] },
 ] as const;
+
+function matchesPath(pathname: string, matchers: readonly string[]): boolean {
+  return matchers.some((matcher) => {
+    if (matcher === "/") return pathname === "/";
+    if (matcher.endsWith("/")) return pathname.startsWith(matcher);
+    return pathname === matcher || pathname.startsWith(`${matcher}/`);
+  });
+}
 
 function MobileBrand() {
   return (
@@ -38,18 +50,72 @@ function MobileBrand() {
 }
 
 export function MobileHeader() {
+  const pathname = usePathname();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      setMenuOpen(false);
+      requestAnimationFrame(() => menuButtonRef.current?.focus());
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [menuOpen]);
+
   return (
     <header className={styles.header}>
       <div className={styles.inner}>
-        <Link className={styles.logoLink} href="/" aria-label="GayVideo.fun home"><MobileBrand /></Link>
+        <Link className={styles.logoLink} href="/" aria-label="GayVideo.fun home">
+          <MobileBrand />
+        </Link>
         <div className={styles.actions}>
           <MobileSearch />
-          <details className={styles.menu}>
-            <summary className={styles.iconButton} aria-label="Open navigation menu"><Icon name="menu" className={styles.icon} /></summary>
-            <nav className={styles.menuPanel} aria-label="Mobile navigation">
-              {MENU_LINKS.map((item) => <Link key={item.href} className={styles.menuLink} href={item.href}>{item.label}</Link>)}
-            </nav>
-          </details>
+          <div className={styles.menu} data-open={menuOpen || undefined}>
+            <button
+              ref={menuButtonRef}
+              type="button"
+              className={styles.iconButton}
+              aria-label={menuOpen ? "Close navigation menu" : "Open navigation menu"}
+              aria-expanded={menuOpen}
+              aria-controls="gv-mobile-navigation"
+              onClick={() => setMenuOpen((open) => !open)}
+            >
+              <Icon name={menuOpen ? "close" : "menu"} className={styles.icon} />
+            </button>
+            {menuOpen ? (
+              <nav
+                className={styles.menuPanel}
+                id="gv-mobile-navigation"
+                aria-label="Mobile navigation"
+              >
+                {MENU_LINKS.map((item) => {
+                  const active = matchesPath(pathname, item.match);
+                  return (
+                    <Link
+                      key={item.href}
+                      className={styles.menuLink}
+                      data-active={active || undefined}
+                      href={item.href}
+                      aria-current={active ? "page" : undefined}
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      {item.label}
+                    </Link>
+                  );
+                })}
+              </nav>
+            ) : null}
+          </div>
         </div>
       </div>
     </header>
