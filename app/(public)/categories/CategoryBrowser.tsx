@@ -41,6 +41,31 @@ export function CategoryBrowser({ categories }: Props) {
         ? []
         : groups.filter((item) => item === group);
 
+  const selectedGroupMatches =
+    group === "All"
+      ? matches
+      : group === "Popular"
+        ? popular
+        : matches.filter((category) => category.group === group);
+
+  const activeHeading =
+    group === "All" ? "All categories" : group === "Popular" ? "Popular" : group;
+
+  const resetFilter = () => {
+    setQuery("");
+    setGroup("All");
+  };
+
+  if (!categories.length) {
+    return (
+      <section className={styles.noMatches}>
+        <Icon name="category" />
+        <h2>No categories are available yet</h2>
+        <p>Categories will appear here when they are available.</p>
+      </section>
+    );
+  }
+
   return (
     <>
       <div className={styles.browserTools}>
@@ -70,60 +95,70 @@ export function CategoryBrowser({ categories }: Props) {
         </label>
       </div>
 
-      {group === "All" || group === "Popular" ? (
-        <section className={styles.categorySection}>
-          <div className={styles.sectionHeading}>
-            <h2>Popular</h2>
-          </div>
-          <div className={styles.categoryGrid}>
-            {popular.map((category, index) => (
-              <CategoryCard
-                key={category.slug}
-                category={category}
-                variant={category.trending ? "trending" : "wide"}
-                priority={index < 3}
-              />
-            ))}
-          </div>
-        </section>
-      ) : null}
+      <div className={styles.activeHeading} aria-live="polite">
+        <h2>{activeHeading}</h2>
+        <span>{selectedGroupMatches.length} categories</span>
+      </div>
 
-      {visibleGroups.map((groupName) => {
-        const groupCategories = matches.filter(
-          (category) => category.group === groupName,
-        );
-        if (!groupCategories.length) return null;
-
-        return (
-          <section className={styles.categorySection} key={groupName}>
-            <div className={styles.sectionHeading}>
-              <div>
-                <h2>{groupName}</h2>
-                <span>{groupCategories.length} categories</span>
+      {selectedGroupMatches.length ? (
+        <>
+          {group === "All" || group === "Popular" ? (
+            <section className={styles.categorySection}>
+              {group === "All" ? (
+                <div className={styles.sectionHeading}>
+                  <h2>Popular</h2>
+                </div>
+              ) : null}
+              <div className={styles.categoryGrid}>
+                {popular.map((category, index) => (
+                  <CategoryCard
+                    key={category.slug}
+                    category={category}
+                    variant={category.trending ? "trending" : "wide"}
+                    priority={index < 3}
+                  />
+                ))}
               </div>
-            </div>
-            <div className={styles.categoryGrid}>
-              {groupCategories.map((category) => (
-                <CategoryCard
-                  key={category.slug}
-                  category={category}
-                  variant="wide"
-                />
-              ))}
-            </div>
-          </section>
-        );
-      })}
+            </section>
+          ) : null}
 
-      {!matches.length ? (
+          {visibleGroups.map((groupName) => {
+            const groupCategories = matches.filter(
+              (category) => category.group === groupName,
+            );
+            if (!groupCategories.length) return null;
+
+            return (
+              <section className={styles.categorySection} key={groupName}>
+                <div className={styles.sectionHeading}>
+                  <div>
+                    <h2>{groupName}</h2>
+                    <span>{groupCategories.length} categories</span>
+                  </div>
+                </div>
+                <div className={styles.categoryGrid}>
+                  {groupCategories.map((category) => (
+                    <CategoryCard
+                      key={category.slug}
+                      category={category}
+                      variant="wide"
+                    />
+                  ))}
+                </div>
+              </section>
+            );
+          })}
+        </>
+      ) : (
         <section className={styles.noMatches}>
           <Icon name="search_off" />
           <h2>No categories match that filter</h2>
-          <button type="button" onClick={() => setQuery("")}>
+          <p>Try another category group or search term.</p>
+          <button type="button" onClick={resetFilter}>
             Clear filter
           </button>
         </section>
-      ) : null}
+      )}
     </>
   );
 }

@@ -159,7 +159,8 @@ function Mobile(props: Props) {
         <div className={styles.mobileVideos}>{videos.map((item) => <VideoRow key={item.id} option={item} activeId={props.activeId} onSelect={props.onSelect} />)}</div>
         {!text.length && !videos.length ? <div className={styles.mobileEmpty}><strong>No videos found</strong><span>Try another keyword</span></div> : null}
         <button type="button" className={styles.seeAll} onClick={() => props.onSelect({ id: "see-all", kind: "trending", label: props.query, href: searchHref(props.query) })}>
-          See all results for &quot;{props.query}&quot;<Icon name="arrow_forward" />
+          <span className={styles.seeAllText}>See all results for &quot;{props.query}&quot;</span>
+          <Icon name="arrow_forward" />
         </button>
       </div>
     );
@@ -172,7 +173,7 @@ function Mobile(props: Props) {
       {recents.length ? <div className={styles.headingRow}><h2 className={styles.mobileHeading}>Recent</h2>{props.onClearRecent ? <button type="button" className={styles.clearAll} onClick={props.onClearRecent}>Clear all</button> : null}</div> : null}
       {recents.map((item) => <div className={styles.mobileRecent} key={item.id}><Row option={item} activeId={props.activeId} onSelect={props.onSelect} />{props.onRemoveRecent ? <button type="button" className={styles.remove} aria-label={`Remove ${item.label} from recent searches`} onClick={() => props.onRemoveRecent?.(item.label)}><Icon name="close" /></button> : null}</div>)}
       <h2 className={styles.mobileHeading}>Trending searches</h2>
-      {trending.map((item, index) => <button key={item.id} id={item.id} type="button" role="option" aria-selected={props.activeId === item.id} className={styles.trendingRow} data-active={props.activeId === item.id || undefined} onClick={() => props.onSelect(item)}><span className={styles.rank}>{index + 1}</span>{item.label}<Icon name="trending_up" className={styles.trendIcon} /></button>)}
+      {trending.map((item, index) => <button key={item.id} id={item.id} type="button" role="option" aria-selected={props.activeId === item.id} className={styles.trendingRow} data-active={props.activeId === item.id || undefined} onClick={() => props.onSelect(item)}><span className={styles.rank}>{index + 1}</span><span className={styles.trendingText}>{item.label}</span><Icon name="trending_up" className={styles.trendIcon} /></button>)}
       <h2 className={styles.mobileHeading}>Popular tags</h2>
       <div className={styles.tagWrap}>{props.data.tags.slice(0, 6).map((tag) => <button key={tag.slug} id={`tag-${tag.slug}`} type="button" role="option" aria-selected={props.activeId === `tag-${tag.slug}`} className={styles.tag} data-active={props.activeId === `tag-${tag.slug}` || undefined} onClick={() => props.onSelect({ id: `tag-${tag.slug}`, kind: "tag", label: tag.name, href: `/tag/${tag.slug}` })}>#{tag.name}</button>)}</div>
       <h2 className={styles.mobileHeading}>Suggested categories</h2>
