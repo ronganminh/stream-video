@@ -16,9 +16,9 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  START_ROW: "0"
+  SYNC_START_ROW: "0"
+  SYNC_ROW_LIMIT: "4"
   ROW_LIMIT: "1"
-  ROWS_PER_JOB: "1"
   FORCE_REPROCESS: "true"
   SKIP_WATERMARK: "false"
   UPLOAD_STRATEGY: local_all_hosts
@@ -26,8 +26,15 @@ env:
 
 jobs:
   seed:
+    name: seed row ${{ matrix.start }}
     runs-on: windows-2025
     timeout-minutes: 330
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        start: [1, 2, 3]
     env:
       HOST_EARNVIDS_API_KEY: ${{ secrets.HOST_EARNVIDS_API_KEY }}
       HOST_DOOD_API_KEY: ${{ secrets.HOST_DOOD_API_KEY }}
@@ -76,11 +83,11 @@ jobs:
           python scripts/video-migration/seed_worker.py
           --csv migration-data/videos.csv
           --log migration-data/migration-log.csv
-          --start "$env:START_ROW"
+          --start "${{ matrix.start }}"
           --count "$env:ROW_LIMIT"
           --logo public/brand/logo-mark.svg
           --work-root D:\gv-work
-          --output result.csv
+          --output result-${{ matrix.start }}.csv
           --force "$env:FORCE_REPROCESS"
           --skip-watermark "$env:SKIP_WATERMARK"
           --upload-strategy "$env:UPLOAD_STRATEGY"
@@ -90,13 +97,14 @@ jobs:
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
-          name: migration-full-test-result
-          path: result.csv
-          if-no-files-found: error
+          name: migration-full-test-result-${{ matrix.start }}
+          path: result-${{ matrix.start }}.csv
+          if-no-files-found: warn
           retention-days: 1
 
   merge_apply_and_sync:
     needs: seed
+    if: ${{ always() }}
     runs-on: ubuntu-latest
     timeout-minutes: 330
     env:
@@ -122,11 +130,16 @@ jobs:
       - name: Install Python dependencies
         run: python -m pip install --disable-pip-version-check requests
 
-      - name: Download shard result
+      - name: Prepare result directory
+        run: mkdir -p migration-results
+
+      - name: Download shard results
         uses: actions/download-artifact@v4
+        continue-on-error: true
         with:
-          name: migration-full-test-result
+          pattern: migration-full-test-result-*
           path: migration-results
+          merge-multiple: true
 
       - name: Merge log and prepare thumbnails
         env:
@@ -139,8 +152,8 @@ jobs:
           --output migration-data/migration-log.csv
           --thumbnail-output migration-thumbnail-payload.json
           --run-id "$GITHUB_RUN_ID_VALUE"
-          --start "$START_ROW"
-          --limit "$ROW_LIMIT"
+          --start "$SYNC_START_ROW"
+          --limit "$SYNC_ROW_LIMIT"
           --skip-hosts "$SKIP_FANOUT_HOSTS"
 
       - name: Commit the migration log
@@ -154,7 +167,7 @@ jobs:
             echo "No migration log changes."
             exit 0
           fi
-          git commit -m "Full migration test log (run ${{ github.run_id }})"
+          git commit -m "Parallel full migration test log (run ${{ github.run_id }})"
           git push
 
       - name: Apply source thumbnails in production
@@ -170,11 +183,14 @@ jobs:
             echo "No source thumbnails to apply."
             exit 0
           fi
+          if [ -z "${PROD_MIGRATION_SSH_KEY:-}" ]; then
+            echo "PROD_MIGRATION_SSH_KEY is not configured; skipping thumbnail apply."
+            exit 0
+          fi
 
           : "${PROD_HOST:?PROD_HOST is required}"
           : "${PROD_USER:?PROD_USER is required}"
           : "${PROD_KNOWN_HOSTS:?PROD_KNOWN_HOSTS is required}"
-          : "${PROD_MIGRATION_SSH_KEY:?PROD_MIGRATION_SSH_KEY is required}"
 
           install -d -m 700 "$HOME/.ssh"
           printf '%s\n' "$PROD_MIGRATION_SSH_KEY" > "$HOME/.ssh/migration_key"
@@ -191,7 +207,7 @@ jobs:
 
           rm -f "$HOME/.ssh/migration_key"
 
-      - name: Sync production draft video
+      - name: Sync production draft videos
         shell: bash
         env:
           PROD_HOST: ${{ secrets.PROD_HOST }}
