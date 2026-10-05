@@ -5,6 +5,7 @@ import json
 import os
 import random
 import re
+import shutil
 import subprocess
 import time
 from pathlib import Path
@@ -356,35 +357,77 @@ class EarnVidsApi(HostApi):
         for attempt in range(1, 4):
             upload_url = self.upload_server()
             try:
-                with path.open("rb") as handle:
-                    response = self.session.post(
-                        upload_url,
-                        data=data,
-                        files={"file": (path.name, handle, "video/mp4")},
-                        timeout=(30, 5 * 60 * 60),
-                    )
-                if not response.ok:
-                    raise RuntimeError(
-                        f"EarnVids upload HTTP {response.status_code}: "
-                        f"{clean_error(response.text, 300)}"
-                    )
-                try:
-                    payload = response.json()
-                except ValueError as exc:
-                    raise RuntimeError(
-                        "EarnVids upload returned non-JSON response"
-                    ) from exc
+                payload = self._curl_local_upload(upload_url, path, data)
                 return require_file_code(payload, "EarnVids")
             except (
                 TimeoutError,
                 requests.RequestException,
                 OSError,
+                RuntimeError,
             ) as exc:
                 last_error = clean_error(exc)
                 if attempt == 3:
                     break
                 time.sleep((attempt * 10) + random.random())
         raise RuntimeError(f"EarnVids upload failed after retries: {last_error}")
+
+    def _curl_local_upload(
+        self,
+        upload_url: str,
+        path: Path,
+        data: dict[str, str],
+    ) -> dict[str, Any]:
+        curl = shutil.which("curl")
+        if curl:
+            command = [
+                curl,
+                "--silent",
+                "--show-error",
+                "--fail-with-body",
+                "--connect-timeout",
+                "60",
+                "--retry",
+                "2",
+                "--retry-delay",
+                "10",
+                "--retry-all-errors",
+            ]
+            for key, value in data.items():
+                command.extend(["--form", f"{key}={value}"])
+            command.extend(
+                [
+                    "--form",
+                    f"file=@{path};filename={path.name};type=video/mp4",
+                    upload_url,
+                ]
+            )
+            result = run_checked(command, timeout=5 * 60 * 60)
+            try:
+                return json.loads(result.stdout)
+            except ValueError as exc:
+                raise RuntimeError(
+                    f"EarnVids curl upload returned non-JSON response: "
+                    f"{clean_error(result.stdout, 300)}"
+                ) from exc
+
+        with path.open("rb") as handle:
+            response = self.session.post(
+                upload_url,
+                data=data,
+                files={"file": (path.name, handle, "video/mp4")},
+                timeout=(30, 5 * 60 * 60),
+            )
+        if not response.ok:
+            raise RuntimeError(
+                f"EarnVids upload HTTP {response.status_code}: "
+                f"{clean_error(response.text, 300)}"
+            )
+        try:
+            return response.json()
+        except ValueError as exc:
+            raise RuntimeError(
+                "EarnVids upload returned non-JSON response"
+            ) from exc
 
     def direct_link(self, code: str) -> str:
         payload = self.get(
