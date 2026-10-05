@@ -8,7 +8,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  color: var(--gv-text-muted);
+  color: var(--gv-text-secondary);
   font-size: 12px;
 }
 
@@ -120,7 +120,7 @@
 }
 
 .searchBox input::placeholder {
-  color: var(--gv-text-muted);
+  color: var(--gv-text-secondary);
 }
 
 .activeHeading {
@@ -139,7 +139,7 @@
 }
 
 .activeHeading span {
-  color: var(--gv-text-muted);
+  color: var(--gv-text-secondary);
   font-size: 12px;
 }
 
@@ -163,7 +163,7 @@
 .sectionHeading span {
   display: block;
   margin-top: 3px;
-  color: var(--gv-text-muted);
+  color: var(--gv-text-secondary);
   font-size: 12px;
 }
 
