@@ -13,9 +13,11 @@ from pathlib import Path
 import gdown
 
 from common import (
+    DoodApi,
     EarnVidsApi,
     SHARD_FIELDS,
     TERMINAL_STATUSES,
+    VoeApi,
     clean_error,
     extract_drive_urls,
     getenv_required,
@@ -35,7 +37,17 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--work-root", required=True)
     parser.add_argument("--output", required=True)
     parser.add_argument("--force", default="false")
+    parser.add_argument("--skip-watermark", default="false")
+    parser.add_argument(
+        "--upload-strategy",
+        choices=("remote_fanout", "local_all_hosts"),
+        default="remote_fanout",
+    )
     return parser.parse_args()
+
+
+def is_truthy(value: str | bool | None) -> bool:
+    return str(value).lower() in {"1", "true", "yes", "on"}
 
 
 def load_existing(path: Path) -> dict[str, dict[str, str]]:
@@ -114,6 +126,16 @@ def wait_for_direct_link(
     )
 
 
+def append_error(result: dict[str, str], message: object) -> None:
+    cleaned = clean_error(message)
+    if not cleaned:
+        return
+    if result.get("error"):
+        result["error"] = f"{result['error']} | {cleaned}"[:800]
+    else:
+        result["error"] = cleaned[:800]
+
+
 def fresh_result(source: dict[str, str]) -> dict[str, str]:
     return {
         "post_id": source.get("post_id", ""),
@@ -138,7 +160,9 @@ def fresh_result(source: dict[str, str]) -> dict[str, str]:
 
 def main() -> None:
     args = parse_args()
-    force = str(args.force).lower() in {"1", "true", "yes"}
+    force = is_truthy(args.force)
+    skip_watermark = is_truthy(args.skip_watermark)
+    upload_strategy = args.upload_strategy
     csv_path = Path(args.csv)
     log_path = Path(args.log)
     logo_path = Path(args.logo)
@@ -151,8 +175,16 @@ def main() -> None:
         all_rows = list(csv.DictReader(handle))
     rows = all_rows[args.start : args.start + args.count]
 
-    api = EarnVidsApi(
-        getenv_required("HOST_EARNVIDS_API_KEY")
+    earnvids = EarnVidsApi(getenv_required("HOST_EARNVIDS_API_KEY"))
+    dood = (
+        DoodApi(getenv_required("HOST_DOOD_API_KEY"))
+        if upload_strategy == "local_all_hosts"
+        else None
+    )
+    voe = (
+        VoeApi(getenv_required("HOST_VOE_API_KEY"))
+        if upload_strategy == "local_all_hosts"
+        else None
     )
     output_rows: list[dict[str, str]] = []
 
@@ -224,28 +256,50 @@ def main() -> None:
             result["download_status"] = "OK"
             result["source_filename"] = source_video.name
 
-            watermarked = item_root / (
-                f"{post_id or 'video'}-watermarked.mp4"
-            )
-            watermark_video(
-                source_video,
-                logo_path,
-                watermarked,
-            )
-            result["watermark_status"] = "OK"
-            result["sha256"] = sha256_file(watermarked)
+            if skip_watermark:
+                upload_file = source_video
+                result["watermark_status"] = "SKIPPED"
+            else:
+                upload_file = item_root / (
+                    f"{post_id or 'video'}-watermarked.mp4"
+                )
+                watermark_video(
+                    source_video,
+                    logo_path,
+                    upload_file,
+                )
+                result["watermark_status"] = "OK"
 
-            code = api.local_upload(
-                watermarked,
-                source.get("title", "") or watermarked.stem,
-                source.get("tags", ""),
-            )
+            result["sha256"] = sha256_file(upload_file)
+            title = source.get("title", "") or upload_file.stem
+            tags = source.get("tags", "")
+
+            code = earnvids.local_upload(upload_file, title, tags)
             result["earnvids_file_code"] = code
             result["earnvids_status"] = "OK"
 
+            if upload_strategy == "local_all_hosts":
+                if dood is None or voe is None:
+                    raise RuntimeError("local_all_hosts requires Dood and VOE clients")
+                try:
+                    result["dood_file_code"] = dood.local_upload(upload_file, title)
+                    result["dood_status"] = "QUEUED"
+                except Exception as exc:
+                    result["dood_status"] = "FAILED"
+                    append_error(result, exc)
+                try:
+                    result["voe_file_code"] = voe.local_upload(upload_file, title)
+                    result["voe_status"] = "QUEUED"
+                except Exception as exc:
+                    result["voe_status"] = "FAILED"
+                    append_error(result, exc)
+
+                result["overall_status"] = "SEED_OK"
+                continue
+
             try:
                 result["seed_direct_url"] = wait_for_direct_link(
-                    api,
+                    earnvids,
                     code,
                 )
                 result["overall_status"] = "SEED_OK"
