@@ -53,4 +53,26 @@ describe("new video creation", () => {
       "https://example.invalid/e/file-123",
     );
   });
+
+  it("attaches migration tag links when provided", () => {
+    const data = buildPrimaryVideoData(
+      "current-primary",
+      provider,
+      {
+        code: "file-123",
+        title: "Beach_Weekend.mp4",
+        lengthSeconds: 602,
+        thumbnailUrl: null,
+        uploadedAt: null,
+      },
+      "beach-weekend",
+      [{ tagId: "tag-1" }, { tagId: "tag-2" }],
+    );
+
+    expect(data).toMatchObject({
+      videoTags: {
+        create: [{ tagId: "tag-1" }, { tagId: "tag-2" }],
+      },
+    });
+  });
 });
