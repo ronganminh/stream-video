@@ -79,7 +79,7 @@
 .panelHeading span,
 .muted,
 .syncMeta dt {
-  color: var(--gv-text-muted);
+  color: var(--gv-text-secondary);
   font-size: 12px;
 }
 
