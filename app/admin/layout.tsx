@@ -8,6 +8,10 @@ import { getCurrentAdmin } from "@/lib/auth/session";
 import styles from "./layout.module.css";
 
 export const metadata: Metadata = {
+  title: {
+    default: "Admin | GayVideo.fun",
+    template: "%s | Admin | GayVideo.fun",
+  },
   robots: {
     index: false,
     follow: false,
@@ -16,6 +20,8 @@ export const metadata: Metadata = {
 
 const nav = [
   { href: "/admin", label: "Dashboard" },
+  { href: "/admin/review", label: "Review" },
+  { href: "/admin/videos", label: "Videos" },
   { href: "/admin/hosts", label: "Hosts" },
   { href: "/admin/settings", label: "Settings" },
 ] as const;
