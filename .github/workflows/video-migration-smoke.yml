@@ -97,6 +97,7 @@ jobs:
           --force "true"
           --skip-watermark "true"
           --upload-strategy "local_all_hosts"
+          --fail-on-error "true"
 
       - name: Upload shard result
         if: ${{ always() }}
