@@ -8,7 +8,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  color: var(--gv-text-muted);
+  color: var(--gv-text-secondary);
   font-size: 12px;
 }
 
@@ -37,7 +37,7 @@
 }
 
 .tocLabel {
-  color: var(--gv-text-muted);
+  color: var(--gv-text-secondary);
   font: 600 10px var(--gv-font-mono);
   letter-spacing: .12em;
 }
@@ -203,7 +203,7 @@
     display: flex;
     align-items: center;
     gap: 5px;
-    color: var(--gv-text-muted);
+    color: var(--gv-text-secondary);
     font: 600 10px var(--gv-font-mono);
     letter-spacing: .1em;
     text-transform: uppercase;
