@@ -67,6 +67,10 @@ export function LegalCopy({ title, sectionTitle }: { title: string; sectionTitle
   );
 }
 
+export function LegalPlaceholder() {
+  return <LegalCopy title="Content removal" />;
+}
+
 export function LegalShell({
   title,
   eyebrow,
