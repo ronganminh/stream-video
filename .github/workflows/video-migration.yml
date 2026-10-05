@@ -20,6 +20,20 @@ on:
         type: boolean
         required: true
         default: false
+      skip_fanout_hosts:
+        description: "Comma-separated fanout hosts to skip (dood, voe)"
+        required: false
+        default: ""
+      apply_thumbnails:
+        description: "Apply source-thumbnail payload in production"
+        type: boolean
+        required: true
+        default: true
+      sync_production:
+        description: "Run sync:new in production after fanout"
+        type: boolean
+        required: true
+        default: false
 
 permissions:
   contents: read
@@ -179,6 +193,7 @@ jobs:
           --run-id "$GITHUB_RUN_ID_VALUE"
           --start "${{ inputs.start }}"
           --limit "${{ inputs.limit }}"
+          --skip-hosts "${{ inputs.skip_fanout_hosts }}"
 
       - name: Commit the single migration log
         shell: bash
@@ -195,6 +210,7 @@ jobs:
           git push
 
       - name: Apply source thumbnails in production
+        if: ${{ inputs.apply_thumbnails }}
         shell: bash
         env:
           PROD_HOST: ${{ secrets.PROD_HOST }}
@@ -227,3 +243,32 @@ jobs:
             < migration-thumbnail-payload.json
 
           rm -f "$HOME/.ssh/migration_key"
+
+      - name: Sync production mirrors
+        if: ${{ inputs.sync_production }}
+        shell: bash
+        env:
+          PROD_HOST: ${{ secrets.PROD_HOST }}
+          PROD_USER: ${{ secrets.PROD_USER }}
+          PROD_KNOWN_HOSTS: ${{ secrets.PROD_KNOWN_HOSTS }}
+          PROD_DEPLOY_SSH_KEY: ${{ secrets.PROD_DEPLOY_SSH_KEY }}
+        run: |
+          : "${PROD_HOST:?PROD_HOST is required}"
+          : "${PROD_USER:?PROD_USER is required}"
+          : "${PROD_KNOWN_HOSTS:?PROD_KNOWN_HOSTS is required}"
+          : "${PROD_DEPLOY_SSH_KEY:?PROD_DEPLOY_SSH_KEY is required}"
+
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$PROD_DEPLOY_SSH_KEY" > "$HOME/.ssh/deploy_key"
+          printf '%s\n' "$PROD_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/deploy_key" "$HOME/.ssh/known_hosts"
+
+          ssh \
+            -i "$HOME/.ssh/deploy_key" \
+            -o BatchMode=yes \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            "$PROD_USER@$PROD_HOST" \
+            "cd /opt/gayvideo && docker compose run --rm worker npm run sync:new"
+
+          rm -f "$HOME/.ssh/deploy_key"
