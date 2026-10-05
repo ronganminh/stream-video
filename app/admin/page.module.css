@@ -61,18 +61,38 @@
 }
 
 .stats article,
+.statLink,
 .panel {
   border: 1px solid var(--gv-border);
   border-radius: var(--gv-radius-lg);
   background: var(--gv-surface-1);
 }
 
-.stats article {
+.stats article,
+.statLink {
   min-height: 112px;
   padding: 18px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+}
+
+.statLink {
+  color: inherit;
+  text-decoration: none;
+  transition: border-color .16s ease, transform .16s ease, background .16s ease;
+}
+
+.statLink:hover,
+.statLink:focus-visible {
+  border-color: rgba(236, 72, 153, .55);
+  background: rgba(236, 72, 153, .08);
+  transform: translateY(-1px);
+}
+
+.statLink:focus-visible {
+  outline: none;
+  box-shadow: var(--gv-focus);
 }
 
 .stats span,
