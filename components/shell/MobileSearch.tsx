@@ -239,10 +239,11 @@ export function MobileSearch() {
             <button type="button" className={styles.backButton} aria-label="Close search" onClick={close}>
               <Icon name="arrow_back" className={styles.backIcon} />
             </button>
-            <form className={styles.form} role="search" onSubmit={onSubmit}>
+            <form className={styles.form} role="search" method="get" action="/search" onSubmit={onSubmit}>
               <Icon name={loading ? "progress_activity" : "search"} className={loading ? styles.loadingIcon : styles.searchIcon} />
               <input
                 ref={inputRef}
+                name="q"
                 type="search"
                 className={styles.input}
                 placeholder="Search videos, categories or tags"
