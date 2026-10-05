@@ -189,10 +189,10 @@ test("contextual empty states offer the expected recovery actions", async ({
 }) => {
   await addAgeCookie(context);
 
-  await page.goto("/search?q=t37-no-such-video-zzzz");
+  await page.goto("/search?q=qzxvkpjmnrw");
   await expect(
     page.getByRole("heading", {
-      name: "No videos found for “t37-no-such-video-zzzz”",
+      name: "No videos found for “qzxvkpjmnrw”",
     }),
   ).toBeVisible();
   await expect(page.getByRole("link", { name: "Browse Hot" })).toBeVisible();
