@@ -191,10 +191,11 @@ export function SearchBox() {
 
   return (
     <div ref={rootRef} className={styles.root}>
-      <form className={styles.form} role="search" onSubmit={onSubmit}>
+      <form className={styles.form} role="search" method="get" action="/search" onSubmit={onSubmit}>
         <Icon name={loading ? "progress_activity" : "search"} className={loading ? styles.loadingIcon : styles.searchIcon} />
         <input
           ref={inputRef}
+          name="q"
           type="search"
           className={styles.input}
           placeholder="Search videos, categories or tags"
