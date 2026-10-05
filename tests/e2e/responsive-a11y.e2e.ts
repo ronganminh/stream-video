@@ -22,13 +22,13 @@ const commonLigatures = [
 
 async function expectNoSeriousAxeViolations(page: Page, label: string) {
   const result = await new AxeBuilder({ page }).analyze();
-  const severe = result.violations.filter(
+  const severeViolations = result.violations.filter(
     (violation) =>
       violation.impact === "serious" || violation.impact === "critical",
   );
   expect(
-    severe,
-    label + ": " + severe.map((item) => item.id).join(", "),
+    severeViolations,
+    label + ": " + severeViolations.map((item) => item.id).join(", "),
   ).toEqual([]);
 }
 
