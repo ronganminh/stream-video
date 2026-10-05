@@ -16,6 +16,8 @@ from common import (
     getenv_required,
 )
 
+REMOTE_RETRY_STATUSES = {"", "PENDING", "FAILED", "BLOCKED", "TIMEOUT", "SKIPPED"}
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
@@ -59,6 +61,12 @@ def migration_title(row: dict[str, str]) -> str:
     )
 
 
+def should_remote_upload(row: dict[str, str], host: str, skipped: set[str]) -> bool:
+    if host in skipped:
+        return False
+    return row.get(f"{host}_status", "") in REMOTE_RETRY_STATUSES
+
+
 def queue_remote(
     rows: list[dict[str, str]],
     earnvids: EarnVidsApi,
@@ -78,6 +86,11 @@ def queue_remote(
         }:
             continue
 
+        needs_dood_remote = should_remote_upload(row, "dood", skipped)
+        needs_voe_remote = should_remote_upload(row, "voe", skipped)
+        if not needs_dood_remote and not needs_voe_remote:
+            continue
+
         direct = row.get("seed_direct_url", "")
         if not direct:
             try:
@@ -85,15 +98,17 @@ def queue_remote(
                     row["earnvids_file_code"]
                 )
             except Exception as exc:
-                row["dood_status"] = "BLOCKED"
-                row["voe_status"] = "BLOCKED"
+                if needs_dood_remote:
+                    row["dood_status"] = "BLOCKED"
+                if needs_voe_remote:
+                    row["voe_status"] = "BLOCKED"
                 row["overall_status"] = "PARTIAL"
                 row["error"] = clean_error(exc)
                 continue
 
         title = migration_title(row)
 
-        if "dood" not in skipped and row.get("dood_status") != "OK":
+        if needs_dood_remote:
             try:
                 row["dood_file_code"] = dood.remote_upload(
                     direct,
@@ -104,7 +119,7 @@ def queue_remote(
                 row["dood_status"] = "FAILED"
                 row["error"] = clean_error(exc)
 
-        if "voe" not in skipped and row.get("voe_status") != "OK":
+        if needs_voe_remote:
             try:
                 row["voe_file_code"] = voe.remote_upload(
                     direct
@@ -180,10 +195,11 @@ def finalize(
 
         dood_ready = "dood" in skipped or row.get("dood_status") == "OK"
         voe_ready = "voe" in skipped or row.get("voe_status") == "OK"
+        watermark_ready = row.get("watermark_status") in {"OK", "SKIPPED"}
 
         if (
             row.get("download_status") == "OK"
-            and row.get("watermark_status") == "OK"
+            and watermark_ready
             and row.get("earnvids_status") == "OK"
             and dood_ready
             and voe_ready
