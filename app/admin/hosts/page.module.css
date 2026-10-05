@@ -50,7 +50,7 @@
   min-height: 40px;
   padding: 0 12px;
   border-bottom: 1px solid var(--gv-border);
-  color: var(--gv-text-muted);
+  color: var(--gv-text-secondary);
   font: 600 10px var(--gv-font-mono);
   letter-spacing: .08em;
   text-transform: uppercase;
@@ -143,7 +143,7 @@
 }
 
 .hostName code {
-  color: var(--gv-text-muted);
+  color: var(--gv-text-secondary);
   font: 500 11px var(--gv-font-mono);
 }
 
