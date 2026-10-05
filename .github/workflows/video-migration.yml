@@ -20,6 +20,19 @@ on:
         type: boolean
         required: true
         default: false
+      skip_watermark:
+        description: "Smoke test only: upload the source video without watermark/re-encode"
+        type: boolean
+        required: true
+        default: false
+      upload_strategy:
+        description: "Upload mode: remote fanout via EarnVids direct link, or local upload to every host"
+        type: choice
+        required: true
+        default: "remote_fanout"
+        options:
+          - remote_fanout
+          - local_all_hosts
       skip_fanout_hosts:
         description: "Comma-separated fanout hosts to skip (dood, voe)"
         required: false
@@ -31,6 +44,11 @@ on:
         default: true
       sync_production:
         description: "Run sync:new in production after fanout"
+        type: boolean
+        required: true
+        default: false
+      sync_production_required:
+        description: "Fail this workflow if the optional production sync command fails"
         type: boolean
         required: true
         default: false
@@ -82,6 +100,8 @@ jobs:
       matrix: ${{ fromJson(needs.prepare.outputs.matrix) }}
     env:
       HOST_EARNVIDS_API_KEY: ${{ secrets.HOST_EARNVIDS_API_KEY }}
+      HOST_DOOD_API_KEY: ${{ secrets.HOST_DOOD_API_KEY }}
+      HOST_VOE_API_KEY: ${{ secrets.HOST_VOE_API_KEY }}
     steps:
       - name: Checkout app
         uses: actions/checkout@v4
@@ -103,6 +123,7 @@ jobs:
         run: python -m pip install --disable-pip-version-check requests gdown
 
       - name: Ensure FFmpeg and ImageMagick
+        if: ${{ !inputs.skip_watermark }}
         shell: pwsh
         run: |
           if (-not (Get-Command ffmpeg -ErrorAction SilentlyContinue)) {
@@ -120,10 +141,12 @@ jobs:
           Get-PSDrive D -ErrorAction SilentlyContinue | Format-List
           New-Item -ItemType Directory -Force -Path D:\gv-work | Out-Null
 
-      - name: Download, watermark and seed
+      - name: Download, optionally watermark, and seed
         shell: pwsh
         env:
           GV_FORCE: ${{ inputs.force }}
+          GV_SKIP_WATERMARK: ${{ inputs.skip_watermark }}
+          GV_UPLOAD_STRATEGY: ${{ inputs.upload_strategy }}
         run: >-
           python scripts/video-migration/seed_worker.py
           --csv migration-data/videos.csv
@@ -134,6 +157,8 @@ jobs:
           --work-root D:\gv-work
           --output result.csv
           --force "$env:GV_FORCE"
+          --skip-watermark "$env:GV_SKIP_WATERMARK"
+          --upload-strategy "$env:GV_UPLOAD_STRATEGY"
 
       - name: Upload shard result
         if: ${{ always() }}
@@ -246,6 +271,7 @@ jobs:
 
       - name: Sync production mirrors
         if: ${{ inputs.sync_production }}
+        continue-on-error: ${{ !inputs.sync_production_required }}
         shell: bash
         env:
           PROD_HOST: ${{ secrets.PROD_HOST }}
