@@ -233,7 +233,7 @@ test("favicon resolves and unknown routes keep true 404 metadata", async ({
   await expect(page.getByRole("main")).toHaveCount(1);
 
   const robots = page.locator('meta[name="robots"]');
-  await expect(robots).toHaveAttribute("content", /noindex/i);
+  await expect(robots.first()).toHaveAttribute("content", /noindex/i);
   await expect(page.getByRole("link", { name: "Go Home" })).toBeVisible();
   await expect(
     page.getByRole("link", { name: "Browse Hot Videos" }),
