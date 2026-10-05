@@ -70,7 +70,7 @@ def video_candidates(root: Path) -> list[Path]:
 def sha256_file(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+        for chunk in iter(lambda: handle.read(1024 * 1024), b=""):
             digest.update(chunk)
     return digest.hexdigest()
 
@@ -345,7 +345,6 @@ class EarnVidsApi(HostApi):
         )
 
     def local_upload(self, path: Path, title: str, tags: str) -> str:
-        upload_url = self.upload_server()
         data = {
             "key": self.key,
             "file_title": title,
@@ -353,25 +352,39 @@ class EarnVidsApi(HostApi):
             "file_public": "1",
             "file_adult": "1",
         }
-        with path.open("rb") as handle:
-            response = self.session.post(
-                upload_url,
-                data=data,
-                files={"file": (path.name, handle, "video/mp4")},
-                timeout=(30, 5 * 60 * 60),
-            )
-        if not response.ok:
-            raise RuntimeError(
-                f"EarnVids upload HTTP {response.status_code}: "
-                f"{clean_error(response.text, 300)}"
-            )
-        try:
-            payload = response.json()
-        except ValueError as exc:
-            raise RuntimeError(
-                "EarnVids upload returned non-JSON response"
-            ) from exc
-        return require_file_code(payload, "EarnVids")
+        last_error = ""
+        for attempt in range(1, 4):
+            upload_url = self.upload_server()
+            try:
+                with path.open("rb") as handle:
+                    response = self.session.post(
+                        upload_url,
+                        data=data,
+                        files={"file": (path.name, handle, "video/mp4")},
+                        timeout=(30, 5 * 60 * 60),
+                    )
+                if not response.ok:
+                    raise RuntimeError(
+                        f"EarnVids upload HTTP {response.status_code}: "
+                        f"{clean_error(response.text, 300)}"
+                    )
+                try:
+                    payload = response.json()
+                except ValueError as exc:
+                    raise RuntimeError(
+                        "EarnVids upload returned non-JSON response"
+                    ) from exc
+                return require_file_code(payload, "EarnVids")
+            except (
+                TimeoutError,
+                requests.RequestException,
+                OSError,
+            ) as exc:
+                last_error = clean_error(exc)
+                if attempt == 3:
+                    break
+                time.sleep((attempt * 10) + random.random())
+        raise RuntimeError(f"EarnVids upload failed after retries: {last_error}")
 
     def direct_link(self, code: str) -> str:
         payload = self.get(
