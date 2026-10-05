@@ -24,11 +24,45 @@ type Props = {
   children?: ReactNode;
 };
 
-export function LegalPlaceholder() {
+function fallbackCopy(title: string, sectionTitle?: string) {
+  const page = title.toLowerCase();
+  const section = sectionTitle?.toLowerCase();
+
+  if (page.includes("privacy")) {
+    if (section?.includes("information")) return "We collect only the information needed to operate the service, process safety requests, prevent abuse, and respond to legal notices.";
+    if (section?.includes("choices")) return "You can contact us about privacy concerns, removal requests, or data questions using the content-removal and safety request forms.";
+    return "This page explains how GayVideo.fun handles privacy, safety reports, and operational data for adult users.";
+  }
+
+  if (page.includes("cookies")) {
+    if (section?.includes("preferences")) return "Cookie preferences are used for essential site behavior such as age-gate acknowledgement, session security, and basic usability.";
+    if (section?.includes("details")) return "Essential cookies support login, safety controls, and site operation. Optional analytics or advertising cookies should be used only where configured.";
+    return "This page explains the cookies and similar browser storage used by GayVideo.fun.";
+  }
+
+  if (page.includes("removal") || page.includes("copyright")) {
+    if (section?.includes("copyright")) return "Copyright owners or authorized representatives can submit a notice identifying the protected work and the reported GayVideo.fun URLs.";
+    if (section?.includes("privacy") || section?.includes("content removal")) return "People shown in content, or people reporting private or non-consensual material, can request review and removal through the safety forms.";
+    if (section?.includes("underage")) return "Reports involving possible underage content are treated as urgent and should include every URL and detail that helps locate the material quickly.";
+    if (section?.includes("contact")) return "Use the linked request forms so the review team receives the required URLs, contact email, declarations, and supporting details.";
+    return "GayVideo.fun reviews copyright, privacy, safety, non-consensual-content, and underage-content reports through dedicated request forms.";
+  }
+
+  if (page.includes("terms")) {
+    if (section?.includes("use")) return "GayVideo.fun is for adults only. Users must follow applicable law, respect rights holders and depicted persons, and avoid abusive behavior.";
+    if (section?.includes("content")) return "Content may be removed, restricted, or reviewed when it is reported, unavailable, unlawful, non-consensual, or otherwise violates site rules.";
+    if (section?.includes("contact")) return "For legal, privacy, copyright, or safety concerns, use the content-removal and DMCA request pages linked from the footer.";
+    return "These terms describe the rules for using GayVideo.fun, an adults-only video discovery and streaming service.";
+  }
+
+  return "This section explains the policy, request process, and contact path for this page.";
+}
+
+export function LegalCopy({ title, sectionTitle }: { title: string; sectionTitle?: string }) {
   return (
     <div className={styles.legalPlaceholder}>
       <Icon name="gavel" aria-hidden="true" />
-      <span>LEGAL COPY — FINAL TEXT REQUIRED</span>
+      <span>{fallbackCopy(title, sectionTitle)}</span>
     </div>
   );
 }
@@ -67,7 +101,7 @@ export function LegalShell({
         <article className={styles.article}>
           {eyebrow ? <p className={styles.eyebrow}>{eyebrow}</p> : null}
           <h1>{title}</h1>
-          {introPlaceholder ? <LegalPlaceholder /> : null}
+          {introPlaceholder ? <LegalCopy title={title} /> : null}
 
           <nav className={styles.mobileToc} aria-label="On this page">
             <span className={styles.mobileTocLabel} aria-hidden="true">
@@ -90,7 +124,7 @@ export function LegalShell({
                   <h2>{section.title}</h2>
                   {section.badge ? <span>{section.badge}</span> : null}
                 </div>
-                <LegalPlaceholder />
+                <LegalCopy title={title} sectionTitle={section.title} />
                 {section.action ? (
                   <Link className={styles.inlineAction} href={section.action.href}>
                     {section.action.label}
