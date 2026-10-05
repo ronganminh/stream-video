@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - ".github/workflows/video-migration-smoke.yml"
+      - "scripts/video-migration/**"
   workflow_dispatch:
 
 permissions:
