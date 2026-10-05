@@ -183,13 +183,14 @@ export function RemovalRequestForm({ initialVideoUrl }: Props) {
                   maxLength={2000}
                   required
                   value={url}
-                  onChange={(event) =>
+                  onChange={(event) => {
+                    const value = event.currentTarget.value;
                     setUrls((current) =>
                       current.map((item, itemIndex) =>
-                        itemIndex === index ? event.currentTarget.value : item,
+                        itemIndex === index ? value : item,
                       ),
-                    )
-                  }
+                    );
+                  }}
                   onBlur={validate}
                   aria-label={`Video URL ${index + 1}`}
                   aria-invalid={Boolean(errors.urls)}
