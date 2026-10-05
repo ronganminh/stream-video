@@ -1,4 +1,6 @@
+import type { Metadata } from "next";
 import { revalidatePath } from "next/cache";
+import Link from "next/link";
 import { z } from "zod";
 
 import { writeAdminAudit } from "@/lib/auth/audit";
@@ -6,6 +8,10 @@ import { requireAdmin } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 
 import styles from "./page.module.css";
+
+export const metadata: Metadata = {
+  title: "Dashboard",
+};
 
 const syncSchema = z.object({
   kind: z.enum(["NEW", "HEALTH"]),
@@ -114,7 +120,9 @@ export default async function AdminDashboardPage() {
       </div>
 
       <section className={styles.stats} aria-label="Video status counts">
-        <article><span>Drafts waiting</span><strong>{drafts}</strong></article>
+        <Link className={styles.statLink} href="/admin/review">
+          <span>Drafts waiting</span><strong>{drafts}</strong>
+        </Link>
         <article><span>Published</span><strong>{published}</strong></article>
         <article><span>Primary missing</span><strong>{primaryMissing}</strong></article>
         <article><span>Removed</span><strong>{removed}</strong></article>
