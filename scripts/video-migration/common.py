@@ -250,6 +250,15 @@ def recursive_http_url(value: Any) -> str | None:
     return None
 
 
+def require_file_code(payload: Any, label: str) -> str:
+    code = recursive_value(payload, {"filecode", "file_code", "file_code", "code", "fileCode"})
+    if not isinstance(code, str) or not code:
+        raise RuntimeError(
+            f"{label} upload returned no file code: {clean_error(payload, 300)}"
+        )
+    return code
+
+
 class HostApi:
     def __init__(self, base: str, key: str, min_interval: float, label: str) -> None:
         if not key:
@@ -362,13 +371,7 @@ class EarnVidsApi(HostApi):
             raise RuntimeError(
                 "EarnVids upload returned non-JSON response"
             ) from exc
-        code = recursive_value(payload, {"filecode", "file_code", "code"})
-        if not isinstance(code, str) or not code:
-            raise RuntimeError(
-                "EarnVids upload returned no file code: "
-                f"{clean_error(payload, 300)}"
-            )
-        return code
+        return require_file_code(payload, "EarnVids")
 
     def direct_link(self, code: str) -> str:
         payload = self.get(
@@ -392,18 +395,43 @@ class DoodApi(HostApi):
             "DoodStream",
         )
 
+    def local_upload(self, path: Path, title: str) -> str:
+        upload_url = self.upload_server()
+        if "?" not in upload_url:
+            upload_url = f"{upload_url}?{self.key}"
+        with path.open("rb") as handle:
+            response = self.session.post(
+                upload_url,
+                data={"api_key": self.key},
+                files={"file": (path.name, handle, "video/mp4")},
+                timeout=(30, 5 * 60 * 60),
+            )
+        if not response.ok:
+            raise RuntimeError(
+                f"DoodStream upload HTTP {response.status_code}: "
+                f"{clean_error(response.text, 300)}"
+            )
+        try:
+            payload = response.json()
+        except ValueError as exc:
+            raise RuntimeError(
+                "DoodStream upload returned non-JSON response"
+            ) from exc
+        code = require_file_code(payload, "DoodStream")
+        if title:
+            try:
+                self.rename(code, title)
+            except Exception:
+                pass
+        return code
+
     def remote_upload(self, url: str, title: str) -> str:
         payload = self.get(
             "/upload/url",
             url=url,
             new_title=title,
         )
-        code = recursive_value(payload, {"filecode", "file_code", "code"})
-        if not isinstance(code, str) or not code:
-            raise RuntimeError(
-                "DoodStream remote upload returned no file code"
-            )
-        return code
+        return require_file_code(payload, "DoodStream remote")
 
     def ready(self, code: str) -> bool:
         payload = self.get("/file/info", file_code=code)
@@ -415,6 +443,9 @@ class DoodApi(HostApi):
             return False
         return item is not None
 
+    def rename(self, code: str, title: str) -> None:
+        self.get("/file/rename", file_code=code, title=title)
+
 
 class VoeApi(HostApi):
     def __init__(self, key: str) -> None:
@@ -425,12 +456,35 @@ class VoeApi(HostApi):
             "VOE",
         )
 
+    def local_upload(self, path: Path, title: str) -> str:
+        upload_url = self.upload_server()
+        with path.open("rb") as handle:
+            response = self.session.post(
+                upload_url,
+                params={"key": self.key},
+                files={"file": (path.name, handle, "video/mp4")},
+                timeout=(30, 5 * 60 * 60),
+            )
+        if not response.ok:
+            raise RuntimeError(
+                f"VOE upload HTTP {response.status_code}: "
+                f"{clean_error(response.text, 300)}"
+            )
+        try:
+            payload = response.json()
+        except ValueError as exc:
+            raise RuntimeError("VOE upload returned non-JSON response") from exc
+        code = require_file_code(payload, "VOE")
+        if title:
+            try:
+                self.rename(code, title)
+            except Exception:
+                pass
+        return code
+
     def remote_upload(self, url: str) -> str:
         payload = self.get("/upload/url", url=url)
-        code = recursive_value(payload, {"file_code", "filecode", "code"})
-        if not isinstance(code, str) or not code:
-            raise RuntimeError("VOE remote upload returned no file code")
-        return code
+        return require_file_code(payload, "VOE remote")
 
     def rename(self, code: str, title: str) -> None:
         payload = self.get(
@@ -448,7 +502,7 @@ class VoeApi(HostApi):
 
     def ready(self, code: str) -> bool:
         payload = self.get("/file/info", file_code=code)
-        found = recursive_value(payload, {"filecode", "file_code"})
+        found = recursive_value(payload, {"filecode", "file_code", "fileCode"})
         if found is None:
             return False
         status = recursive_value(payload, {"status"})
