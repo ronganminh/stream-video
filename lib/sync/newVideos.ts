@@ -8,6 +8,12 @@ import {
   autoMatchHostFiles,
   titleFromFilename,
 } from "./match";
+import {
+  EMPTY_MIGRATION_METADATA,
+  loadMigrationMetadata,
+  tagConnectData,
+  type MigrationMetadataIndex,
+} from "./migrationMetadata";
 import { normalize } from "./normalize";
 import { getSyncSettings, withSyncLock } from "./settings";
 import { storeThumbnail } from "./thumbnails";
@@ -48,6 +54,7 @@ export function buildPrimaryVideoData(
   provider: HostProvider,
   file: HostFileDTO,
   slug: string,
+  tagLinks: { tagId: string }[] = [],
 ) {
   const title = titleFromFilename(file.title) || file.code;
 
@@ -73,6 +80,9 @@ export function buildPrimaryVideoData(
         lastCheckedAt: new Date(),
       },
     },
+    ...(tagLinks.length > 0
+      ? { videoTags: { create: tagLinks } }
+      : {}),
   };
 }
 
@@ -81,12 +91,22 @@ async function createPrimaryVideo(
   provider: HostProvider,
   file: HostFileDTO,
   errors: string[],
+  metadata: MigrationMetadataIndex = EMPTY_MIGRATION_METADATA,
 ): Promise<void> {
   const title = titleFromFilename(file.title) || file.code;
   const slug = await uniqueSlug(title);
+  let tagLinks: { tagId: string }[] = [];
+
+  try {
+    tagLinks = await tagConnectData(
+      metadata.tagsByHostCode.get(file.code) ?? [],
+    );
+  } catch (error) {
+    errors.push(`${host.id} tags ${file.code}: ${errorMessage(error)}`);
+  }
 
   const video = await prisma.video.create({
-    data: buildPrimaryVideoData(host.id, provider, file, slug),
+    data: buildPrimaryVideoData(host.id, provider, file, slug, tagLinks),
     select: { id: true },
   });
 
@@ -114,6 +134,7 @@ async function syncPrimaryHost(
   host: Host,
   provider: HostProvider,
   errors: string[],
+  metadata: MigrationMetadataIndex = EMPTY_MIGRATION_METADATA,
 ): Promise<{ created: number; matched: number }> {
   let created = 0;
   let matched = 0;
@@ -179,7 +200,7 @@ async function syncPrimaryHost(
           continue;
         }
 
-        await createPrimaryVideo(host, provider, file, errors);
+        await createPrimaryVideo(host, provider, file, errors, metadata);
         created += 1;
       } catch (error) {
         errors.push(
@@ -270,11 +291,19 @@ export async function runNewVideos(): Promise<SyncJobResult> {
       return { created, matched, errors };
     }
 
+    let metadata = EMPTY_MIGRATION_METADATA;
+    try {
+      metadata = await loadMigrationMetadata(primary.id);
+    } catch (error) {
+      errors.push(`migration metadata: ${errorMessage(error)}`);
+    }
+
     try {
       const primaryResult = await syncPrimaryHost(
         primary,
         provider,
         errors,
+        metadata,
       );
       created += primaryResult.created;
       matched += primaryResult.matched;
