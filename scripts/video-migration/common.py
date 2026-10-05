@@ -408,6 +408,11 @@ class DoodApi(HostApi):
     def ready(self, code: str) -> bool:
         payload = self.get("/file/info", file_code=code)
         item = recursive_value(payload, {"filecode", "file_code"})
+        status = recursive_value(payload, {"status"})
+        if status in (404, "404"):
+            return False
+        if isinstance(status, str) and "not found" in status.lower():
+            return False
         return item is not None
 
 
@@ -426,6 +431,20 @@ class VoeApi(HostApi):
         if not isinstance(code, str) or not code:
             raise RuntimeError("VOE remote upload returned no file code")
         return code
+
+    def rename(self, code: str, title: str) -> None:
+        payload = self.get(
+            "/file/rename",
+            file_code=code,
+            title=title,
+        )
+        success = recursive_value(payload, {"success"})
+        status = recursive_value(payload, {"status"})
+        if success is False or status in (400, 404, 500, "400", "404", "500"):
+            message = recursive_value(payload, {"message", "msg"})
+            raise RuntimeError(
+                f"VOE rename failed: {clean_error(message or payload, 300)}"
+            )
 
     def ready(self, code: str) -> bool:
         payload = self.get("/file/info", file_code=code)

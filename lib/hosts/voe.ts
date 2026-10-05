@@ -4,6 +4,7 @@ const API_BASE = "https://voe.sx/api";
 const DEFAULT_TIMEOUT_MS = 8_000;
 const DEFAULT_RETRY_BASE_MS = 250;
 const DEFAULT_MIN_INTERVAL_MS = 300;
+const THUMBNAIL_BASE = "https://i.voe.sx/cache";
 
 type FetchLike = typeof fetch;
 type Sleep = (milliseconds: number) => Promise<void>;
@@ -63,6 +64,10 @@ function uploadedAtOrNull(value: string | undefined): string | null {
   return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
 }
 
+function thumbnailUrl(code: string): string {
+  return `${THUMBNAIL_BASE}/${encodeURIComponent(code)}_storyboard_L0.jpg`;
+}
+
 function listToDto(file: VoeListFile): HostFileDTO | null {
   if (!file.filecode) return null;
 
@@ -70,7 +75,7 @@ function listToDto(file: VoeListFile): HostFileDTO | null {
     code: file.filecode,
     title: file.title ?? file.name ?? file.filecode,
     lengthSeconds: null,
-    thumbnailUrl: null,
+    thumbnailUrl: thumbnailUrl(file.filecode),
     uploadedAt: uploadedAtOrNull(file.uploaded),
   };
 }
@@ -82,7 +87,7 @@ function infoToDto(file: VoeInfoFile): HostFileDTO | null {
     code: file.fileCode,
     title: file.title ?? file.name ?? file.fileCode,
     lengthSeconds: numberOrNull(file.length),
-    thumbnailUrl: null,
+    thumbnailUrl: thumbnailUrl(file.fileCode),
     uploadedAt: null,
   };
 }

@@ -2,12 +2,14 @@ import Link from "next/link";
 
 import { requireAdmin } from "@/lib/auth/session";
 import { db } from "@/lib/db";
+import { loadThumbnailPreferences } from "@/lib/sync/thumbnailSources";
 
 import {
   approveReviewAction,
   bulkApproveReviewAction,
   rejectReviewAction,
   saveReviewAction,
+  selectReviewThumbnailAction,
 } from "./actions";
 import styles from "./page.module.css";
 
@@ -41,6 +43,9 @@ export default async function AdminReviewPage() {
       orderBy: { name: "asc" },
     }),
   ]);
+  const thumbnailPreferences = await loadThumbnailPreferences(
+    videos.map((video) => video.id),
+  );
 
   return (
     <main className={styles.page}>
@@ -69,6 +74,29 @@ export default async function AdminReviewPage() {
             const selectedTags = new Set(
               video.videoTags.map(({ tagId }) => tagId),
             );
+            const preference = thumbnailPreferences.get(video.id);
+            const thumbnailChoices = [
+              ...(preference?.sourceUrl
+                ? [
+                    {
+                      id: "source",
+                      label: "Source",
+                      url: preference.sourceUrl,
+                    },
+                  ]
+                : []),
+              ...video.mirrors.flatMap((mirror) =>
+                mirror.hostThumbnailUrl
+                  ? [
+                      {
+                        id: mirror.hostId,
+                        label: mirror.host.label,
+                        url: mirror.hostThumbnailUrl,
+                      },
+                    ]
+                  : [],
+              ),
+            ];
 
             return (
               <article className={styles.card} key={video.id}>
@@ -118,6 +146,69 @@ export default async function AdminReviewPage() {
                     )}
                   </div>
                 </div>
+
+                {thumbnailChoices.length ? (
+                  <section
+                    className={styles.thumbnailPicker}
+                    aria-label={`Thumbnail choices for ${video.title}`}
+                  >
+                    <div className={styles.thumbnailPickerHeading}>
+                      <strong>Thumbnail choices</strong>
+                      <span>
+                        Source is the default. Host thumbnails stay available
+                        for review.
+                      </span>
+                    </div>
+                    <div className={styles.thumbnailChoices}>
+                      {thumbnailChoices.map((choice) => {
+                        const selected =
+                          preference?.selected === choice.id;
+
+                        return (
+                          <form
+                            action={selectReviewThumbnailAction}
+                            key={choice.id}
+                          >
+                            <input
+                              type="hidden"
+                              name="id"
+                              value={video.id}
+                            />
+                            <input
+                              type="hidden"
+                              name="selection"
+                              value={choice.id}
+                            />
+                            <button
+                              className={[
+                                styles.thumbnailChoice,
+                                selected
+                                  ? styles.thumbnailChoiceSelected
+                                  : "",
+                              ]
+                                .filter(Boolean)
+                                .join(" ")}
+                              type="submit"
+                              aria-pressed={selected}
+                            >
+                              <span
+                                className={styles.thumbnailChoiceImage}
+                                style={{
+                                  backgroundImage: `url("${choice.url.replaceAll('"', "%22")}")`,
+                                }}
+                                aria-hidden="true"
+                              />
+                              <span className={styles.thumbnailChoiceMeta}>
+                                <span>{choice.label}</span>
+                                {selected ? <em>Selected</em> : null}
+                              </span>
+                            </button>
+                          </form>
+                        );
+                      })}
+                    </div>
+                  </section>
+                ) : null}
 
                 <form className={styles.form} action={saveReviewAction}>
                   <input type="hidden" name="id" value={video.id} />

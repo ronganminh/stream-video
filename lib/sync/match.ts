@@ -118,15 +118,26 @@ export async function autoMatchHostFiles(
 
     const candidate = selectUniqueMatch(candidates);
     if (!candidate) continue;
+
+    let info = null;
+    try {
+      info = await provider.getFileInfo(candidate.fileCode);
+    } catch {
+      // Matching must not fail just because optional host metadata is
+      // temporarily unavailable. Health sync refreshes it later.
+    }
+
     await prisma.$transaction([
       prisma.mirror.create({
         data: {
           videoId: video.id,
           hostId,
           fileCode: candidate.fileCode,
-          rawTitle: candidate.rawTitle,
+          rawTitle: info?.title ?? candidate.rawTitle,
           normalizedName,
           embedUrl: provider.embedUrl(candidate.fileCode),
+          hostThumbnailUrl: info?.thumbnailUrl ?? null,
+          lengthSeconds: info?.lengthSeconds ?? null,
           status: "OK",
           matchedBy: "AUTO",
           lastCheckedAt: new Date(),

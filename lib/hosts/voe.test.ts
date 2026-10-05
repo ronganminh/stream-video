@@ -30,7 +30,8 @@ describe("VOE provider", () => {
           code: "abc123456789",
           title: "Test.mp4",
           lengthSeconds: null,
-          thumbnailUrl: null,
+          thumbnailUrl:
+            "https://i.voe.sx/cache/abc123456789_storyboard_L0.jpg",
           uploadedAt: "2023-03-31T00:00:00.000Z",
         },
       ],
@@ -53,7 +54,8 @@ describe("VOE provider", () => {
       code: "abc123456789",
       title: "test.mp4",
       lengthSeconds: 6,
-      thumbnailUrl: null,
+      thumbnailUrl:
+            "https://i.voe.sx/cache/abc123456789_storyboard_L0.jpg",
       uploadedAt: null,
     });
     expect(provider.embedUrl("abc123456789")).toBe(

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import json
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -22,7 +23,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--source", required=True)
     parser.add_argument("--existing", required=True)
     parser.add_argument("--output", required=True)
+    parser.add_argument("--thumbnail-output", required=True)
     parser.add_argument("--run-id", required=True)
+    parser.add_argument("--start", type=int, default=0)
+    parser.add_argument("--limit", type=int, default=1000)
     return parser.parse_args()
 
 
@@ -44,6 +48,14 @@ def load_shards(root: Path) -> list[dict[str, str]]:
     for path in sorted(root.rglob("*.csv")):
         rows.extend(read_csv(path))
     return rows
+
+
+def migration_title(row: dict[str, str]) -> str:
+    return (
+        row.get("title", "")
+        or row.get("source_filename", "")
+        or row.get("post_id", "")
+    )
 
 
 def queue_remote(
@@ -75,11 +87,7 @@ def queue_remote(
                 row["error"] = clean_error(exc)
                 continue
 
-        title = (
-            row.get("title", "")
-            or row.get("source_filename", "")
-            or row.get("post_id", "")
-        )
+        title = migration_title(row)
 
         if row.get("dood_status") != "OK":
             try:
@@ -131,9 +139,13 @@ def poll_ready(
                 pending = True
                 try:
                     if voe.ready(row["voe_file_code"]):
+                        voe.rename(
+                            row["voe_file_code"],
+                            migration_title(row),
+                        )
                         row["voe_status"] = "OK"
-                except Exception:
-                    pass
+                except Exception as exc:
+                    row["error"] = clean_error(exc)
 
         if not pending:
             return
@@ -208,12 +220,66 @@ def merge_log(
     return ordered
 
 
+def build_thumbnail_payload(
+    source_rows: list[dict[str, str]],
+    log_rows: list[dict[str, str]],
+    start: int = 0,
+    limit: int | None = None,
+) -> list[dict[str, object]]:
+    log_by_id = {
+        row.get("post_id", ""): row
+        for row in log_rows
+        if row.get("post_id")
+    }
+
+    first = max(0, start)
+    if limit is None:
+        selected_sources = source_rows[first:]
+    else:
+        selected_sources = source_rows[first : first + max(0, limit)]
+
+    payload: list[dict[str, object]] = []
+
+    for source in selected_sources:
+        post_id = source.get("post_id", "").strip()
+        if not post_id:
+            continue
+
+        thumbnail_url = source.get("thumbnail_url", "").strip()
+        if not thumbnail_url.startswith(("https://", "http://")):
+            continue
+
+        row = log_by_id.get(post_id, {})
+        mirrors: dict[str, str] = {}
+        for field, raw_value in row.items():
+            if not field.endswith("_file_code"):
+                continue
+            file_code = (raw_value or "").strip()
+            if not file_code:
+                continue
+            host_id = field[: -len("_file_code")]
+            if host_id:
+                mirrors[host_id] = file_code
+
+        if mirrors:
+            payload.append(
+                {
+                    "postId": post_id,
+                    "sourceThumbnailUrl": thumbnail_url,
+                    "mirrors": mirrors,
+                }
+            )
+
+    return payload
+
+
 def main() -> None:
     args = parse_args()
     results_root = Path(args.results)
     source_path = Path(args.source)
     existing_path = Path(args.existing)
     output_path = Path(args.output)
+    thumbnail_output_path = Path(args.thumbnail_output)
 
     shard_rows = load_shards(results_root)
     source_rows = read_csv(source_path)
@@ -267,6 +333,25 @@ def main() -> None:
         )
         writer.writeheader()
         writer.writerows(merged)
+
+    thumbnail_payload = build_thumbnail_payload(
+        source_rows,
+        merged,
+        start=args.start,
+        limit=args.limit,
+    )
+    thumbnail_output_path.parent.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+    thumbnail_output_path.write_text(
+        json.dumps(
+            thumbnail_payload,
+            ensure_ascii=False,
+            separators=(",", ":"),
+        ),
+        encoding="utf-8",
+    )
 
 
 if __name__ == "__main__":

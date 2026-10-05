@@ -4,6 +4,17 @@ const API_BASE = "https://doodapi.co/api";
 const DEFAULT_TIMEOUT_MS = 8_000;
 const DEFAULT_RETRY_BASE_MS = 250;
 const DEFAULT_MIN_INTERVAL_MS = 100;
+const DEFAULT_EMBED_BASE = "https://playmogo.com";
+const KNOWN_EMBED_DOMAINS = [
+  "playmogo.com",
+  "myvidplay.com",
+  "doodstream.com",
+  "dood.pm",
+  "dood.watch",
+  "dood.so",
+  "dood.to",
+  "dood.la",
+] as const;
 
 type FetchLike = typeof fetch;
 type Sleep = (milliseconds: number) => Promise<void>;
@@ -15,6 +26,7 @@ type ProviderOptions = {
   timeoutMs?: number;
   retryBaseMs?: number;
   minIntervalMs?: number;
+  embedBaseUrl?: string;
 };
 
 type DoodListFile = {
@@ -53,6 +65,14 @@ function numberOrNull(value: string | number | undefined): number | null {
   if (value === undefined) return null;
   const parsed = typeof value === "number" ? value : Number(value);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function normalizeEmbedBase(value: string): string {
+  const url = new URL(value);
+  if (url.protocol !== "https:") {
+    throw new Error("DoodStream embed base must use https.");
+  }
+  return url.origin;
 }
 
 function uploadedAtOrNull(value: string | undefined): string | null {
@@ -98,6 +118,17 @@ export function createDoodProvider(
   const retryBaseMs = options.retryBaseMs ?? DEFAULT_RETRY_BASE_MS;
   const minIntervalMs =
     options.minIntervalMs ?? DEFAULT_MIN_INTERVAL_MS;
+  const embedBase = normalizeEmbedBase(
+    options.embedBaseUrl ??
+      process.env.HOST_DOOD_EMBED_BASE ??
+      DEFAULT_EMBED_BASE,
+  );
+  const embedDomains = Array.from(
+    new Set([
+      new URL(embedBase).hostname,
+      ...KNOWN_EMBED_DOMAINS,
+    ]),
+  );
   let lastStartedAt = 0;
 
   const request = async <T>(path: string, params: Record<string, string>) => {
@@ -145,7 +176,7 @@ export function createDoodProvider(
   return {
     id: "dood",
     label: "DoodStream",
-    embedDomains: ["dood.so", "dood.to", "dood.la"],
+    embedDomains,
 
     async listFiles({ page, perPage }) {
       const response = await request<DoodListResponse>("/file/list", {
@@ -184,7 +215,7 @@ export function createDoodProvider(
     },
 
     embedUrl(code) {
-      return `https://dood.so/e/${encodeURIComponent(code)}`;
+      return `${embedBase}/e/${encodeURIComponent(code)}`;
     },
   };
 }

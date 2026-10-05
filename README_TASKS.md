@@ -126,3 +126,14 @@ Task packets:
 - `docs/tasks/phase-5/T38-final-legal-copy.md`
 
 Important: the existing project rule remains authoritative until T38: legal prose must stay exactly `LEGAL COPY — FINAL TEXT REQUIRED`. Do not treat that placeholder as a code defect and do not author replacement legal prose.
+
+
+### T39 — migration thumbnails and Dood embed compatibility
+
+T39 is a production follow-up after the first real-video smoke test.
+
+- Packet: `docs/tasks/phase-5/T39-source-thumbnail-selection.md`
+- CSV `thumbnail_url` is the default migrated thumbnail.
+- Dood / VOE / EarnVids thumbnails remain selectable in Admin Review when available.
+- Dood embed base is operator-configurable and existing mirrors refresh during sync.
+- The locked Prisma schema remains unchanged.

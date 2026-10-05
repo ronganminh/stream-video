@@ -55,6 +55,7 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
       HOST_DOOD_API_KEY: ${HOST_DOOD_API_KEY:-}
+      HOST_DOOD_EMBED_BASE: ${HOST_DOOD_EMBED_BASE:-https://playmogo.com}
       HOST_VOE_API_KEY: ${HOST_VOE_API_KEY:-}
       HOST_EARNVIDS_API_KEY: ${HOST_EARNVIDS_API_KEY:-}
       MEDIA_DIR: /data/media

@@ -16,7 +16,8 @@
     "sync:new": "tsx worker/cli.ts sync:new",
     "sync:health": "tsx worker/cli.ts sync:health",
     "caddy:generate": "tsx scripts/generate-caddy.ts",
-    "caddy:check": "tsx scripts/generate-caddy.ts --check"
+    "caddy:check": "tsx scripts/generate-caddy.ts --check",
+    "migration:thumbnails": "tsx scripts/apply-migration-thumbnails.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.15.0",
