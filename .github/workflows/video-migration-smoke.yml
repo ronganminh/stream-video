@@ -1,0 +1,207 @@
+name: Video migration smoke
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/video-migration-smoke.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: video-migration-smoke
+  cancel-in-progress: true
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    steps:
+      - name: Checkout app
+        uses: actions/checkout@v4
+
+      - name: Checkout private migration data
+        uses: actions/checkout@v4
+        with:
+          repository: ronganminh/stream-video-data
+          token: ${{ secrets.MIGRATION_DATA_PAT }}
+          path: migration-data
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build one-row smoke matrix
+        id: matrix
+        shell: bash
+        run: |
+          matrix="$(python scripts/video-migration/prepare.py --csv migration-data/videos.csv --start "0" --limit "1" --per-job "1")"
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+          echo "$matrix"
+
+  seed:
+    needs: prepare
+    if: ${{ needs.prepare.outputs.matrix != '{"include":[]}' }}
+    runs-on: windows-2025
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix: ${{ fromJson(needs.prepare.outputs.matrix) }}
+    env:
+      HOST_EARNVIDS_API_KEY: ${{ secrets.HOST_EARNVIDS_API_KEY }}
+      HOST_DOOD_API_KEY: ${{ secrets.HOST_DOOD_API_KEY }}
+      HOST_VOE_API_KEY: ${{ secrets.HOST_VOE_API_KEY }}
+    steps:
+      - name: Checkout app
+        uses: actions/checkout@v4
+
+      - name: Checkout private migration data
+        uses: actions/checkout@v4
+        with:
+          repository: ronganminh/stream-video-data
+          token: ${{ secrets.MIGRATION_DATA_PAT }}
+          path: migration-data
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python dependencies
+        shell: pwsh
+        run: python -m pip install --disable-pip-version-check requests gdown
+
+      - name: Check scratch disk
+        shell: pwsh
+        run: |
+          Get-PSDrive D -ErrorAction SilentlyContinue | Format-List
+          New-Item -ItemType Directory -Force -Path D:\gv-work | Out-Null
+
+      - name: Download source and upload to all hosts without watermark
+        shell: pwsh
+        run: >-
+          python scripts/video-migration/seed_worker.py
+          --csv migration-data/videos.csv
+          --log migration-data/migration-log.csv
+          --start "${{ matrix.start }}"
+          --count "${{ matrix.count }}"
+          --logo public/brand/logo-mark.svg
+          --work-root D:\gv-work
+          --output result.csv
+          --force "true"
+          --skip-watermark "true"
+          --upload-strategy "local_all_hosts"
+
+      - name: Upload shard result
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: migration-smoke-result-${{ matrix.shard }}
+          path: result.csv
+          if-no-files-found: error
+          retention-days: 1
+
+  fanout_and_log:
+    needs: [prepare, seed]
+    if: ${{ always() && needs.prepare.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      HOST_DOOD_API_KEY: ${{ secrets.HOST_DOOD_API_KEY }}
+      HOST_VOE_API_KEY: ${{ secrets.HOST_VOE_API_KEY }}
+      HOST_EARNVIDS_API_KEY: ${{ secrets.HOST_EARNVIDS_API_KEY }}
+    steps:
+      - name: Checkout app
+        uses: actions/checkout@v4
+
+      - name: Checkout private migration data
+        uses: actions/checkout@v4
+        with:
+          repository: ronganminh/stream-video-data
+          token: ${{ secrets.MIGRATION_DATA_PAT }}
+          path: migration-data
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python dependencies
+        run: python -m pip install --disable-pip-version-check requests
+
+      - name: Download temporary shard results
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          pattern: migration-smoke-result-*
+          path: migration-results
+          merge-multiple: true
+
+      - name: Merge smoke result into migration log and thumbnail payload
+        env:
+          GITHUB_RUN_ID_VALUE: ${{ github.run_id }}
+        run: >-
+          python scripts/video-migration/fanout_and_log.py
+          --results migration-results
+          --source migration-data/videos.csv
+          --existing migration-data/migration-log.csv
+          --output migration-data/migration-log.csv
+          --thumbnail-output migration-thumbnail-payload.json
+          --run-id "$GITHUB_RUN_ID_VALUE"
+          --start "0"
+          --limit "1"
+          --skip-hosts ""
+
+      - name: Commit smoke migration log
+        shell: bash
+        working-directory: migration-data
+        run: |
+          git config user.name "gayvideo-migration[bot]"
+          git config user.email "gayvideo-migration[bot]@users.noreply.github.com"
+          git add migration-log.csv
+          if git diff --cached --quiet; then
+            echo "No migration log changes."
+            exit 0
+          fi
+          git commit -m "Smoke update migration log (run ${{ github.run_id }})"
+          git push
+
+      - name: Apply source thumbnails in production
+        shell: bash
+        env:
+          PROD_HOST: ${{ secrets.PROD_HOST }}
+          PROD_USER: ${{ secrets.PROD_USER }}
+          PROD_KNOWN_HOSTS: ${{ secrets.PROD_KNOWN_HOSTS }}
+          PROD_MIGRATION_SSH_KEY: ${{ secrets.PROD_MIGRATION_SSH_KEY }}
+        run: |
+          count="$(python -c 'import json; print(len(json.load(open("migration-thumbnail-payload.json", encoding="utf-8"))))')"
+          if [ "$count" -eq 0 ]; then
+            echo "No source thumbnails to apply."
+            exit 0
+          fi
+
+          : "${PROD_HOST:?PROD_HOST is required}"
+          : "${PROD_USER:?PROD_USER is required}"
+          : "${PROD_KNOWN_HOSTS:?PROD_KNOWN_HOSTS is required}"
+          : "${PROD_MIGRATION_SSH_KEY:?PROD_MIGRATION_SSH_KEY is required}"
+
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$PROD_MIGRATION_SSH_KEY" > "$HOME/.ssh/migration_key"
+          printf '%s\n' "$PROD_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/migration_key" "$HOME/.ssh/known_hosts"
+
+          ssh \
+            -i "$HOME/.ssh/migration_key" \
+            -o BatchMode=yes \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            "$PROD_USER@$PROD_HOST" \
+            < migration-thumbnail-payload.json
+
+          rm -f "$HOME/.ssh/migration_key"
