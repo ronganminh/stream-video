@@ -40,6 +40,9 @@ describe("DoodStream provider", () => {
     const requested = new URL(requestedUrl);
     expect(requested.pathname).toBe("/api/file/list");
     expect(requested.searchParams.get("per_page")).toBe("200");
+    expect(provider.embedUrl("abc123")).toBe(
+      "https://dood.to/e/abc123",
+    );
   });
 
   it("maps file info and exposes the documented embed shape", async () => {
@@ -53,6 +56,9 @@ describe("DoodStream provider", () => {
       code: "xxx",
       lengthSeconds: 1234,
     });
+    expect(provider.embedUrl("xxx")).toBe(
+      "https://playmogo.com/e/yyy",
+    );
     expect(provider.embedUrl("abc123")).toBe(
       "https://playmogo.com/e/abc123",
     );
@@ -60,17 +66,47 @@ describe("DoodStream provider", () => {
     expect(provider.embedDomains).toContain("dood.so");
   });
 
-  it("accepts an operator-configured HTTPS embed base", () => {
+  it("keeps an operator-configured HTTPS embed base", async () => {
     const provider = createDoodProvider({
       apiKey: "test-key",
       embedBaseUrl: "https://current-dood.example/path-is-ignored",
+      fetchImpl: vi.fn(async () => jsonResponse(listFixture)),
       minIntervalMs: 0,
     });
+
+    await provider.listFiles({ page: 1, perPage: 20 });
 
     expect(provider.embedUrl("abc123")).toBe(
       "https://current-dood.example/e/abc123",
     );
     expect(provider.embedDomains).toContain("current-dood.example");
+  });
+
+  it("uses an absolute protected embed origin returned by file info", async () => {
+    const provider = createDoodProvider({
+      apiKey: "test-key",
+      fetchImpl: vi.fn(async () =>
+        jsonResponse({
+          status: 200,
+          result: [
+            {
+              status: 200,
+              filecode: "xxx",
+              title: "test.mp4",
+              protected_embed: "https://fresh-dood.example/e/protected",
+            },
+          ],
+        }),
+      ),
+      minIntervalMs: 0,
+    });
+
+    await provider.getFileInfo("xxx");
+
+    expect(provider.embedUrl("xxx")).toBe(
+      "https://fresh-dood.example/e/protected",
+    );
+    expect(provider.embedDomains).toContain("fresh-dood.example");
   });
 
   it("rejects a non-HTTPS embed base", () => {
