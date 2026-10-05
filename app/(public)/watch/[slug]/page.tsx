@@ -175,7 +175,7 @@ export default async function WatchPage({ params }: { params: Params }) {
 
           <h1 className={styles.title}>{video.title}</h1>
           <div className={styles.metaRow}>
-            <span>{formatViews(video.views)} views</span>
+            <span>{formatViews(video.views)}</span>
             <span>•</span>
             <span>{timeAgo(video.publishedAt)}</span>
             {video.quality ? <span className={styles.quality}>{video.quality}</span> : null}
