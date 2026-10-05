@@ -35,6 +35,7 @@ type DoodListFile = {
   length?: string | number;
   single_img?: string;
   uploaded?: string;
+  download_url?: string;
 };
 
 type DoodListResponse = {
@@ -53,6 +54,7 @@ type DoodInfoFile = {
   length?: string | number;
   single_img?: string;
   uploaded?: string;
+  protected_embed?: string;
 };
 
 type DoodInfoResponse = {
@@ -118,10 +120,10 @@ export function createDoodProvider(
   const retryBaseMs = options.retryBaseMs ?? DEFAULT_RETRY_BASE_MS;
   const minIntervalMs =
     options.minIntervalMs ?? DEFAULT_MIN_INTERVAL_MS;
-  const embedBase = normalizeEmbedBase(
-    options.embedBaseUrl ??
-      process.env.HOST_DOOD_EMBED_BASE ??
-      DEFAULT_EMBED_BASE,
+  const configuredEmbedBase =
+    options.embedBaseUrl ?? process.env.HOST_DOOD_EMBED_BASE;
+  let embedBase = normalizeEmbedBase(
+    configuredEmbedBase ?? DEFAULT_EMBED_BASE,
   );
   const embedDomains = Array.from(
     new Set([
@@ -129,7 +131,48 @@ export function createDoodProvider(
       ...KNOWN_EMBED_DOMAINS,
     ]),
   );
+  const protectedEmbedPaths = new Map<string, string>();
+  const autoDetectEmbedBase = !configuredEmbedBase;
   let lastStartedAt = 0;
+
+  const observeEmbedOrigin = (value: string | undefined): boolean => {
+    if (!value || !autoDetectEmbedBase) return false;
+
+    try {
+      const url = new URL(value);
+      if (url.protocol !== "https:") return false;
+
+      embedBase = url.origin;
+      if (!embedDomains.includes(url.hostname)) {
+        embedDomains.push(url.hostname);
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  const rememberProtectedEmbed = (
+    code: string,
+    value: string | undefined,
+  ): void => {
+    if (!value) return;
+
+    try {
+      const absolute = new URL(value, embedBase);
+      if (absolute.protocol !== "https:") return;
+
+      if (/^https:\/\//i.test(value)) {
+        observeEmbedOrigin(value);
+      }
+      protectedEmbedPaths.set(
+        code,
+        `${absolute.pathname}${absolute.search}${absolute.hash}`,
+      );
+    } catch {
+      // Ignore malformed optional embed metadata and use the standard path.
+    }
+  };
 
   const request = async <T>(path: string, params: Record<string, string>) => {
     if (!apiKey) {
@@ -188,7 +231,12 @@ export function createDoodProvider(
         throw new Error(response.msg ?? "DoodStream listFiles failed");
       }
 
-      const files = (response.result.files ?? [])
+      const sourceFiles = response.result.files ?? [];
+      for (const file of sourceFiles) {
+        if (observeEmbedOrigin(file.download_url)) break;
+      }
+
+      const files = sourceFiles
         .map(listToDto)
         .filter((file): file is HostFileDTO => file !== null);
 
@@ -211,10 +259,17 @@ export function createDoodProvider(
       const file = response.result?.find(
         (item) => item.filecode === code && item.status !== 404,
       );
-      return file ? infoToDto(file) : null;
+      if (!file) return null;
+
+      rememberProtectedEmbed(code, file.protected_embed);
+      return infoToDto(file);
     },
 
     embedUrl(code) {
+      const protectedPath = protectedEmbedPaths.get(code);
+      if (protectedPath) {
+        return new URL(protectedPath, embedBase).toString();
+      }
       return `${embedBase}/e/${encodeURIComponent(code)}`;
     },
   };

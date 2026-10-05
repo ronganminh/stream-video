@@ -27,6 +27,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--run-id", required=True)
     parser.add_argument("--start", type=int, default=0)
     parser.add_argument("--limit", type=int, default=1000)
+    parser.add_argument("--skip-hosts", default="")
     return parser.parse_args()
 
 
@@ -63,7 +64,10 @@ def queue_remote(
     earnvids: EarnVidsApi,
     dood: DoodApi,
     voe: VoeApi,
+    skipped_hosts: set[str] | None = None,
 ) -> None:
+    skipped = skipped_hosts or set()
+
     for row in rows:
         if row.get("earnvids_status") != "OK":
             continue
@@ -89,7 +93,7 @@ def queue_remote(
 
         title = migration_title(row)
 
-        if row.get("dood_status") != "OK":
+        if "dood" not in skipped and row.get("dood_status") != "OK":
             try:
                 row["dood_file_code"] = dood.remote_upload(
                     direct,
@@ -100,7 +104,7 @@ def queue_remote(
                 row["dood_status"] = "FAILED"
                 row["error"] = clean_error(exc)
 
-        if row.get("voe_status") != "OK":
+        if "voe" not in skipped and row.get("voe_status") != "OK":
             try:
                 row["voe_file_code"] = voe.remote_upload(
                     direct
@@ -161,15 +165,28 @@ def poll_ready(
 def finalize(
     rows: list[dict[str, str]],
     run_id: str,
+    skipped_hosts: set[str] | None = None,
 ) -> None:
+    skipped = skipped_hosts or set()
     now = datetime.now(timezone.utc).isoformat()
+
     for row in rows:
+        if "dood" in skipped:
+            row["dood_status"] = "SKIPPED"
+            row["dood_file_code"] = ""
+        if "voe" in skipped:
+            row["voe_status"] = "SKIPPED"
+            row["voe_file_code"] = ""
+
+        dood_ready = "dood" in skipped or row.get("dood_status") == "OK"
+        voe_ready = "voe" in skipped or row.get("voe_status") == "OK"
+
         if (
             row.get("download_status") == "OK"
             and row.get("watermark_status") == "OK"
             and row.get("earnvids_status") == "OK"
-            and row.get("dood_status") == "OK"
-            and row.get("voe_status") == "OK"
+            and dood_ready
+            and voe_ready
         ):
             row["overall_status"] = "OK"
             row["error"] = ""
@@ -284,6 +301,15 @@ def main() -> None:
     shard_rows = load_shards(results_root)
     source_rows = read_csv(source_path)
     existing_rows = read_csv(existing_path)
+    skipped_hosts = {
+        value.strip().lower()
+        for value in args.skip_hosts.split(",")
+        if value.strip()
+    }
+    unsupported_skips = skipped_hosts - {"dood", "voe"}
+    if unsupported_skips:
+        names = ", ".join(sorted(unsupported_skips))
+        raise ValueError(f"Unsupported fanout host(s): {names}")
 
     if shard_rows:
         earnvids = EarnVidsApi(
@@ -301,6 +327,7 @@ def main() -> None:
             earnvids,
             dood,
             voe,
+            skipped_hosts,
         )
         poll_ready(
             shard_rows,
@@ -310,6 +337,7 @@ def main() -> None:
         finalize(
             shard_rows,
             args.run_id,
+            skipped_hosts,
         )
 
     merged = merge_log(
