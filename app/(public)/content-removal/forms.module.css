@@ -14,7 +14,7 @@
 
 .groupTitle {
   margin: 0;
-  color: var(--gv-text-muted);
+  color: var(--gv-text-secondary);
   font: 600 10px var(--gv-font-mono);
   letter-spacing: .12em;
 }
