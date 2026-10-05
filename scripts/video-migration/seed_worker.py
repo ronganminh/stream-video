@@ -43,6 +43,11 @@ def parse_args() -> argparse.Namespace:
         choices=("remote_fanout", "local_all_hosts"),
         default="remote_fanout",
     )
+    parser.add_argument(
+        "--fail-on-error",
+        default="false",
+        help="Exit non-zero if any processed row is not successful.",
+    )
     return parser.parse_args()
 
 
@@ -162,6 +167,7 @@ def main() -> None:
     args = parse_args()
     force = is_truthy(args.force)
     skip_watermark = is_truthy(args.skip_watermark)
+    fail_on_error = is_truthy(args.fail_on_error)
     upload_strategy = args.upload_strategy
     csv_path = Path(args.csv)
     log_path = Path(args.log)
@@ -274,13 +280,21 @@ def main() -> None:
             title = source.get("title", "") or upload_file.stem
             tags = source.get("tags", "")
 
-            code = earnvids.local_upload(upload_file, title, tags)
-            result["earnvids_file_code"] = code
-            result["earnvids_status"] = "OK"
-
             if upload_strategy == "local_all_hosts":
                 if dood is None or voe is None:
                     raise RuntimeError("local_all_hosts requires Dood and VOE clients")
+
+                try:
+                    result["earnvids_file_code"] = earnvids.local_upload(
+                        upload_file,
+                        title,
+                        tags,
+                    )
+                    result["earnvids_status"] = "OK"
+                except Exception as exc:
+                    result["earnvids_status"] = "FAILED"
+                    append_error(result, exc)
+
                 try:
                     result["dood_file_code"] = dood.local_upload(upload_file, title)
                     result["dood_status"] = "QUEUED"
@@ -294,8 +308,19 @@ def main() -> None:
                     result["voe_status"] = "FAILED"
                     append_error(result, exc)
 
-                result["overall_status"] = "SEED_OK"
+                if (
+                    result["earnvids_status"] == "OK"
+                    and result["dood_status"] == "QUEUED"
+                    and result["voe_status"] == "QUEUED"
+                ):
+                    result["overall_status"] = "SEED_OK"
+                else:
+                    result["overall_status"] = "FAILED"
                 continue
+
+            code = earnvids.local_upload(upload_file, title, tags)
+            result["earnvids_file_code"] = code
+            result["earnvids_status"] = "OK"
 
             try:
                 result["seed_direct_url"] = wait_for_direct_link(
@@ -334,6 +359,19 @@ def main() -> None:
         )
         writer.writeheader()
         writer.writerows(output_rows)
+
+    if fail_on_error:
+        failed = [
+            row
+            for row in output_rows
+            if row.get("overall_status") not in {"OK", "SEED_OK"}
+        ]
+        if failed:
+            summary = ", ".join(
+                f"{row.get('post_id') or 'unknown'}={row.get('overall_status')}"
+                for row in failed[:10]
+            )
+            raise SystemExit(f"migration seed failed rows: {summary}")
 
 
 if __name__ == "__main__":
