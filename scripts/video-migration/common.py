@@ -260,6 +260,50 @@ def require_file_code(payload: Any, label: str) -> str:
     return code
 
 
+def curl_multipart_post(
+    url: str,
+    fields: dict[str, str],
+    path: Path,
+    label: str,
+) -> dict[str, Any] | None:
+    curl = shutil.which("curl")
+    if not curl:
+        return None
+
+    command = [
+        curl,
+        "--silent",
+        "--show-error",
+        "--fail-with-body",
+        "--connect-timeout",
+        "60",
+        "--max-time",
+        "600",
+        "--retry",
+        "2",
+        "--retry-delay",
+        "10",
+        "--retry-all-errors",
+    ]
+    for key, value in fields.items():
+        command.extend(["--form", f"{key}={value}"])
+    command.extend(
+        [
+            "--form",
+            f"file=@{path};filename={path.name};type=video/mp4",
+            url,
+        ]
+    )
+    result = run_checked(command, timeout=12 * 60)
+    try:
+        return json.loads(result.stdout)
+    except ValueError as exc:
+        raise RuntimeError(
+            f"{label} curl upload returned non-JSON response: "
+            f"{clean_error(result.stdout, 300)}"
+        ) from exc
+
+
 class HostApi:
     def __init__(self, base: str, key: str, min_interval: float, label: str) -> None:
         if not key:
@@ -377,38 +421,9 @@ class EarnVidsApi(HostApi):
         path: Path,
         data: dict[str, str],
     ) -> dict[str, Any]:
-        curl = shutil.which("curl")
-        if curl:
-            command = [
-                curl,
-                "--silent",
-                "--show-error",
-                "--fail-with-body",
-                "--connect-timeout",
-                "60",
-                "--retry",
-                "2",
-                "--retry-delay",
-                "10",
-                "--retry-all-errors",
-            ]
-            for key, value in data.items():
-                command.extend(["--form", f"{key}={value}"])
-            command.extend(
-                [
-                    "--form",
-                    f"file=@{path};filename={path.name};type=video/mp4",
-                    upload_url,
-                ]
-            )
-            result = run_checked(command, timeout=5 * 60 * 60)
-            try:
-                return json.loads(result.stdout)
-            except ValueError as exc:
-                raise RuntimeError(
-                    f"EarnVids curl upload returned non-JSON response: "
-                    f"{clean_error(result.stdout, 300)}"
-                ) from exc
+        payload = curl_multipart_post(upload_url, data, path, "EarnVids")
+        if payload is not None:
+            return payload
 
         with path.open("rb") as handle:
             response = self.session.post(
@@ -455,24 +470,31 @@ class DoodApi(HostApi):
         upload_url = self.upload_server()
         if "?" not in upload_url:
             upload_url = f"{upload_url}?{self.key}"
-        with path.open("rb") as handle:
-            response = self.session.post(
-                upload_url,
-                data={"api_key": self.key},
-                files={"file": (path.name, handle, "video/mp4")},
-                timeout=(30, 5 * 60 * 60),
-            )
-        if not response.ok:
-            raise RuntimeError(
-                f"DoodStream upload HTTP {response.status_code}: "
-                f"{clean_error(response.text, 300)}"
-            )
-        try:
-            payload = response.json()
-        except ValueError as exc:
-            raise RuntimeError(
-                "DoodStream upload returned non-JSON response"
-            ) from exc
+        payload = curl_multipart_post(
+            upload_url,
+            {"api_key": self.key},
+            path,
+            "DoodStream",
+        )
+        if payload is None:
+            with path.open("rb") as handle:
+                response = self.session.post(
+                    upload_url,
+                    data={"api_key": self.key},
+                    files={"file": (path.name, handle, "video/mp4")},
+                    timeout=(30, 5 * 60 * 60),
+                )
+            if not response.ok:
+                raise RuntimeError(
+                    f"DoodStream upload HTTP {response.status_code}: "
+                    f"{clean_error(response.text, 300)}"
+                )
+            try:
+                payload = response.json()
+            except ValueError as exc:
+                raise RuntimeError(
+                    "DoodStream upload returned non-JSON response"
+                ) from exc
         code = require_file_code(payload, "DoodStream")
         if title:
             try:
@@ -514,22 +536,31 @@ class VoeApi(HostApi):
 
     def local_upload(self, path: Path, title: str) -> str:
         upload_url = self.upload_server()
-        with path.open("rb") as handle:
-            response = self.session.post(
-                upload_url,
-                params={"key": self.key},
-                files={"file": (path.name, handle, "video/mp4")},
-                timeout=(30, 5 * 60 * 60),
-            )
-        if not response.ok:
-            raise RuntimeError(
-                f"VOE upload HTTP {response.status_code}: "
-                f"{clean_error(response.text, 300)}"
-            )
-        try:
-            payload = response.json()
-        except ValueError as exc:
-            raise RuntimeError("VOE upload returned non-JSON response") from exc
+        separator = "&" if "?" in upload_url else "?"
+        upload_url_with_key = f"{upload_url}{separator}key={self.key}"
+        payload = curl_multipart_post(
+            upload_url_with_key,
+            {},
+            path,
+            "VOE",
+        )
+        if payload is None:
+            with path.open("rb") as handle:
+                response = self.session.post(
+                    upload_url,
+                    params={"key": self.key},
+                    files={"file": (path.name, handle, "video/mp4")},
+                    timeout=(30, 5 * 60 * 60),
+                )
+            if not response.ok:
+                raise RuntimeError(
+                    f"VOE upload HTTP {response.status_code}: "
+                    f"{clean_error(response.text, 300)}"
+                )
+            try:
+                payload = response.json()
+            except ValueError as exc:
+                raise RuntimeError("VOE upload returned non-JSON response") from exc
         code = require_file_code(payload, "VOE")
         if title:
             try:
