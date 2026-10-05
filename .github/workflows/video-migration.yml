@@ -295,6 +295,23 @@ jobs:
             -o IdentitiesOnly=yes \
             -o StrictHostKeyChecking=yes \
             "$PROD_USER@$PROD_HOST" \
-            "cd /opt/gayvideo && docker compose run --rm worker npm run sync:new"
+            "mkdir -p /opt/gayvideo/migration-data"
+
+          scp \
+            -i "$HOME/.ssh/deploy_key" \
+            -o BatchMode=yes \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            migration-data/videos.csv \
+            migration-data/migration-log.csv \
+            "$PROD_USER@$PROD_HOST:/opt/gayvideo/migration-data/"
+
+          ssh \
+            -i "$HOME/.ssh/deploy_key" \
+            -o BatchMode=yes \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            "$PROD_USER@$PROD_HOST" \
+            "cd /opt/gayvideo && MIGRATION_VIDEOS_CSV=/app/migration-data/videos.csv MIGRATION_LOG_CSV=/app/migration-data/migration-log.csv docker compose run --rm worker npm run sync:new"
 
           rm -f "$HOME/.ssh/deploy_key"
