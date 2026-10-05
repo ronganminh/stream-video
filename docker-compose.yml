@@ -59,11 +59,14 @@ services:
       HOST_VOE_API_KEY: ${HOST_VOE_API_KEY:-}
       HOST_EARNVIDS_API_KEY: ${HOST_EARNVIDS_API_KEY:-}
       MEDIA_DIR: /data/media
+      MIGRATION_VIDEOS_CSV: ${MIGRATION_VIDEOS_CSV:-}
+      MIGRATION_LOG_CSV: ${MIGRATION_LOG_CSV:-}
     depends_on:
       postgres:
         condition: service_healthy
     volumes:
       - media_data:/data/media
+      - ./migration-data:/app/migration-data:ro
     healthcheck:
       test:
         [
