@@ -1,3 +1,5 @@
+import type { Metadata } from "next";
+
 import { requireAdmin } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import {
@@ -13,6 +15,10 @@ import {
   updateSettingsAction,
 } from "./actions";
 import styles from "./page.module.css";
+
+export const metadata: Metadata = {
+  title: "Settings",
+};
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
