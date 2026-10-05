@@ -74,80 +74,84 @@ export function HostsForm({ hosts }: { hosts: HostRow[] }) {
           <span role="columnheader">Enabled</span>
           <span role="columnheader">Primary</span>
         </div>
-        {ordered.map((host, index) => (
-          <div
-            className={styles.hostRow}
-            role="row"
-            key={host.id}
-            draggable
-            onDragStart={() => setDraggedId(host.id)}
-            onDragEnd={() => setDraggedId(null)}
-            onDragOver={(event) => event.preventDefault()}
-            onDrop={() => {
-              if (!draggedId || draggedId === host.id) return;
-              setOrdered((current) => {
-                const from = current.findIndex((item) => item.id === draggedId);
-                const to = current.findIndex((item) => item.id === host.id);
-                return from < 0 || to < 0 ? current : move(current, from, to);
-              });
-              setDraggedId(null);
-            }}
-          >
-            <div className={styles.orderCell} role="cell">
-              <span className={styles.handle} aria-hidden="true">
-                <Icon name="drag_indicator" />
+        {ordered.map((host, index) => {
+          const isSelectedPrimary = primary === host.id;
+
+          return (
+            <div
+              className={styles.hostRow}
+              role="row"
+              key={host.id}
+              draggable
+              onDragStart={() => setDraggedId(host.id)}
+              onDragEnd={() => setDraggedId(null)}
+              onDragOver={(event) => event.preventDefault()}
+              onDrop={() => {
+                if (!draggedId || draggedId === host.id) return;
+                setOrdered((current) => {
+                  const from = current.findIndex((item) => item.id === draggedId);
+                  const to = current.findIndex((item) => item.id === host.id);
+                  return from < 0 || to < 0 ? current : move(current, from, to);
+                });
+                setDraggedId(null);
+              }}
+            >
+              <div className={styles.orderCell} role="cell">
+                <span className={styles.handle} aria-hidden="true">
+                  <Icon name="drag_indicator" />
+                </span>
+                <span className={styles.orderPosition} aria-label={`Order ${index + 1}`}>
+                  {index + 1}
+                </span>
+                <button
+                  type="button"
+                  className={styles.orderButton}
+                  aria-label={`Move ${host.label} up`}
+                  disabled={index === 0}
+                  onClick={() => reorder(host.id, -1)}
+                >
+                  <Icon name="arrow_upward" />
+                </button>
+                <button
+                  type="button"
+                  className={styles.orderButton}
+                  aria-label={`Move ${host.label} down`}
+                  disabled={index === ordered.length - 1}
+                  onClick={() => reorder(host.id, 1)}
+                >
+                  <Icon name="arrow_downward" />
+                </button>
+              </div>
+
+              <span className={styles.hostName} role="cell">
+                <strong>{host.label}</strong>
+                <code>{host.id}</code>
               </span>
-              <span className={styles.orderPosition} aria-label={`Order ${index + 1}`}>
-                {index + 1}
-              </span>
-              <button
-                type="button"
-                className={styles.orderButton}
-                aria-label={`Move ${host.label} up`}
-                disabled={index === 0}
-                onClick={() => reorder(host.id, -1)}
-              >
-                <Icon name="arrow_upward" />
-              </button>
-              <button
-                type="button"
-                className={styles.orderButton}
-                aria-label={`Move ${host.label} down`}
-                disabled={index === ordered.length - 1}
-                onClick={() => reorder(host.id, 1)}
-              >
-                <Icon name="arrow_downward" />
-              </button>
+
+              <label className={`${styles.check} ${styles.enabledCell}`} role="cell">
+                <input
+                  type="checkbox"
+                  name="enabledHostId"
+                  value={host.id}
+                  defaultChecked={host.enabled}
+                  disabled={host.id === primary}
+                />
+                <span>{host.enabled || isSelectedPrimary ? "Enabled" : "Disabled"}</span>
+              </label>
+
+              <label className={`${styles.check} ${styles.primaryCell}`} role="cell">
+                <input
+                  type="radio"
+                  name="primaryHostId"
+                  value={host.id}
+                  checked={isSelectedPrimary}
+                  onChange={() => setPrimary(host.id)}
+                />
+                <span>{isSelectedPrimary ? "Primary" : "Make primary"}</span>
+              </label>
             </div>
-
-            <span className={styles.hostName} role="cell">
-              <strong>{host.label}</strong>
-              <code>{host.id}</code>
-            </span>
-
-            <label className={`${styles.check} ${styles.enabledCell}`} role="cell">
-              <input
-                type="checkbox"
-                name="enabledHostId"
-                value={host.id}
-                defaultChecked={host.enabled}
-                disabled={host.id === primary}
-              />
-              <span>Enabled</span>
-            </label>
-
-            <label className={`${styles.check} ${styles.primaryCell}`} role="cell">
-              <input
-                type="radio"
-                name="primaryHostId"
-                value={host.id}
-                checked={primary === host.id}
-                onChange={() => setPrimary(host.id)}
-              />
-              <span>Primary</span>
-            </label>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {state.error ? <p className={styles.error} role="alert">{state.error}</p> : null}
