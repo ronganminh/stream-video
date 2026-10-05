@@ -1,8 +1,14 @@
+import type { Metadata } from "next";
+
 import { requireAdmin } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 
 import { HostsForm } from "./HostsForm";
 import styles from "./page.module.css";
+
+export const metadata: Metadata = {
+  title: "Hosts",
+};
 
 export default async function AdminHostsPage() {
   await requireAdmin();
