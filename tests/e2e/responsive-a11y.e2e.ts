@@ -21,7 +21,7 @@ const commonLigatures = [
 ] as const;
 
 async function expectNoSeriousAxeViolations(page: Page, label: string) {
-  // T37 gate: serious and critical axe findings must remain empty.
+  // T37 gate: serious and critical axe findings must remain empty across representative routes.
   const result = await new AxeBuilder({ page }).analyze();
   const severeViolations = result.violations.filter(
     (violation) =>
