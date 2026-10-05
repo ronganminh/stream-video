@@ -70,7 +70,7 @@
 .account > span {
   padding: 0 10px;
   overflow: hidden;
-  color: var(--gv-text-muted);
+  color: var(--gv-text-secondary);
   font-size: 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
