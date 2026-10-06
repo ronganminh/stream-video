@@ -1,70 +1,50 @@
-name: Video migration
+name: Video migration cron
+
+# Drip-feed migration: each run picks the next batch of not-yet-migrated
+# videos and processes each in its own short job (download -> watermark ->
+# upload to all 3 hosts), commits the merged log, then runs sync:new in
+# production (with CSV tag metadata) and applies source thumbnails.
+#
+# Each job handles a single video so it never approaches the 6h job limit.
+# Resume is automatic: select_pending.py skips rows already terminal in the
+# migration log, so the backlog drains run by run with no manual start/limit.
+# Re-run it (manually or on a schedule) until nothing pending remains.
+#
+# The 15-minute schedule is disabled by default (see the `on:` block); trigger
+# runs manually with the "Run workflow" button until you choose to enable it.
 
 on:
   workflow_dispatch:
     inputs:
-      start:
-        description: "0-based CSV row to start from"
+      videos_per_tick:
+        description: "Videos to process this run (one job each, max 256)"
         required: true
-        default: "0"
-      limit:
-        description: "How many CSV rows to process in this run (recommended <= 900)"
-        required: true
-        default: "75"
-      videos_per_job:
-        description: "CSV rows per Windows runner"
-        required: true
-        default: "5"
-      force:
-        description: "Reprocess rows already in a terminal state"
-        type: boolean
-        required: true
-        default: false
-      skip_watermark:
-        description: "Smoke test only: upload the source video without watermark/re-encode"
-        type: boolean
-        required: true
-        default: false
-      upload_strategy:
-        description: "Upload mode: remote fanout via EarnVids direct link, or local upload to every host"
-        type: choice
-        required: true
-        default: "remote_fanout"
-        options:
-          - remote_fanout
-          - local_all_hosts
-      skip_fanout_hosts:
-        description: "Comma-separated fanout hosts to skip (dood, voe)"
-        required: false
-        default: ""
-      apply_thumbnails:
-        description: "Apply source-thumbnail payload in production"
-        type: boolean
-        required: true
-        default: true
-      sync_production:
-        description: "Run sync:new in production after fanout"
-        type: boolean
-        required: true
-        default: false
-      sync_production_required:
-        description: "Fail this workflow if the optional production sync command fails"
-        type: boolean
-        required: true
-        default: false
+        default: "20"
+  # Scheduled drip-feed is intentionally disabled. Run manually with the
+  # "Run workflow" button, or re-enable the cron below when ready:
+  # schedule:
+  #   - cron: "*/15 * * * *"
 
 permissions:
   contents: read
 
 concurrency:
-  group: video-migration
+  # Only one tick runs at a time; a newer pending tick replaces the waiting one,
+  # so ticks never pile up even if a run takes longer than 15 minutes.
+  group: video-migration-cron
   cancel-in-progress: false
+
+env:
+  VIDEOS_PER_TICK: ${{ github.event.inputs.videos_per_tick || '20' }}
 
 jobs:
   prepare:
     runs-on: ubuntu-latest
     outputs:
-      matrix: ${{ steps.matrix.outputs.matrix }}
+      matrix: ${{ steps.select.outputs.matrix }}
+      count: ${{ steps.select.outputs.count }}
+      sync_start: ${{ steps.select.outputs.sync_start }}
+      sync_limit: ${{ steps.select.outputs.sync_limit }}
     steps:
       - name: Checkout app
         uses: actions/checkout@v4
@@ -81,22 +61,35 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Build runner matrix
-        id: matrix
+      - name: Select next pending videos
+        id: select
         shell: bash
         run: |
-          matrix="$(python scripts/video-migration/prepare.py --csv migration-data/videos.csv --start "${{ inputs.start }}" --limit "${{ inputs.limit }}" --per-job "${{ inputs.videos_per_job }}")"
-          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
-          echo "$matrix"
+          out="$(python scripts/video-migration/select_pending.py \
+            --csv migration-data/videos.csv \
+            --log migration-data/migration-log.csv \
+            --count "$VIDEOS_PER_TICK")"
+          echo "selection: $out"
+          matrix="$(printf '%s' "$out" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(json.dumps({"include": d["include"]}, separators=(",", ":")))')"
+          count="$(printf '%s' "$out" | python3 -c 'import json,sys; print(len(json.load(sys.stdin)["include"]))')"
+          sync_start="$(printf '%s' "$out" | python3 -c 'import json,sys; print(json.load(sys.stdin)["sync_start"])')"
+          sync_limit="$(printf '%s' "$out" | python3 -c 'import json,sys; print(json.load(sys.stdin)["sync_limit"])')"
+          {
+            echo "matrix=$matrix"
+            echo "count=$count"
+            echo "sync_start=$sync_start"
+            echo "sync_limit=$sync_limit"
+          } >> "$GITHUB_OUTPUT"
 
   seed:
     needs: prepare
-    if: ${{ needs.prepare.outputs.matrix != '{"include":[]}' }}
+    if: ${{ needs.prepare.outputs.count != '0' }}
     runs-on: windows-2025
-    timeout-minutes: 330
+    timeout-minutes: 120
+    continue-on-error: true
     strategy:
       fail-fast: false
-      max-parallel: 15
+      max-parallel: 20
       matrix: ${{ fromJson(needs.prepare.outputs.matrix) }}
     env:
       HOST_EARNVIDS_API_KEY: ${{ secrets.HOST_EARNVIDS_API_KEY }}
@@ -123,7 +116,6 @@ jobs:
         run: python -m pip install --disable-pip-version-check requests gdown
 
       - name: Ensure FFmpeg and ImageMagick
-        if: ${{ !inputs.skip_watermark }}
         shell: pwsh
         run: |
           if (-not (Get-Command ffmpeg -ErrorAction SilentlyContinue)) {
@@ -141,12 +133,8 @@ jobs:
           Get-PSDrive D -ErrorAction SilentlyContinue | Format-List
           New-Item -ItemType Directory -Force -Path D:\gv-work | Out-Null
 
-      - name: Download, optionally watermark, and seed
+      - name: Download, watermark, and upload one video to all hosts
         shell: pwsh
-        env:
-          GV_FORCE: ${{ inputs.force }}
-          GV_SKIP_WATERMARK: ${{ inputs.skip_watermark }}
-          GV_UPLOAD_STRATEGY: ${{ inputs.upload_strategy }}
         run: >-
           python scripts/video-migration/seed_worker.py
           --csv migration-data/videos.csv
@@ -155,25 +143,26 @@ jobs:
           --count "${{ matrix.count }}"
           --logo public/brand/logo-mark.svg
           --work-root D:\gv-work
-          --output result.csv
-          --force "$env:GV_FORCE"
-          --skip-watermark "$env:GV_SKIP_WATERMARK"
-          --upload-strategy "$env:GV_UPLOAD_STRATEGY"
+          --output result-${{ matrix.shard }}.csv
+          --force "false"
+          --skip-watermark "false"
+          --upload-strategy "local_all_hosts"
+          --fail-on-error "true"
 
       - name: Upload shard result
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
-          name: migration-result-${{ matrix.shard }}
-          path: result.csv
-          if-no-files-found: error
+          name: migration-cron-result-${{ matrix.shard }}
+          path: result-${{ matrix.shard }}.csv
+          if-no-files-found: warn
           retention-days: 1
 
   fanout_and_log:
     needs: [prepare, seed]
-    if: ${{ always() && needs.prepare.result == 'success' }}
+    if: ${{ always() && needs.prepare.outputs.count != '0' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 330
+    timeout-minutes: 90
     env:
       HOST_DOOD_API_KEY: ${{ secrets.HOST_DOOD_API_KEY }}
       HOST_VOE_API_KEY: ${{ secrets.HOST_VOE_API_KEY }}
@@ -197,17 +186,22 @@ jobs:
       - name: Install Python dependencies
         run: python -m pip install --disable-pip-version-check requests
 
-      - name: Download temporary shard results
+      - name: Prepare result directory
+        run: mkdir -p migration-results
+
+      - name: Download shard results
         uses: actions/download-artifact@v4
         continue-on-error: true
         with:
-          pattern: migration-result-*
+          pattern: migration-cron-result-*
           path: migration-results
           merge-multiple: true
 
-      - name: Fan out to Dood and VOE, then merge one log
+      - name: Merge log and prepare thumbnails
         env:
           GITHUB_RUN_ID_VALUE: ${{ github.run_id }}
+          SYNC_START: ${{ needs.prepare.outputs.sync_start }}
+          SYNC_LIMIT: ${{ needs.prepare.outputs.sync_limit }}
         run: >-
           python scripts/video-migration/fanout_and_log.py
           --results migration-results
@@ -216,11 +210,11 @@ jobs:
           --output migration-data/migration-log.csv
           --thumbnail-output migration-thumbnail-payload.json
           --run-id "$GITHUB_RUN_ID_VALUE"
-          --start "${{ inputs.start }}"
-          --limit "${{ inputs.limit }}"
-          --skip-hosts "${{ inputs.skip_fanout_hosts }}"
+          --start "$SYNC_START"
+          --limit "$SYNC_LIMIT"
+          --skip-hosts ""
 
-      - name: Commit the single migration log
+      - name: Commit the migration log
         shell: bash
         working-directory: migration-data
         run: |
@@ -231,47 +225,10 @@ jobs:
             echo "No migration log changes."
             exit 0
           fi
-          git commit -m "Update migration log (run ${{ github.run_id }})"
+          git commit -m "Migration cron log (run ${{ github.run_id }})"
           git push
 
-      - name: Apply source thumbnails in production
-        if: ${{ inputs.apply_thumbnails }}
-        shell: bash
-        env:
-          PROD_HOST: ${{ secrets.PROD_HOST }}
-          PROD_USER: ${{ secrets.PROD_USER }}
-          PROD_KNOWN_HOSTS: ${{ secrets.PROD_KNOWN_HOSTS }}
-          PROD_MIGRATION_SSH_KEY: ${{ secrets.PROD_MIGRATION_SSH_KEY }}
-        run: |
-          count="$(python -c 'import json; print(len(json.load(open("migration-thumbnail-payload.json", encoding="utf-8"))))')"
-          if [ "$count" -eq 0 ]; then
-            echo "No source thumbnails to apply."
-            exit 0
-          fi
-
-          : "${PROD_HOST:?PROD_HOST is required}"
-          : "${PROD_USER:?PROD_USER is required}"
-          : "${PROD_KNOWN_HOSTS:?PROD_KNOWN_HOSTS is required}"
-          : "${PROD_MIGRATION_SSH_KEY:?PROD_MIGRATION_SSH_KEY is required}"
-
-          install -d -m 700 "$HOME/.ssh"
-          printf '%s\n' "$PROD_MIGRATION_SSH_KEY" > "$HOME/.ssh/migration_key"
-          printf '%s\n' "$PROD_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
-          chmod 600 "$HOME/.ssh/migration_key" "$HOME/.ssh/known_hosts"
-
-          ssh \
-            -i "$HOME/.ssh/migration_key" \
-            -o BatchMode=yes \
-            -o IdentitiesOnly=yes \
-            -o StrictHostKeyChecking=yes \
-            "$PROD_USER@$PROD_HOST" \
-            < migration-thumbnail-payload.json
-
-          rm -f "$HOME/.ssh/migration_key"
-
-      - name: Sync production mirrors
-        if: ${{ inputs.sync_production }}
-        continue-on-error: ${{ !inputs.sync_production_required }}
+      - name: Sync production and apply source thumbnails
         shell: bash
         env:
           PROD_HOST: ${{ secrets.PROD_HOST }}
@@ -295,13 +252,15 @@ jobs:
           chmod 600 "$HOME/.ssh/migration_key" "$HOME/.ssh/known_hosts"
 
           # Production only accepts the restricted migration key, whose forced
-          # command runs sync:new (with migration CSV metadata). An empty payload
-          # is a sync-only request, so no thumbnails are applied here.
-          printf '[]' | ssh \
+          # command runs sync:new (with migration CSV metadata so tags attach)
+          # and then applies the source thumbnails. An empty payload is a
+          # sync-only request, so sync:new always runs even without thumbnails.
+          ssh \
             -i "$HOME/.ssh/migration_key" \
             -o BatchMode=yes \
             -o IdentitiesOnly=yes \
             -o StrictHostKeyChecking=yes \
-            "$PROD_USER@$PROD_HOST"
+            "$PROD_USER@$PROD_HOST" \
+            < migration-thumbnail-payload.json
 
           rm -f "$HOME/.ssh/migration_key"

@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Build output / caches
+.next/
+out/
+dist/
+build/
+*.tsbuildinfo
+tsconfig.tsbuildinfo
+
+# Test / tooling output
+coverage/
+playwright-report/
+test-results/
+.eslintcache
+
+# Python caches (scripts/video-migration)
+__pycache__/
+*.py[cod]
+
+# Local env files
+.env
+.env.*
+!.env.example
+
+# OS / editor noise
+.DS_Store
+*.log

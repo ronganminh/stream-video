@@ -49,15 +49,41 @@ for item in payload:
             raise SystemExit("Invalid mirror mapping.")
 PY
 
+cd "$APP_DIR"
+
+# Refresh the migration CSVs from the data repo so sync:new sees the latest
+# videos.csv / migration-log.csv (and their tags). Best-effort: if the pull
+# fails we still sync with whatever is already checked out.
+if [[ -d "$APP_DIR/migration-data/.git" ]]; then
+  git config --global --add safe.directory "$APP_DIR/migration-data" || true
+  git -C "$APP_DIR/migration-data" pull --ff-only --quiet \
+    || echo "migration-data pull failed; using existing checkout." >&2
+fi
+
+# Attach source tags during import when the migration CSVs are present. The
+# worker mounts ./migration-data at /app/migration-data (read-only), so the
+# sync reads the in-container paths. When the data is absent the sync still
+# runs, just without tag metadata.
+sync_env=()
+if [[ -f "$APP_DIR/migration-data/videos.csv" && -f "$APP_DIR/migration-data/migration-log.csv" ]]; then
+  sync_env+=(-e MIGRATION_VIDEOS_CSV=/app/migration-data/videos.csv)
+  sync_env+=(-e MIGRATION_LOG_CSV=/app/migration-data/migration-log.csv)
+fi
+
+run_sync() {
+  docker compose run --rm "${sync_env[@]+"${sync_env[@]}"}" worker npm run sync:new </dev/null
+}
+
+# Per T39 the receiver runs sync:new first, then applies source thumbnails.
+# An empty payload is a sync-only request.
 if [[ "$(cat "$PAYLOAD")" == "[]" ]]; then
+  run_sync
   echo "No source thumbnails to apply."
   exit 0
 fi
 
-cd "$APP_DIR"
-
 for attempt in 1 2 3 4 5; do
-  docker compose run --rm worker npm run sync:new </dev/null
+  run_sync
 
   set +e
   cat "$PAYLOAD"     | docker compose exec -T worker npm run migration:thumbnails
