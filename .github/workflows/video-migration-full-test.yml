@@ -1,12 +1,9 @@
 name: Video migration full test
 
 on:
+  # Manual only: this is a real end-to-end test (uploads to all hosts and
+  # touches production), so it never runs automatically on push/merge.
   workflow_dispatch:
-  push:
-    branches:
-      - main
-    paths:
-      - .github/workflows/video-migration-full-test.yml
 
 permissions:
   contents: read
