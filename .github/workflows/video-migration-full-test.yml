@@ -178,10 +178,15 @@ jobs:
           PROD_KNOWN_HOSTS: ${{ secrets.PROD_KNOWN_HOSTS }}
           PROD_MIGRATION_SSH_KEY: ${{ secrets.PROD_MIGRATION_SSH_KEY }}
         run: |
+          if [ -z "${PROD_MIGRATION_SSH_KEY:-}" ]; then
+            echo "PROD_MIGRATION_SSH_KEY not set; skipping production sync."
+            echo "The server worker runs sync:new on its own schedule, so drafts are still created from the uploaded host files."
+            exit 0
+          fi
+
           : "${PROD_HOST:?PROD_HOST is required}"
           : "${PROD_USER:?PROD_USER is required}"
           : "${PROD_KNOWN_HOSTS:?PROD_KNOWN_HOSTS is required}"
-          : "${PROD_MIGRATION_SSH_KEY:?PROD_MIGRATION_SSH_KEY is required}"
 
           install -d -m 700 "$HOME/.ssh"
           printf '%s\n' "$PROD_MIGRATION_SSH_KEY" > "$HOME/.ssh/migration_key"
