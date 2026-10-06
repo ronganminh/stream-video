@@ -277,41 +277,26 @@ jobs:
           PROD_HOST: ${{ secrets.PROD_HOST }}
           PROD_USER: ${{ secrets.PROD_USER }}
           PROD_KNOWN_HOSTS: ${{ secrets.PROD_KNOWN_HOSTS }}
-          PROD_DEPLOY_SSH_KEY: ${{ secrets.PROD_DEPLOY_SSH_KEY }}
+          PROD_MIGRATION_SSH_KEY: ${{ secrets.PROD_MIGRATION_SSH_KEY }}
         run: |
           : "${PROD_HOST:?PROD_HOST is required}"
           : "${PROD_USER:?PROD_USER is required}"
           : "${PROD_KNOWN_HOSTS:?PROD_KNOWN_HOSTS is required}"
-          : "${PROD_DEPLOY_SSH_KEY:?PROD_DEPLOY_SSH_KEY is required}"
+          : "${PROD_MIGRATION_SSH_KEY:?PROD_MIGRATION_SSH_KEY is required}"
 
           install -d -m 700 "$HOME/.ssh"
-          printf '%s\n' "$PROD_DEPLOY_SSH_KEY" > "$HOME/.ssh/deploy_key"
+          printf '%s\n' "$PROD_MIGRATION_SSH_KEY" > "$HOME/.ssh/migration_key"
           printf '%s\n' "$PROD_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
-          chmod 600 "$HOME/.ssh/deploy_key" "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/migration_key" "$HOME/.ssh/known_hosts"
 
-          ssh \
-            -i "$HOME/.ssh/deploy_key" \
+          # Production only accepts the restricted migration key, whose forced
+          # command runs sync:new (with migration CSV metadata). An empty payload
+          # is a sync-only request, so no thumbnails are applied here.
+          printf '[]' | ssh \
+            -i "$HOME/.ssh/migration_key" \
             -o BatchMode=yes \
             -o IdentitiesOnly=yes \
             -o StrictHostKeyChecking=yes \
-            "$PROD_USER@$PROD_HOST" \
-            "mkdir -p /opt/gayvideo/migration-data"
+            "$PROD_USER@$PROD_HOST"
 
-          scp \
-            -i "$HOME/.ssh/deploy_key" \
-            -o BatchMode=yes \
-            -o IdentitiesOnly=yes \
-            -o StrictHostKeyChecking=yes \
-            migration-data/videos.csv \
-            migration-data/migration-log.csv \
-            "$PROD_USER@$PROD_HOST:/opt/gayvideo/migration-data/"
-
-          ssh \
-            -i "$HOME/.ssh/deploy_key" \
-            -o BatchMode=yes \
-            -o IdentitiesOnly=yes \
-            -o StrictHostKeyChecking=yes \
-            "$PROD_USER@$PROD_HOST" \
-            "cd /opt/gayvideo && MIGRATION_VIDEOS_CSV=/app/migration-data/videos.csv MIGRATION_LOG_CSV=/app/migration-data/migration-log.csv docker compose run --rm worker npm run sync:new"
-
-          rm -f "$HOME/.ssh/deploy_key"
+          rm -f "$HOME/.ssh/migration_key"

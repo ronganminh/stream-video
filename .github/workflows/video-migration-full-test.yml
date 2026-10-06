@@ -170,7 +170,7 @@ jobs:
           git commit -m "Parallel full migration test log (run ${{ github.run_id }})"
           git push
 
-      - name: Apply source thumbnails in production
+      - name: Sync production and apply source thumbnails
         shell: bash
         env:
           PROD_HOST: ${{ secrets.PROD_HOST }}
@@ -178,25 +178,20 @@ jobs:
           PROD_KNOWN_HOSTS: ${{ secrets.PROD_KNOWN_HOSTS }}
           PROD_MIGRATION_SSH_KEY: ${{ secrets.PROD_MIGRATION_SSH_KEY }}
         run: |
-          count="$(python -c 'import json; print(len(json.load(open("migration-thumbnail-payload.json", encoding="utf-8"))))')"
-          if [ "$count" -eq 0 ]; then
-            echo "No source thumbnails to apply."
-            exit 0
-          fi
-          if [ -z "${PROD_MIGRATION_SSH_KEY:-}" ]; then
-            echo "PROD_MIGRATION_SSH_KEY is not configured; skipping thumbnail apply."
-            exit 0
-          fi
-
           : "${PROD_HOST:?PROD_HOST is required}"
           : "${PROD_USER:?PROD_USER is required}"
           : "${PROD_KNOWN_HOSTS:?PROD_KNOWN_HOSTS is required}"
+          : "${PROD_MIGRATION_SSH_KEY:?PROD_MIGRATION_SSH_KEY is required}"
 
           install -d -m 700 "$HOME/.ssh"
           printf '%s\n' "$PROD_MIGRATION_SSH_KEY" > "$HOME/.ssh/migration_key"
           printf '%s\n' "$PROD_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
           chmod 600 "$HOME/.ssh/migration_key" "$HOME/.ssh/known_hosts"
 
+          # Production only accepts the restricted migration key, whose forced
+          # command runs sync:new (with migration CSV metadata) and then applies
+          # the source thumbnails. An empty payload is a sync-only request, so we
+          # always pipe the payload even when there are no thumbnails.
           ssh \
             -i "$HOME/.ssh/migration_key" \
             -o BatchMode=yes \
@@ -206,48 +201,3 @@ jobs:
             < migration-thumbnail-payload.json
 
           rm -f "$HOME/.ssh/migration_key"
-
-      - name: Sync production draft videos
-        shell: bash
-        env:
-          PROD_HOST: ${{ secrets.PROD_HOST }}
-          PROD_USER: ${{ secrets.PROD_USER }}
-          PROD_KNOWN_HOSTS: ${{ secrets.PROD_KNOWN_HOSTS }}
-          PROD_DEPLOY_SSH_KEY: ${{ secrets.PROD_DEPLOY_SSH_KEY }}
-        run: |
-          : "${PROD_HOST:?PROD_HOST is required}"
-          : "${PROD_USER:?PROD_USER is required}"
-          : "${PROD_KNOWN_HOSTS:?PROD_KNOWN_HOSTS is required}"
-          : "${PROD_DEPLOY_SSH_KEY:?PROD_DEPLOY_SSH_KEY is required}"
-
-          install -d -m 700 "$HOME/.ssh"
-          printf '%s\n' "$PROD_DEPLOY_SSH_KEY" > "$HOME/.ssh/deploy_key"
-          printf '%s\n' "$PROD_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
-          chmod 600 "$HOME/.ssh/deploy_key" "$HOME/.ssh/known_hosts"
-
-          ssh \
-            -i "$HOME/.ssh/deploy_key" \
-            -o BatchMode=yes \
-            -o IdentitiesOnly=yes \
-            -o StrictHostKeyChecking=yes \
-            "$PROD_USER@$PROD_HOST" \
-            "mkdir -p /opt/gayvideo/migration-data"
-
-          scp \
-            -i "$HOME/.ssh/deploy_key" \
-            -o BatchMode=yes \
-            -o IdentitiesOnly=yes \
-            -o StrictHostKeyChecking=yes \
-            migration-data/videos.csv \
-            migration-data/migration-log.csv \
-            "$PROD_USER@$PROD_HOST:/opt/gayvideo/migration-data/"
-
-          ssh \
-            -i "$HOME/.ssh/deploy_key" \
-            -o BatchMode=yes \
-            -o IdentitiesOnly=yes \
-            -o StrictHostKeyChecking=yes \
-            "$PROD_USER@$PROD_HOST" \
-            "cd /opt/gayvideo && MIGRATION_VIDEOS_CSV=/app/migration-data/videos.csv MIGRATION_LOG_CSV=/app/migration-data/migration-log.csv docker compose run --rm worker npm run sync:new"
-
-          rm -f "$HOME/.ssh/deploy_key"
