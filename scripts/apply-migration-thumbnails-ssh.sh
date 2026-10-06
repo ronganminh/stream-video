@@ -51,6 +51,15 @@ PY
 
 cd "$APP_DIR"
 
+# Refresh the migration CSVs from the data repo so sync:new sees the latest
+# videos.csv / migration-log.csv (and their tags). Best-effort: if the pull
+# fails we still sync with whatever is already checked out.
+if [[ -d "$APP_DIR/migration-data/.git" ]]; then
+  git config --global --add safe.directory "$APP_DIR/migration-data" || true
+  git -C "$APP_DIR/migration-data" pull --ff-only --quiet \
+    || echo "migration-data pull failed; using existing checkout." >&2
+fi
+
 # Attach source tags during import when the migration CSVs are present. The
 # worker mounts ./migration-data at /app/migration-data (read-only), so the
 # sync reads the in-container paths. When the data is absent the sync still

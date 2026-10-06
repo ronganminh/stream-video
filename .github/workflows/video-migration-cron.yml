@@ -19,7 +19,7 @@ on:
       videos_per_tick:
         description: "Videos to process this run (one job each, max 256)"
         required: true
-        default: "4"
+        default: "20"
   schedule:
     - cron: "*/15 * * * *"
 
@@ -33,7 +33,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  VIDEOS_PER_TICK: ${{ github.event.inputs.videos_per_tick || '4' }}
+  VIDEOS_PER_TICK: ${{ github.event.inputs.videos_per_tick || '20' }}
 
 jobs:
   prepare:
@@ -87,7 +87,7 @@ jobs:
     continue-on-error: true
     strategy:
       fail-fast: false
-      max-parallel: 10
+      max-parallel: 20
       matrix: ${{ fromJson(needs.prepare.outputs.matrix) }}
     env:
       HOST_EARNVIDS_API_KEY: ${{ secrets.HOST_EARNVIDS_API_KEY }}
