@@ -1,17 +1,17 @@
 name: Video migration cron
 
-# Drip-feed migration: every 15 minutes pick the next few not-yet-migrated
-# videos and process each in its own short job (download -> watermark ->
-# upload to all 3 hosts), commit the merged log, then run sync:new in
-# production (with CSV tag metadata) and apply source thumbnails.
+# Drip-feed migration: each run picks the next batch of not-yet-migrated
+# videos and processes each in its own short job (download -> watermark ->
+# upload to all 3 hosts), commits the merged log, then runs sync:new in
+# production (with CSV tag metadata) and applies source thumbnails.
 #
 # Each job handles a single video so it never approaches the 6h job limit.
 # Resume is automatic: select_pending.py skips rows already terminal in the
-# migration log, so the backlog drains tick by tick with no manual start/limit.
+# migration log, so the backlog drains run by run with no manual start/limit.
+# Re-run it (manually or on a schedule) until nothing pending remains.
 #
-# NOTE: scheduled runs only fire from the repository's default branch, so the
-# 15-minute cron starts working once this file is merged to main. Use the
-# "Run workflow" button to test it on a branch first.
+# The 15-minute schedule is disabled by default (see the `on:` block); trigger
+# runs manually with the "Run workflow" button until you choose to enable it.
 
 on:
   workflow_dispatch:
@@ -20,8 +20,10 @@ on:
         description: "Videos to process this run (one job each, max 256)"
         required: true
         default: "20"
-  schedule:
-    - cron: "*/15 * * * *"
+  # Scheduled drip-feed is intentionally disabled. Run manually with the
+  # "Run workflow" button, or re-enable the cron below when ready:
+  # schedule:
+  #   - cron: "*/15 * * * *"
 
 permissions:
   contents: read
