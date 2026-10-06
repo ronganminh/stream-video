@@ -17,6 +17,7 @@ import {
 import { normalize } from "./normalize";
 import { getSyncSettings, withSyncLock } from "./settings";
 import { storeThumbnail } from "./thumbnails";
+import { applySourceThumbnail } from "./thumbnailSources";
 
 const PAGE_SIZE = 100;
 
@@ -109,6 +110,21 @@ async function createPrimaryVideo(
     data: buildPrimaryVideoData(host.id, provider, file, slug, tagLinks),
     select: { id: true },
   });
+
+  // Prefer the migration CSV source thumbnail as the default for migrated
+  // videos (T39); fall back to the host thumbnail when no source is available
+  // or the source cannot be fetched.
+  const sourceThumbnailUrl = metadata.sourceThumbnailByHostCode.get(file.code);
+  if (sourceThumbnailUrl) {
+    try {
+      await applySourceThumbnail(video.id, sourceThumbnailUrl);
+      return;
+    } catch (error) {
+      errors.push(
+        `${host.id} source thumbnail ${file.code}: ${errorMessage(error)}`,
+      );
+    }
+  }
 
   if (!file.thumbnailUrl) return;
 

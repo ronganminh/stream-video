@@ -1,17 +1,38 @@
-import { readFile } from "node:fs/promises";
+import { access, readFile } from "node:fs/promises";
 
 import { prisma } from "../db";
 import { normalize } from "./normalize";
 
 type CsvRow = Record<string, string>;
 
+// docker-compose mounts ./migration-data at /app/migration-data in the worker,
+// so the scheduled sync can pick up tags and source thumbnails with no extra
+// configuration when that data is present.
+const DEFAULT_VIDEOS_CSV = "/app/migration-data/videos.csv";
+const DEFAULT_LOG_CSV = "/app/migration-data/migration-log.csv";
+
 export type MigrationMetadataIndex = {
   tagsByHostCode: Map<string, string[]>;
+  sourceThumbnailByHostCode: Map<string, string>;
 };
 
 export const EMPTY_MIGRATION_METADATA: MigrationMetadataIndex = {
   tagsByHostCode: new Map(),
+  sourceThumbnailByHostCode: new Map(),
 };
+
+async function resolveCsvPath(
+  configured: string | undefined,
+  fallback: string,
+): Promise<string | null> {
+  if (configured) return configured;
+  try {
+    await access(fallback);
+    return fallback;
+  } catch {
+    return null;
+  }
+}
 
 function parseCsv(content: string): CsvRow[] {
   const rows: string[][] = [];
@@ -87,8 +108,14 @@ function splitTags(value: string | undefined): string[] {
 export async function loadMigrationMetadata(
   primaryHostId: string,
 ): Promise<MigrationMetadataIndex> {
-  const videosPath = process.env.MIGRATION_VIDEOS_CSV;
-  const logPath = process.env.MIGRATION_LOG_CSV;
+  const videosPath = await resolveCsvPath(
+    process.env.MIGRATION_VIDEOS_CSV,
+    DEFAULT_VIDEOS_CSV,
+  );
+  const logPath = await resolveCsvPath(
+    process.env.MIGRATION_LOG_CSV,
+    DEFAULT_LOG_CSV,
+  );
   if (!videosPath || !logPath) return EMPTY_MIGRATION_METADATA;
 
   const [videosContent, logContent] = await Promise.all([
@@ -103,6 +130,7 @@ export async function loadMigrationMetadata(
   );
 
   const tagsByHostCode = new Map<string, string[]>();
+  const sourceThumbnailByHostCode = new Map<string, string>();
   const hostCodeField = `${primaryHostId}_file_code`;
 
   for (const row of parseCsv(logContent)) {
@@ -110,11 +138,18 @@ export async function loadMigrationMetadata(
     const hostCode = row[hostCodeField]?.trim();
     if (!postId || !hostCode) continue;
 
-    const tags = splitTags(sourceByPostId.get(postId)?.tags);
+    const source = sourceByPostId.get(postId);
+
+    const tags = splitTags(source?.tags);
     if (tags.length > 0) tagsByHostCode.set(hostCode, tags);
+
+    const thumbnailUrl = source?.thumbnail_url?.trim();
+    if (thumbnailUrl && /^https?:\/\//i.test(thumbnailUrl)) {
+      sourceThumbnailByHostCode.set(hostCode, thumbnailUrl);
+    }
   }
 
-  return { tagsByHostCode };
+  return { tagsByHostCode, sourceThumbnailByHostCode };
 }
 
 export async function tagConnectData(names: string[]) {
