@@ -8,10 +8,12 @@ name: Video migration cron
 # Each job handles a single video so it never approaches the 6h job limit.
 # Resume is automatic: select_pending.py skips rows already terminal in the
 # migration log, so the backlog drains run by run with no manual start/limit.
-# Re-run it (manually or on a schedule) until nothing pending remains.
 #
-# The 15-minute schedule is disabled by default (see the `on:` block); trigger
-# runs manually with the "Run workflow" button until you choose to enable it.
+# Draining is self-perpetuating: the continue_chain job dispatches the next tick
+# while fresh videos remain (needs the GH_DISPATCH_PAT secret), so the backlog
+# drains back-to-back without relying on GitHub's unreliable cron. The schedule
+# below is only a backup kick; you can also start a chain with the "Run
+# workflow" button anytime.
 
 on:
   workflow_dispatch:
@@ -45,6 +47,7 @@ jobs:
       count: ${{ steps.select.outputs.count }}
       sync_start: ${{ steps.select.outputs.sync_start }}
       sync_limit: ${{ steps.select.outputs.sync_limit }}
+      never_remaining: ${{ steps.select.outputs.never_remaining }}
     steps:
       - name: Checkout app
         uses: actions/checkout@v4
@@ -74,11 +77,13 @@ jobs:
           count="$(printf '%s' "$out" | python3 -c 'import json,sys; print(len(json.load(sys.stdin)["include"]))')"
           sync_start="$(printf '%s' "$out" | python3 -c 'import json,sys; print(json.load(sys.stdin)["sync_start"])')"
           sync_limit="$(printf '%s' "$out" | python3 -c 'import json,sys; print(json.load(sys.stdin)["sync_limit"])')"
+          never_remaining="$(printf '%s' "$out" | python3 -c 'import json,sys; print(json.load(sys.stdin)["never_remaining"])')"
           {
             echo "matrix=$matrix"
             echo "count=$count"
             echo "sync_start=$sync_start"
             echo "sync_limit=$sync_limit"
+            echo "never_remaining=$never_remaining"
           } >> "$GITHUB_OUTPUT"
 
   seed:
@@ -265,3 +270,48 @@ jobs:
             < migration-thumbnail-payload.json
 
           rm -f "$HOME/.ssh/migration_key"
+
+  # Self-perpetuating drip: once this tick is logged, if fresh (never-attempted)
+  # videos still remain, dispatch the next tick. The chain runs back-to-back
+  # until the backlog is drained, with no dependence on GitHub's unreliable
+  # schedule. It stops on its own when no fresh videos remain, so rows that keep
+  # failing to download are retried but never loop the chain forever.
+  #
+  # Requires the GH_DISPATCH_PAT secret: a token with Actions: read and write on
+  # this repo. Without it the chain simply stops (safe no-op), and the workflow
+  # still works when triggered manually or on the schedule.
+  continue_chain:
+    needs: [prepare, fanout_and_log]
+    if: >-
+      ${{ always()
+      && needs.prepare.outputs.count != '0'
+      && needs.prepare.outputs.never_remaining != '0'
+      && needs.prepare.outputs.never_remaining != '' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch the next tick
+        env:
+          GH_DISPATCH_PAT: ${{ secrets.GH_DISPATCH_PAT }}
+          NEVER_REMAINING: ${{ needs.prepare.outputs.never_remaining }}
+        run: |
+          if [ -z "${GH_DISPATCH_PAT:-}" ]; then
+            echo "GH_DISPATCH_PAT not set; stopping the auto-chain."
+            echo "Add the secret (a token with Actions: read and write) to drain the backlog continuously."
+            exit 0
+          fi
+
+          echo "Fresh videos still pending: ${NEVER_REMAINING}. Dispatching the next tick."
+          code="$(curl -sS -o /tmp/dispatch.out -w '%{http_code}' -X POST \
+            -H "Authorization: Bearer ${GH_DISPATCH_PAT}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/workflows/video-migration-cron.yml/dispatches" \
+            -d "{\"ref\":\"${GITHUB_REF_NAME}\",\"inputs\":{\"videos_per_tick\":\"${VIDEOS_PER_TICK}\"}}")"
+
+          if [ "$code" = "204" ]; then
+            echo "Next tick dispatched."
+          else
+            echo "Dispatch failed with HTTP $code; chain stops here."
+            cat /tmp/dispatch.out || true
+            exit 1
+          fi
