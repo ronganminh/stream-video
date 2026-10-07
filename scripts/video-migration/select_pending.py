@@ -76,6 +76,13 @@ def main() -> None:
     selected = (never + retry)[:count]
     selected.sort()
 
+    # How many never-attempted rows are still waiting AFTER this tick's
+    # selection. The self-perpetuating cron uses this to decide whether to
+    # dispatch another tick: it keeps going only while fresh backlog remains, so
+    # it drains the 2191 once and then stops instead of looping forever on rows
+    # that keep failing to download (those are retried, never counted as fresh).
+    never_remaining = max(0, len(never) - min(count, len(never)))
+
     include = [
         {"shard": shard, "start": index, "count": 1}
         for shard, index in enumerate(selected)
@@ -96,6 +103,7 @@ def main() -> None:
                 "include": include,
                 "sync_start": sync_start,
                 "sync_limit": sync_limit,
+                "never_remaining": never_remaining,
             },
             separators=(",", ":"),
         )
