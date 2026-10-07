@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import json
 import os
 import re
 import shutil
@@ -76,38 +77,137 @@ def drive_file_id(url: str) -> str | None:
     return values[0] if values else None
 
 
+def drive_folder_id(url: str) -> str | None:
+    match = re.search(r"/folders/([^/?#]+)", url)
+    return match.group(1) if match else None
+
+
+def build_drive_service():
+    """Return an authenticated Drive API client when a service account is
+    configured, else None so callers fall back to gdown.
+
+    Authenticated API downloads are not subject to the anonymous public
+    download quota ("Too many users have viewed or downloaded this file
+    recently") that blocks gdown, and acknowledgeAbuse bypasses the virus
+    scan gate for large files."""
+    raw = os.environ.get("GDRIVE_SERVICE_ACCOUNT_JSON", "").strip()
+    if not raw:
+        return None
+
+    from google.oauth2 import service_account
+    from googleapiclient.discovery import build
+
+    info = json.loads(raw)
+    credentials = service_account.Credentials.from_service_account_info(
+        info,
+        scopes=["https://www.googleapis.com/auth/drive.readonly"],
+    )
+    return build("drive", "v3", credentials=credentials, cache_discovery=False)
+
+
+def api_download_file(service, file_id: str, destination: Path) -> None:
+    from googleapiclient.http import MediaIoBaseDownload
+
+    metadata = (
+        service.files()
+        .get(fileId=file_id, fields="name", supportsAllDrives=True)
+        .execute()
+    )
+    name = metadata.get("name") or file_id
+    request = service.files().get_media(
+        fileId=file_id,
+        acknowledgeAbuse=True,
+        supportsAllDrives=True,
+    )
+    with open(destination / name, "wb") as handle:
+        downloader = MediaIoBaseDownload(
+            handle, request, chunksize=16 * 1024 * 1024
+        )
+        done = False
+        while not done:
+            _status, done = downloader.next_chunk()
+
+
+def api_download_folder(service, folder_id: str, destination: Path) -> int:
+    downloaded = 0
+    page_token = None
+    while True:
+        response = (
+            service.files()
+            .list(
+                q=f"'{folder_id}' in parents and trashed=false",
+                fields="nextPageToken, files(id, name, mimeType)",
+                supportsAllDrives=True,
+                includeItemsFromAllDrives=True,
+                pageToken=page_token,
+            )
+            .execute()
+        )
+        for item in response.get("files", []):
+            if item.get("mimeType") == "application/vnd.google-apps.folder":
+                continue
+            api_download_file(service, item["id"], destination)
+            downloaded += 1
+        page_token = response.get("nextPageToken")
+        if not page_token:
+            break
+    return downloaded
+
+
+def gdown_download(url: str, destination: Path, errors: list[str]) -> None:
+    if "/drive/folders/" in url:
+        result = gdown.download_folder(
+            url=url,
+            output=str(destination),
+            quiet=True,
+        )
+        if not result:
+            errors.append("folder download returned no files")
+        return
+
+    file_id = drive_file_id(url)
+    if not file_id:
+        errors.append("unsupported Google Drive file URL")
+        return
+
+    old_cwd = Path.cwd()
+    try:
+        os.chdir(destination)
+        result = gdown.download(id=file_id, output=None, quiet=True)
+    finally:
+        os.chdir(old_cwd)
+    if not result:
+        errors.append("file download returned no file")
+
+
 def download_sources(urls: list[str], target: Path) -> list[str]:
     errors: list[str] = []
+
+    service = None
+    try:
+        service = build_drive_service()
+    except Exception as exc:
+        errors.append(f"drive service account: {clean_error(exc)}")
+
     for index, url in enumerate(urls):
         destination = target / f"source-{index + 1}"
         destination.mkdir(parents=True, exist_ok=True)
         try:
-            if "/drive/folders/" in url:
-                result = gdown.download_folder(
-                    url=url,
-                    output=str(destination),
-                    quiet=True,
-                )
-                if not result:
+            if service is None:
+                gdown_download(url, destination, errors)
+            elif "/drive/folders/" in url:
+                folder_id = drive_folder_id(url)
+                if not folder_id:
+                    errors.append("unsupported Google Drive folder URL")
+                    continue
+                if api_download_folder(service, folder_id, destination) == 0:
                     errors.append("folder download returned no files")
             else:
                 file_id = drive_file_id(url)
                 if not file_id:
                     errors.append("unsupported Google Drive file URL")
                     continue
-
-                old_cwd = Path.cwd()
-                try:
-                    os.chdir(destination)
-                    result = gdown.download(
-                        id=file_id,
-                        output=None,
-                        quiet=True,
-                    )
-                finally:
-                    os.chdir(old_cwd)
-                if not result:
-                    errors.append("file download returned no file")
+                api_download_file(service, file_id, destination)
         except Exception as exc:
             errors.append(clean_error(exc))
     return errors
