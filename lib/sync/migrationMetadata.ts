@@ -152,6 +152,67 @@ export async function loadMigrationMetadata(
   return { tagsByHostCode, sourceThumbnailByHostCode };
 }
 
+export type MigrationEntry = {
+  postId: string;
+  title: string;
+  tags: string[];
+  sourceThumbnailUrl: string | null;
+};
+
+// Full per-video migration metadata keyed by the primary host's file code,
+// used by the backfill command to repair videos that were imported before the
+// CSVs were available on the server.
+export async function loadMigrationEntriesByHostCode(
+  primaryHostId: string,
+): Promise<Map<string, MigrationEntry>> {
+  const videosPath = await resolveCsvPath(
+    process.env.MIGRATION_VIDEOS_CSV,
+    DEFAULT_VIDEOS_CSV,
+  );
+  const logPath = await resolveCsvPath(
+    process.env.MIGRATION_LOG_CSV,
+    DEFAULT_LOG_CSV,
+  );
+
+  const entries = new Map<string, MigrationEntry>();
+  if (!videosPath || !logPath) return entries;
+
+  const [videosContent, logContent] = await Promise.all([
+    readFile(videosPath, "utf8"),
+    readFile(logPath, "utf8"),
+  ]);
+
+  const sourceByPostId = new Map(
+    parseCsv(videosContent)
+      .filter((row) => row.post_id)
+      .map((row) => [row.post_id, row]),
+  );
+
+  const hostCodeField = `${primaryHostId}_file_code`;
+
+  for (const row of parseCsv(logContent)) {
+    const postId = row.post_id;
+    const hostCode = row[hostCodeField]?.trim();
+    if (!postId || !hostCode) continue;
+
+    const source = sourceByPostId.get(postId);
+    if (!source) continue;
+
+    const thumbnailUrl = source.thumbnail_url?.trim();
+    entries.set(hostCode, {
+      postId,
+      title: (source.title ?? "").trim(),
+      tags: splitTags(source.tags),
+      sourceThumbnailUrl:
+        thumbnailUrl && /^https?:\/\//i.test(thumbnailUrl)
+          ? thumbnailUrl
+          : null,
+    });
+  }
+
+  return entries;
+}
+
 export async function tagConnectData(names: string[]) {
   const unique = new Map<string, string>();
   for (const name of names) {
