@@ -15,6 +15,7 @@
     "worker": "tsx worker/index.ts",
     "sync:new": "tsx worker/cli.ts sync:new",
     "sync:health": "tsx worker/cli.ts sync:health",
+    "migration:backfill": "tsx worker/cli.ts backfill",
     "caddy:generate": "tsx scripts/generate-caddy.ts",
     "caddy:check": "tsx scripts/generate-caddy.ts --check",
     "migration:thumbnails": "tsx scripts/apply-migration-thumbnails.ts"
