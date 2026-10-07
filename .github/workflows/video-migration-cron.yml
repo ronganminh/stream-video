@@ -20,10 +20,10 @@ on:
         description: "Videos to process this run (one job each, max 256)"
         required: true
         default: "20"
-  # Scheduled drip-feed is intentionally disabled. Run manually with the
-  # "Run workflow" button, or re-enable the cron below when ready:
-  # schedule:
-  #   - cron: "*/15 * * * *"
+  # Drip-feed every 15 minutes until the backlog drains. Disable (comment out)
+  # when done, or trigger extra runs with the "Run workflow" button anytime.
+  schedule:
+    - cron: "*/15 * * * *"
 
 permissions:
   contents: read
