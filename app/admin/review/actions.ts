@@ -8,6 +8,8 @@ import { requireAdmin } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { applyThumbnailSelection } from "@/lib/sync/thumbnailSources";
 
+import type { ThumbnailActionState } from "./thumbnailState";
+
 const optionalId = z.preprocess(
   (value) => (typeof value === "string" && value.trim() ? value : null),
   z.string().min(1).nullable(),
@@ -116,13 +118,6 @@ export async function saveReviewAction(formData: FormData) {
   revalidatePath("/admin/review");
   revalidatePath(`/admin/videos/${data.id}`);
 }
-
-export type ThumbnailActionState = {
-  ok: boolean;
-  error?: string;
-};
-
-export const INITIAL_THUMBNAIL_STATE: ThumbnailActionState = { ok: true };
 
 export async function selectReviewThumbnailAction(
   _prevState: ThumbnailActionState,
