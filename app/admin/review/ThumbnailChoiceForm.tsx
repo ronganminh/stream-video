@@ -2,11 +2,9 @@
 
 import { useActionState } from "react";
 
-import {
-  INITIAL_THUMBNAIL_STATE,
-  selectReviewThumbnailAction,
-} from "./actions";
+import { selectReviewThumbnailAction } from "./actions";
 import styles from "./page.module.css";
+import { INITIAL_THUMBNAIL_STATE } from "./thumbnailState";
 
 type Props = {
   videoId: string;
