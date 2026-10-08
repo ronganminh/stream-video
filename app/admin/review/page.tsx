@@ -9,9 +9,9 @@ import {
   bulkApproveReviewAction,
   rejectReviewAction,
   saveReviewAction,
-  selectReviewThumbnailAction,
 } from "./actions";
 import styles from "./page.module.css";
+import { ThumbnailChoiceForm } from "./ThumbnailChoiceForm";
 
 export default async function AdminReviewPage() {
   await requireAdmin();
@@ -160,52 +160,16 @@ export default async function AdminReviewPage() {
                       </span>
                     </div>
                     <div className={styles.thumbnailChoices}>
-                      {thumbnailChoices.map((choice) => {
-                        const selected =
-                          preference?.selected === choice.id;
-
-                        return (
-                          <form
-                            action={selectReviewThumbnailAction}
-                            key={choice.id}
-                          >
-                            <input
-                              type="hidden"
-                              name="id"
-                              value={video.id}
-                            />
-                            <input
-                              type="hidden"
-                              name="selection"
-                              value={choice.id}
-                            />
-                            <button
-                              className={[
-                                styles.thumbnailChoice,
-                                selected
-                                  ? styles.thumbnailChoiceSelected
-                                  : "",
-                              ]
-                                .filter(Boolean)
-                                .join(" ")}
-                              type="submit"
-                              aria-pressed={selected}
-                            >
-                              <span
-                                className={styles.thumbnailChoiceImage}
-                                style={{
-                                  backgroundImage: `url("${choice.url.replaceAll('"', "%22")}")`,
-                                }}
-                                aria-hidden="true"
-                              />
-                              <span className={styles.thumbnailChoiceMeta}>
-                                <span>{choice.label}</span>
-                                {selected ? <em>Selected</em> : null}
-                              </span>
-                            </button>
-                          </form>
-                        );
-                      })}
+                      {thumbnailChoices.map((choice) => (
+                        <ThumbnailChoiceForm
+                          key={choice.id}
+                          videoId={video.id}
+                          choiceId={choice.id}
+                          label={choice.label}
+                          url={choice.url}
+                          selected={preference?.selected === choice.id}
+                        />
+                      ))}
                     </div>
                   </section>
                 ) : null}

@@ -117,30 +117,53 @@ export async function saveReviewAction(formData: FormData) {
   revalidatePath(`/admin/videos/${data.id}`);
 }
 
+export type ThumbnailActionState = {
+  ok: boolean;
+  error?: string;
+};
+
+export const INITIAL_THUMBNAIL_STATE: ThumbnailActionState = { ok: true };
+
 export async function selectReviewThumbnailAction(
+  _prevState: ThumbnailActionState,
   formData: FormData,
-) {
+): Promise<ThumbnailActionState> {
+  // requireAdmin may redirect; keep it outside the try so the redirect
+  // propagates instead of being reported as a thumbnail error.
   const admin = await requireAdmin();
-  const parsed = z
-    .object({
-      id: z.string().min(1),
-      selection: z.string().trim().min(1).max(120),
-    })
-    .parse({
-      id: formData.get("id"),
-      selection: formData.get("selection"),
-    });
 
-  await applyThumbnailSelection(parsed.id, parsed.selection);
-  await writeAdminAudit(
-    admin.id,
-    "VIDEO_THUMBNAIL_SELECT",
-    `${parsed.id}:${parsed.selection}`,
-  );
+  try {
+    const parsed = z
+      .object({
+        id: z.string().min(1),
+        selection: z.string().trim().min(1).max(120),
+      })
+      .parse({
+        id: formData.get("id"),
+        selection: formData.get("selection"),
+      });
 
-  revalidatePath("/admin/review");
-  revalidatePath("/admin/videos");
-  revalidatePath(`/admin/videos/${parsed.id}`);
+    await applyThumbnailSelection(parsed.id, parsed.selection);
+    await writeAdminAudit(
+      admin.id,
+      "VIDEO_THUMBNAIL_SELECT",
+      `${parsed.id}:${parsed.selection}`,
+    );
+
+    revalidatePath("/admin/review");
+    revalidatePath("/admin/videos");
+    revalidatePath(`/admin/videos/${parsed.id}`);
+    return { ok: true };
+  } catch (error) {
+    // Never crash the whole review page over one thumbnail: report the
+    // reason inline so the admin can pick another, and log it for diagnosis.
+    console.error("selectReviewThumbnailAction failed", error);
+    const message =
+      error instanceof Error && error.message
+        ? error.message
+        : "Thumbnail update failed.";
+    return { ok: false, error: message };
+  }
 }
 
 export async function rejectReviewAction(formData: FormData) {
