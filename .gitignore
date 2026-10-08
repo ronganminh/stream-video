@@ -4,6 +4,7 @@ package-lock.json
 
 # Build output / caches
 .next/
+next-env.d.ts
 out/
 dist/
 build/
