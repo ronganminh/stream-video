@@ -29,11 +29,18 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
       ADMIN_SESSION_SECRET: ${ADMIN_SESSION_SECRET:?ADMIN_SESSION_SECRET is required}
+      # Admin actions (e.g. choosing a thumbnail) write generated images here.
+      # Must match the worker + caddy mount so the web container writes to the
+      # same volume caddy serves; without it writes hit the read-only app
+      # image and fail with EACCES.
+      MEDIA_DIR: /data/media
     depends_on:
       postgres:
         condition: service_healthy
     expose:
       - "3000"
+    volumes:
+      - media_data:/data/media
     healthcheck:
       test:
         [
