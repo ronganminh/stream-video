@@ -88,6 +88,7 @@ jobs:
           $GIT config --global --add safe.directory /opt/gayvideo || true
           $GIT config --global --add safe.directory /opt/gayvideo/migration-data || true
 
+          PREVIOUS=$($GIT rev-parse HEAD)
           $GIT fetch origin
           $GIT checkout main
           $GIT pull --ff-only origin main
@@ -120,6 +121,16 @@ jobs:
           fi
 
           dc up -d worker web caddy
+
+          # Caddy mounts the Caddyfile read-only and reads it only at start, so
+          # a changed Caddyfile needs a validated recreate to take effect.
+          if ! $GIT diff --quiet "$PREVIOUS" HEAD -- Caddyfile; then
+            echo "Caddyfile changed; validating and recreating caddy"
+            $SUDO docker run --rm -e SITE_DOMAIN="$SITE_DOMAIN" \
+              -v "$PWD/Caddyfile:/etc/caddy/Caddyfile:ro" \
+              caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile </dev/null
+            dc up -d --force-recreate caddy
+          fi
 
           if [ "$RUN_BACKFILL" = "true" ]; then
             dc run --rm worker npm run migration:backfill || echo "::warning::backfill reported errors"
