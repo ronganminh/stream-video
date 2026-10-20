@@ -146,6 +146,57 @@ async function createPrimaryVideo(
   }
 }
 
+export type MigrationTagRepair = {
+  videoId: string;
+  fileCode: string;
+  tags: string[];
+};
+
+// Pick existing videos that should receive their migration CSV tags. The
+// worker's scheduled sync usually imports a freshly uploaded file before the
+// migration log carrying its file code reaches the server, so the draft is
+// created untagged; later syncs only saw it as "existing" and never tagged it.
+// Only videos with no tags at all are repaired, so an admin's own tag edits are
+// never overridden.
+export function migrationTagRepairs(
+  mirrors: { videoId: string; fileCode: string; tagCount: number }[],
+  tagsByHostCode: Map<string, string[]>,
+): MigrationTagRepair[] {
+  const repairs = new Map<string, MigrationTagRepair>();
+
+  for (const mirror of mirrors) {
+    if (mirror.tagCount > 0 || repairs.has(mirror.videoId)) continue;
+    const tags = tagsByHostCode.get(mirror.fileCode) ?? [];
+    if (tags.length === 0) continue;
+    repairs.set(mirror.videoId, {
+      videoId: mirror.videoId,
+      fileCode: mirror.fileCode,
+      tags,
+    });
+  }
+
+  return [...repairs.values()];
+}
+
+async function applyMigrationTagRepairs(
+  host: Host,
+  repairs: MigrationTagRepair[],
+  errors: string[],
+): Promise<void> {
+  for (const repair of repairs) {
+    try {
+      const links = await tagConnectData(repair.tags);
+      if (links.length === 0) continue;
+      await prisma.videoTag.createMany({
+        data: links.map(({ tagId }) => ({ videoId: repair.videoId, tagId })),
+        skipDuplicates: true,
+      });
+    } catch (error) {
+      errors.push(`${host.id} tags ${repair.fileCode}: ${errorMessage(error)}`);
+    }
+  }
+}
+
 async function syncPrimaryHost(
   host: Host,
   provider: HostProvider,
@@ -170,9 +221,13 @@ async function syncPrimaryHost(
       },
       select: {
         id: true,
+        videoId: true,
         fileCode: true,
         hostThumbnailUrl: true,
         lengthSeconds: true,
+        video: {
+          select: { _count: { select: { videoTags: true } } },
+        },
       },
     });
     const existingByCode = new Map(
@@ -197,6 +252,19 @@ async function syncPrimaryHost(
         },
       });
     }
+
+    await applyMigrationTagRepairs(
+      host,
+      migrationTagRepairs(
+        existing.map((mirror) => ({
+          videoId: mirror.videoId,
+          fileCode: mirror.fileCode,
+          tagCount: mirror.video._count.videoTags,
+        })),
+        metadata.tagsByHostCode,
+      ),
+      errors,
+    );
 
     const existingCodes = new Set(existingByCode.keys());
     const newFiles = files.filter((file) => !existingCodes.has(file.code));

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { HostProvider } from "../hosts/types";
-import { buildPrimaryVideoData } from "./newVideos";
+import { buildPrimaryVideoData, migrationTagRepairs } from "./newVideos";
 
 const provider: HostProvider = {
   id: "example",
@@ -74,5 +74,45 @@ describe("new video creation", () => {
         create: [{ tagId: "tag-1" }, { tagId: "tag-2" }],
       },
     });
+  });
+});
+
+describe("migration tag repair for existing videos", () => {
+  const tagsByHostCode = new Map([
+    ["code-a", ["Gay video", "Vietnam video"]],
+    ["code-b", ["Asia video"]],
+  ]);
+
+  it("tags an existing untagged video once its file code appears in the migration log", () => {
+    expect(
+      migrationTagRepairs(
+        [{ videoId: "v1", fileCode: "code-a", tagCount: 0 }],
+        tagsByHostCode,
+      ),
+    ).toEqual([
+      { videoId: "v1", fileCode: "code-a", tags: ["Gay video", "Vietnam video"] },
+    ]);
+  });
+
+  it("leaves videos that already have tags untouched so admin edits win", () => {
+    expect(
+      migrationTagRepairs(
+        [{ videoId: "v1", fileCode: "code-a", tagCount: 1 }],
+        tagsByHostCode,
+      ),
+    ).toEqual([]);
+  });
+
+  it("skips files without migration tags and repairs each video only once", () => {
+    expect(
+      migrationTagRepairs(
+        [
+          { videoId: "v1", fileCode: "unknown", tagCount: 0 },
+          { videoId: "v2", fileCode: "code-b", tagCount: 0 },
+          { videoId: "v2", fileCode: "code-a", tagCount: 0 },
+        ],
+        tagsByHostCode,
+      ),
+    ).toEqual([{ videoId: "v2", fileCode: "code-b", tags: ["Asia video"] }]);
   });
 });
