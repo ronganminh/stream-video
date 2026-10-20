@@ -13,6 +13,10 @@ on:
         description: "Run migration:backfill after deploy (tags/titles/source thumbnails)"
         type: boolean
         default: false
+      resize_media:
+        description: "Run media:resize after deploy (bring every stored thumbnail to 640x360)"
+        type: boolean
+        default: false
   # Enable once manual deploys are proven:
   # push:
   #   branches: [main]
@@ -51,6 +55,7 @@ jobs:
           PROD_USER: ${{ secrets.PROD_USER }}
           BUILD_WEB: ${{ inputs.build_web }}
           RUN_BACKFILL: ${{ inputs.run_backfill }}
+          RESIZE_MEDIA: ${{ inputs.resize_media }}
         run: |
           set -euo pipefail
           # The script is fed on stdin, so every remote command that could read
@@ -60,12 +65,13 @@ jobs:
             -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
             -o ServerAliveInterval=30 \
             "$PROD_USER@$PROD_HOST" \
-            "bash -s -- '$BUILD_WEB' '$RUN_BACKFILL'" <<'REMOTE' | tee "$RUNNER_TEMP/deploy.log"
+            "bash -s -- '$BUILD_WEB' '$RUN_BACKFILL' '$RESIZE_MEDIA'" <<'REMOTE' | tee "$RUNNER_TEMP/deploy.log"
           set -euo pipefail
           # Parsed in full before it runs, with stdin detached from the script.
           main() {
           BUILD_WEB="$1"
           RUN_BACKFILL="$2"
+          RESIZE_MEDIA="${3:-false}"
           cd /opt/gayvideo
 
           # The deploy user may not be in the docker group (and a usermod only
@@ -134,6 +140,11 @@ jobs:
 
           if [ "$RUN_BACKFILL" = "true" ]; then
             dc run --rm worker npm run migration:backfill || echo "::warning::backfill reported errors"
+          fi
+
+          # After backfill, so it only touches thumbnails backfill left alone.
+          if [ "$RESIZE_MEDIA" = "true" ]; then
+            dc run --rm worker npm run media:resize || echo "::warning::media:resize reported errors"
           fi
 
           dc ps
