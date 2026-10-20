@@ -53,12 +53,17 @@ jobs:
           RUN_BACKFILL: ${{ inputs.run_backfill }}
         run: |
           set -euo pipefail
+          # The script is fed on stdin, so every remote command that could read
+          # stdin is redirected from /dev/null; DEPLOY_COMPLETE proves the whole
+          # script ran rather than bash stopping early at end of input.
           ssh -i "$HOME/.ssh/deploy_key" \
             -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
             -o ServerAliveInterval=30 \
             "$PROD_USER@$PROD_HOST" \
-            "bash -s -- '$BUILD_WEB' '$RUN_BACKFILL'" <<'REMOTE'
+            "bash -s -- '$BUILD_WEB' '$RUN_BACKFILL'" <<'REMOTE' | tee "$RUNNER_TEMP/deploy.log"
           set -euo pipefail
+          # Parsed in full before it runs, with stdin detached from the script.
+          main() {
           BUILD_WEB="$1"
           RUN_BACKFILL="$2"
           cd /opt/gayvideo
@@ -75,7 +80,7 @@ jobs:
               exit 1
             fi
           fi
-          dc() { $SUDO docker compose "$@"; }
+          dc() { $SUDO docker compose "$@" </dev/null; }
 
           # The checkout may be owned by another user (e.g. root).
           GIT="git"
@@ -90,7 +95,10 @@ jobs:
 
           # Worker reads tags/thumbnails from this checkout (mounted read-only).
           if [ -d migration-data/.git ]; then
-            $GIT -C migration-data pull --ff-only || echo "::warning::migration-data pull failed"
+            $GIT -C migration-data status -sb </dev/null | head -3
+            $GIT -C migration-data pull --ff-only origin main </dev/null \
+              || echo "::warning::migration-data pull failed"
+            echo "migration-data at $($GIT -C migration-data log -1 --format='%h %cd' </dev/null)"
           else
             echo "::warning::/opt/gayvideo/migration-data is not a git checkout"
           fi
@@ -119,12 +127,20 @@ jobs:
 
           dc ps
           for i in $(seq 1 30); do
-            curl -fsS "https://$SITE_DOMAIN/robots.txt" >/dev/null && { echo "Site healthy"; exit 0; }
+            if curl -fsS "https://$SITE_DOMAIN/robots.txt" >/dev/null </dev/null; then
+              echo "Site healthy"
+              echo "DEPLOY_COMPLETE"
+              exit 0
+            fi
             sleep 5
           done
           echo "::error::https://$SITE_DOMAIN/robots.txt did not respond"
           exit 1
+          }
+          main "$@" </dev/null
           REMOTE
+          grep -q '^DEPLOY_COMPLETE$' "$RUNNER_TEMP/deploy.log" \
+            || { echo "::error::Remote deploy script did not run to completion"; exit 1; }
 
       - name: Remove SSH key
         if: ${{ always() }}
