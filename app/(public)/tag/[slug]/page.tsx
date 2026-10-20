@@ -195,7 +195,7 @@ export default async function TagPage({
               <VideoCard
                 key={video.id}
                 video={video}
-                priority={index < 5}
+                priority={index < 2}
               />
             ))}
           </div>

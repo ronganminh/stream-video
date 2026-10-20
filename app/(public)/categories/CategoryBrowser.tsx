@@ -115,7 +115,7 @@ export function CategoryBrowser({ categories }: Props) {
                     key={category.slug}
                     category={category}
                     variant={category.trending ? "trending" : "wide"}
-                    priority={index < 3}
+                    priority={index < 2}
                   />
                 ))}
               </div>

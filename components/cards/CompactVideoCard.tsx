@@ -49,7 +49,7 @@ export function CompactVideoCard({
         <Link href={href} className={styles.featuredLink} aria-label={video.title}>
           <Thumbnail
             src={video.thumbnailUrl}
-            alt=""
+            alt={video.title}
             durationSeconds={video.durationSeconds}
             priority={priority}
           >
@@ -100,7 +100,7 @@ export function CompactVideoCard({
         <span className={styles.thumb}>
           <Thumbnail
             src={video.thumbnailUrl}
-            alt=""
+            alt={video.title}
             durationSeconds={video.durationSeconds}
             priority={priority}
           />

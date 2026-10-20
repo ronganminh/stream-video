@@ -3,6 +3,8 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import type { ReactNode } from "react";
 
+import { defaultMetadata } from "@/lib/seo/metadata";
+
 import "../styles/tokens.css";
 import "../styles/globals.css";
 
@@ -19,9 +21,7 @@ const geistMono = Geist_Mono({
 const materialSymbolsHref =
   "https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,400,0,0&display=block";
 
-export const metadata: Metadata = {
-  title: "GayVideo.fun",
-};
+export const metadata: Metadata = defaultMetadata();
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (

@@ -1,9 +1,30 @@
+import { createHash } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import sharp from "sharp";
 
+import { THUMBNAIL_HEIGHT, THUMBNAIL_WIDTH } from "../thumbnailSize";
+
 const DEFAULT_MEDIA_DIR = "public/media";
+
+export { THUMBNAIL_HEIGHT, THUMBNAIL_WIDTH };
+
+// Cards render thumbnails in a 16:9 box at 640x360, so store exactly that:
+// larger or portrait sources (e.g. 489x875 phone shots) are cropped to 16:9
+// around their most interesting region instead of being shipped full size.
+const THUMBNAIL_QUALITY = 78;
+
+export async function toThumbnailWebp(source: Buffer): Promise<Buffer> {
+  return sharp(source)
+    .rotate()
+    .resize(THUMBNAIL_WIDTH, THUMBNAIL_HEIGHT, {
+      fit: "cover",
+      position: sharp.strategy.attention,
+    })
+    .webp({ quality: THUMBNAIL_QUALITY })
+    .toBuffer();
+}
 
 function safeName(value: string): string {
   return value.replace(/[^a-zA-Z0-9_-]+/g, "-");
@@ -72,10 +93,7 @@ export async function storeThumbnail(options: {
 
   const fetchImpl = options.fetchImpl ?? fetch;
   const source = await downloadThumbnail(options.url, fetchImpl);
-  const output = await sharp(source)
-    .rotate()
-    .webp({ quality: 82 })
-    .toBuffer();
+  const output = await toThumbnailWebp(source);
 
   const mediaDir =
     options.mediaDir ?? process.env.MEDIA_DIR ?? DEFAULT_MEDIA_DIR;
@@ -84,5 +102,8 @@ export async function storeThumbnail(options: {
   const filename = `${safeName(options.videoId)}.webp`;
   await writeFile(path.join(mediaDir, filename), output);
 
-  return `/media/${filename}`;
+  // The file name is fixed per video and Caddy serves /media as immutable, so
+  // version the URL by content: a new thumbnail gets a new URL.
+  const version = createHash("sha256").update(output).digest("hex").slice(0, 12);
+  return `/media/${filename}?v=${version}`;
 }

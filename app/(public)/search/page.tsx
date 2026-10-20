@@ -451,7 +451,7 @@ export default async function SearchPage({
           <VideoCard
             key={video.id}
             video={video}
-            priority={index < 5}
+            priority={index < 2}
           />
         ))}
       </div>
