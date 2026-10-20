@@ -8,14 +8,16 @@ import { VideoCard } from "@/components/cards/VideoCard";
 import { Icon, TagChip } from "@/components/primitives";
 import { getHome } from "@/lib/data";
 import { getAdHtml } from "@/lib/data/prisma/ads";
+import { defaultMetadata } from "@/lib/seo/metadata";
+import { absoluteUrl } from "@/lib/seo/site";
 
 import { LoadMore } from "../_home/LoadMore";
 import styles from "../page.module.css";
 
 export const metadata: Metadata = {
-  title: "GayVideo.fun",
+  ...defaultMetadata(),
   alternates: {
-    canonical: "/",
+    canonical: absoluteUrl("/"),
   },
 };
 
@@ -109,12 +111,11 @@ export default async function HomePage() {
               </div>
 
               <div className={styles.videoGrid}>
-                {home.hot.slice(0, 10).map((video, index) => (
+                {home.hot.slice(0, 10).map((video) => (
                   <VideoCard
                     key={video.id}
                     video={video}
                     variant="hot"
-                    priority={index < 5}
                   />
                 ))}
               </div>
@@ -136,12 +137,11 @@ export default async function HomePage() {
               </div>
 
               <div className={styles.categoryGrid}>
-                {home.popularCategories.map((category, index) => (
+                {home.popularCategories.map((category) => (
                   <CategoryCard
                     key={category.slug}
                     category={category}
                     variant="wide"
-                    priority={index < 3}
                   />
                 ))}
               </div>
@@ -163,12 +163,11 @@ export default async function HomePage() {
               </div>
 
               <div className={styles.videoGrid}>
-                {home.latest.items.map((video, index) => (
+                {home.latest.items.map((video) => (
                   <VideoCard
                     key={video.id}
                     video={video}
                     variant={video.isNew ? "new" : undefined}
-                    priority={index < 5}
                   />
                 ))}
               </div>

@@ -76,6 +76,10 @@ model Video {
   videoTags  VideoTag[]
   dailyStats VideoDailyStat[]
   reports    Report[]
+
+  // Public listings filter on visibility and sort newest first.
+  @@index([isPublished, isHidden, status, publishedAt])
+  @@index([categoryId])
 }
 
 model Mirror {
@@ -128,6 +132,8 @@ model Category {
   sortOrder     Int
 
   videos Video[]
+
+  @@index([slug])
 }
 
 model Tag {
@@ -136,6 +142,8 @@ model Tag {
   name String
 
   videoTags VideoTag[]
+
+  @@index([slug])
 }
 
 model VideoTag {
@@ -146,6 +154,8 @@ model VideoTag {
   tag   Tag   @relation(fields: [tagId], references: [id])
 
   @@id([videoId, tagId])
+  // Tag pages look videos up by tag; the primary key only covers videoId first.
+  @@index([tagId])
 }
 
 model VideoDailyStat {

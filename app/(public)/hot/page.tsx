@@ -161,7 +161,7 @@ export default async function HotPage({
                   key={video.id}
                   video={video}
                   variant="hot"
-                  priority={index < 5}
+                  priority={!ranked.length && index < 2}
                 />
               ))}
             </div>

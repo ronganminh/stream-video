@@ -40,7 +40,7 @@ export function RankCard({
         <span className={styles.content}>
           <Thumbnail
             src={video.thumbnailUrl}
-            alt=""
+            alt={video.title}
             durationSeconds={video.durationSeconds}
             previewUrl={video.previewUrl}
             priority={priority}

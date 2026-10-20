@@ -135,7 +135,7 @@ export default async function MostViewedPage({
                 <VideoCard
                   video={video}
                   mostWatchedRank={index < 3 && result.page === 1 ? index + 1 : undefined}
-                  priority={index < 5}
+                  priority={index < 2}
                 />
                 {index >= 3 || result.page > 1 ? (
                   <span className={styles.rankMeta}>

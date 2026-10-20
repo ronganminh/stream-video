@@ -200,7 +200,7 @@ export default async function LatestPage({
                     key={video.id}
                     video={video}
                     variant={index < 2 ? "new" : undefined}
-                    priority={index < 5}
+                    priority={index < 2}
                   />
                 ))}
               </div>
@@ -229,7 +229,7 @@ export default async function LatestPage({
                   <VideoCard
                     key={video.id}
                     video={video}
-                    priority={!lastHour.length && index < 5}
+                    priority={!lastHour.length && index < 2}
                   />
                 ))}
               </div>

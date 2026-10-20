@@ -221,7 +221,7 @@ export default async function CategoryPage({
                 key={video.id}
                 video={video}
                 variant={(query.sort || "trending") === "trending" ? "hot" : undefined}
-                priority={index < 5}
+                priority={index < 2}
               />
             ))}
           </div>

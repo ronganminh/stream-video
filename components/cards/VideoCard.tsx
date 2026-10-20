@@ -113,7 +113,7 @@ export function VideoCard(props: VideoCardProps) {
       >
         <Thumbnail
           src={video.thumbnailUrl}
-          alt=""
+          alt={video.title}
           durationSeconds={video.durationSeconds}
           previewUrl={video.previewUrl}
           priority={priority}

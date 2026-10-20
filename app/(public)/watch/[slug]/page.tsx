@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { cache } from "react";
 
 import { AdSlot } from "@/components/ads/AdSlot";
 import { VideoCard } from "@/components/cards/VideoCard";
@@ -8,6 +9,8 @@ import { Icon, TagChip } from "@/components/primitives";
 import { getWatch, getPopularTags } from "@/lib/data";
 import { getAdHtml } from "@/lib/data/prisma/ads";
 import { formatViews, timeAgo } from "@/lib/format";
+import { buildWatchMetadata, watchDescription } from "@/lib/seo/metadata";
+import { absoluteUrl } from "@/lib/seo/site";
 
 import { Player } from "./Player";
 import { ReportFlow } from "./ReportFlow";
@@ -15,6 +18,9 @@ import { WatchActions } from "./WatchActions";
 import styles from "./page.module.css";
 
 type Params = Promise<{ slug: string }>;
+
+// generateMetadata and the page share one lookup per request.
+const loadWatch = cache(getWatch);
 
 function isoDuration(seconds: number | null) {
   if (!seconds || seconds <= 0) return undefined;
@@ -25,17 +31,10 @@ function isoDuration(seconds: number | null) {
 
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
   const { slug } = await params;
-  const result = await getWatch(slug);
+  const result = await loadWatch(slug);
   if (!result) return {};
 
-  const status = result.video.availability ?? "AVAILABLE";
-  const noindex = status !== "AVAILABLE";
-  return {
-    title: `${result.video.title} | GayVideo.fun`,
-    description: result.video.description || undefined,
-    alternates: { canonical: `/watch/${slug}` },
-    robots: noindex ? { index: false, follow: true } : { index: true, follow: true },
-  };
+  return buildWatchMetadata(slug, result.video);
 }
 
 function StatePanel({
@@ -58,7 +57,7 @@ function StatePanel({
 
 export default async function WatchPage({ params }: { params: Params }) {
   const { slug } = await params;
-  const result = await getWatch(slug);
+  const result = await loadWatch(slug);
   if (!result) notFound();
 
   const { video, mirrors } = result;
@@ -131,8 +130,8 @@ export default async function WatchPage({ params }: { params: Params }) {
     "@context": "https://schema.org",
     "@type": "VideoObject",
     name: video.title,
-    description: video.description,
-    thumbnailUrl: video.thumbnailUrl ? [video.thumbnailUrl] : undefined,
+    description: watchDescription(video),
+    thumbnailUrl: video.thumbnailUrl ? [absoluteUrl(video.thumbnailUrl)] : undefined,
     uploadDate: video.publishedAt,
     duration: isoDuration(video.durationSeconds),
     embedUrl: mirrors[0]?.embedUrl,
@@ -147,7 +146,8 @@ export default async function WatchPage({ params }: { params: Params }) {
     <div className={styles.page}>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        // Escape "<" so a title containing "</script>" cannot end the tag.
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }}
       />
 
       <div className={styles.layout}>
