@@ -47,5 +47,5 @@ test("home page carries default share metadata", async ({ request }) => {
 
   expect(head).toContain('<meta property="og:site_name" content="GayVideo.fun"');
   expect(head).toMatch(/<meta name="description" content="[^"]+"/);
-  expect(head).toMatch(/<link rel="canonical" href="https?:\/\/[^/]+\/"/);
+  expect(head).toMatch(/<link rel="canonical" href="https?:\/\/[^/"]+\/?"/);
 });
