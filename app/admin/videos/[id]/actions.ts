@@ -10,6 +10,7 @@ import { db } from "@/lib/db";
 import { getHostProvider } from "@/lib/hosts/registry";
 import { normalize } from "@/lib/sync/normalize";
 import { storeThumbnail } from "@/lib/sync/thumbnails";
+import { revalidatePublicPages } from "@/lib/revalidatePublic";
 
 const availabilityValues = [
   "AVAILABLE",
@@ -141,6 +142,7 @@ export async function saveVideoAction(formData: FormData) {
   revalidatePath(`/admin/videos/${parsed.id}`);
   revalidatePath("/admin/videos");
   revalidatePath("/admin/review");
+  revalidatePublicPages();
 }
 
 export async function replaceThumbnailAction(formData: FormData) {
@@ -177,6 +179,7 @@ export async function replaceThumbnailAction(formData: FormData) {
 
   revalidatePath(`/admin/videos/${parsed.id}`);
   revalidatePath("/admin/review");
+  revalidatePublicPages();
 }
 
 const mirrorSchema = z.object({
@@ -265,6 +268,7 @@ export async function linkMirrorAction(formData: FormData) {
 
   revalidatePath(`/admin/videos/${parsed.videoId}`);
   revalidatePath("/admin/videos");
+  revalidatePublicPages();
 }
 
 export async function unlinkMirrorAction(formData: FormData) {
@@ -307,6 +311,7 @@ export async function unlinkMirrorAction(formData: FormData) {
 
   revalidatePath(`/admin/videos/${parsed.videoId}`);
   revalidatePath("/admin/videos");
+  revalidatePublicPages();
 }
 
 export async function recheckMirrorAction(formData: FormData) {
@@ -378,4 +383,5 @@ export async function recheckMirrorAction(formData: FormData) {
 
   revalidatePath(`/admin/videos/${parsed.videoId}`);
   revalidatePath("/admin/videos");
+  revalidatePublicPages();
 }

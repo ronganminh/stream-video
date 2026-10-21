@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import {
   useEffect,
   useId,
@@ -8,6 +7,12 @@ import {
   useState,
   type FormEvent,
 } from "react";
+
+import {
+  AGE_GATE_CONFIRMED_ATTRIBUTE,
+  AGE_GATE_CONFIRMED_HASH,
+  hasAgeGateCookie,
+} from "@/lib/ageGate";
 
 import styles from "./AgeGate.module.css";
 
@@ -61,13 +66,24 @@ export function AgeGate({
   cookieName,
   cookieLifetimeDays,
 }: AgeGateProps) {
-  const router = useRouter();
-  const [open, setOpen] = useState(true);
+  // "pending" until mounted: the server can't know the cookie, so the gate is
+  // rendered and CSS (driven by the <head> boot script) decides visibility.
+  const [status, setStatus] = useState<"pending" | "open" | "closed">(
+    "pending",
+  );
+  const open = status === "open";
   const dialogRef = useRef<HTMLElement>(null);
   const primaryActionRef = useRef<HTMLButtonElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
   const titleId = useId();
   const descriptionId = useId();
+
+  useEffect(() => {
+    const confirmed =
+      document.documentElement.hasAttribute(AGE_GATE_CONFIRMED_ATTRIBUTE) ||
+      hasAgeGateCookie(document.cookie);
+    setStatus(confirmed ? "closed" : "open");
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -151,14 +167,21 @@ export function AgeGate({
       cookieName,
       cookieLifetimeDays,
     );
-    setOpen(false);
-    router.refresh();
+    document.documentElement.setAttribute(AGE_GATE_CONFIRMED_ATTRIBUTE, "");
+    setStatus("closed");
   };
 
-  if (!open) return null;
+  if (status === "closed") return null;
 
   return (
     <div className={styles.overlay} data-gv-motion="modal">
+      {/* Target for the no-JS confirmation redirect; fixed so jumping to it
+          never scrolls the page. */}
+      <span
+        id={AGE_GATE_CONFIRMED_HASH}
+        className={styles.confirmedTarget}
+        aria-hidden="true"
+      />
       <section
         ref={dialogRef}
         className={styles.dialog}
@@ -246,6 +269,12 @@ export function AgeGate({
             Leave
           </a>
         </form>
+
+        <noscript>
+          <p className={styles.noscript}>
+            JavaScript is off, so this check is shown on each page.
+          </p>
+        </noscript>
 
         <div className={styles.legal}>
           <span>Terms</span>

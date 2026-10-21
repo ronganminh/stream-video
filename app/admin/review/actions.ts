@@ -7,6 +7,7 @@ import { writeAdminAudit } from "@/lib/auth/audit";
 import { requireAdmin } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { applyThumbnailSelection } from "@/lib/sync/thumbnailSources";
+import { revalidatePublicPages } from "@/lib/revalidatePublic";
 
 import type { ThumbnailActionState } from "./thumbnailState";
 
@@ -106,6 +107,7 @@ export async function approveReviewAction(formData: FormData) {
 
   revalidatePath("/admin/review");
   revalidatePath("/admin/videos");
+  revalidatePublicPages();
 }
 
 export async function saveReviewAction(formData: FormData) {
@@ -210,4 +212,5 @@ export async function bulkApproveReviewAction(formData: FormData) {
 
   revalidatePath("/admin/review");
   revalidatePath("/admin/videos");
+  revalidatePublicPages();
 }

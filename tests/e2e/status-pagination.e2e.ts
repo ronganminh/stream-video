@@ -32,16 +32,29 @@ test("Load More enhances but crawlable page links remain the fallback", async ({
   const after = await page.locator('a[href^="/watch/"]').count();
   expect(after).toBeGreaterThan(before);
 
+  // Without JS the gate can't read the cookie (pages are cached and shared),
+  // so the confirm form posts to middleware and returns with #gv-age-ok.
   const noJs = await browser.newContext({ javaScriptEnabled: false });
-  await addAgeCookie(noJs);
   const noJsPage = await noJs.newPage();
+  await noJsPage.goto("/latest?page=2");
+  const gate = noJsPage.getByRole("dialog");
+  await expect(gate).toBeVisible();
+  await noJsPage.getByRole("button", { name: "I'm 18 or older" }).click();
+  await expect(noJsPage).toHaveURL(/\/latest\?page=2#gv-age-ok$/);
+  await expect(gate).toBeHidden();
+  expect(
+    (await noJs.cookies()).some(
+      (cookie) => cookie.name === "gv_age_ack" && cookie.value === "1",
+    ),
+  ).toBe(true);
 
   for (const { path, heading } of [
     { path: "/latest?page=2", heading: "Latest Videos" },
     { path: "/hot?page=2", heading: "Hot Right Now" },
     { path: "/most-viewed?page=2", heading: "Most Viewed" },
   ]) {
-    await noJsPage.goto(path);
+    await noJsPage.goto(path + "#gv-age-ok");
+    await expect(noJsPage.getByRole("dialog")).toBeHidden();
     await expect(noJsPage.getByRole("heading", { name: heading })).toBeVisible();
     await expect(noJsPage.getByRole("link", { name: "2", exact: true })).toHaveAttribute(
       "aria-current",

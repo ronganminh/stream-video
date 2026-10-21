@@ -8,6 +8,11 @@ test.describe.configure({ retries: 0 });
 test("admin approve → manual mirror link → change primary host", async ({ page }) => {
   await loginAdmin(page);
 
+  // Warm the ISR cache so the assertion below proves the admin edit purged it
+  // rather than the page simply being rendered fresh.
+  const latestBefore = await (await page.request.get("/latest")).text();
+  expect(latestBefore).not.toContain("Draft Seed Video");
+
   await page.goto("/admin/review");
   const draft = page.locator("article").filter({
     has: page.locator('a[href="/admin/videos/video-draft-seed"]'),
@@ -29,6 +34,9 @@ test("admin approve → manual mirror link → change primary host", async ({ pa
   await expect(
     page.locator("article").filter({ hasText: "Draft Seed Video.mp4" }),
   ).toHaveCount(0);
+
+  const latestAfter = await (await page.request.get("/latest")).text();
+  expect(latestAfter).toContain("Draft Seed Video");
 
   await page.goto("/admin/hosts");
   const voeRow = page.getByRole("row").filter({ hasText: "VOE" });
