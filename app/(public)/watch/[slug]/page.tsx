@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { cache } from "react";
+import { Fragment } from "react";
 
 import { AdSlot } from "@/components/ads/AdSlot";
 import { VideoCard } from "@/components/cards/VideoCard";
 import { Icon, TagChip } from "@/components/primitives";
-import { getWatch, getPopularTags } from "@/lib/data";
+import { getPopularTags } from "@/lib/data";
 import { getAdHtml } from "@/lib/data/prisma/ads";
 import { formatViews, timeAgo } from "@/lib/format";
 import {
@@ -14,8 +14,10 @@ import {
   jsonLdHtml,
   videoObjectJsonLd,
 } from "@/lib/seo/jsonLd";
+import { watchBreadcrumbs } from "@/lib/seo/breadcrumbs";
 import { buildWatchMetadata } from "@/lib/seo/metadata";
 
+import { loadWatch } from "./data";
 import { Player } from "./Player";
 import { ReportFlow } from "./ReportFlow";
 import { WatchActions } from "./WatchActions";
@@ -23,8 +25,6 @@ import styles from "./page.module.css";
 
 type Params = Promise<{ slug: string }>;
 
-// generateMetadata and the page share one lookup per request.
-const loadWatch = cache(getWatch);
 
 // Cached per slug on first visit. Middleware still checks each request, so a
 // removed or unpublished video returns 410/404 even while a copy is cached.
@@ -131,16 +131,8 @@ export default async function WatchPage({ params }: { params: Params }) {
     return notFound();
   }
 
-  const jsonLd = [
-    videoObjectJsonLd(slug, video, mirrors),
-    breadcrumbJsonLd([
-      { name: "Home", path: "/" },
-      ...(video.category.slug !== "uncategorized"
-        ? [{ name: video.category.name, path: `/category/${video.category.slug}` }]
-        : []),
-      { name: video.title, path: `/watch/${slug}` },
-    ]),
-  ];
+  const crumbs = watchBreadcrumbs(slug, video);
+  const jsonLd = [videoObjectJsonLd(slug, video, mirrors), breadcrumbJsonLd(crumbs)];
 
   return (
     <div className={styles.page}>
@@ -163,13 +155,18 @@ export default async function WatchPage({ params }: { params: Params }) {
           </div>
 
           <nav className={styles.breadcrumbs} aria-label="Breadcrumb">
-            <Link href="/">Home</Link>
-            <span>›</span>
-            <Link href={`/category/${video.category.slug}`}>
-              {video.category.name}
-            </Link>
-            <span>›</span>
-            <span>{video.title}</span>
+            {crumbs.map((crumb, index) =>
+              index < crumbs.length - 1 ? (
+                <Fragment key={crumb.path}>
+                  <Link href={crumb.path}>{crumb.name}</Link>
+                  <span aria-hidden="true">›</span>
+                </Fragment>
+              ) : (
+                <span key={crumb.path} aria-current="page">
+                  {crumb.name}
+                </span>
+              ),
+            )}
           </nav>
 
           <h1 className={styles.title}>{video.title}</h1>
@@ -183,6 +180,7 @@ export default async function WatchPage({ params }: { params: Params }) {
           <WatchActions
             videoId={video.id}
             slug={video.slug}
+            title={video.title}
             initialLikes={video.likes}
           />
           <ReportFlow

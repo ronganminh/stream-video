@@ -35,10 +35,12 @@ test("desktop journey: age gate → search → watch → related → category �
     .getByRole("button", { name: "Play Morning Gym Session with Marco" })
     .click();
   const servers = page.getByRole("group", { name: "Video servers" });
-  await servers.getByRole("button", { name: "2", exact: true }).click();
-  await expect(
-    servers.getByRole("button", { name: "2", exact: true }),
-  ).toHaveAttribute("aria-pressed", "true");
+  // Buttons name their host; the accessible name adds the server number.
+  const second = servers.getByRole("button", { name: /server 2 of/ });
+  await expect(second).toHaveText(/\S/);
+  await expect(second).not.toHaveText("2");
+  await second.click();
+  await expect(second).toHaveAttribute("aria-pressed", "true");
 
   const related = page
     .getByRole("heading", { name: "More like this", exact: true })

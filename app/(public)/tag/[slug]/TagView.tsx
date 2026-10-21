@@ -12,6 +12,7 @@ import { getTag } from "@/lib/data";
 import { getAdHtml } from "@/lib/data/prisma/ads";
 import { jsonLdHtml } from "@/lib/seo/jsonLd";
 import { listShareMetadata, pageSuffix } from "@/lib/seo/metadata";
+import { notFoundPastLastPage, totalPagesFor } from "@/lib/pagination";
 
 import styles from "./page.module.css";
 
@@ -95,10 +96,8 @@ export async function TagView({
   ]);
   if (!result) notFound();
 
-  const totalPages = Math.max(
-    1,
-    Math.ceil(result.videos.total / result.videos.pageSize),
-  );
+  notFoundPastLastPage(result.videos);
+  const totalPages = totalPagesFor(result.videos.total, result.videos.pageSize);
   const basePath = `/tag/${slug}`;
   const pagerQuery = {
     sort: query.sort,
@@ -111,8 +110,8 @@ export async function TagView({
     "@type": "BreadcrumbList",
     itemListElement: [
       { "@type": "ListItem", position: 1, name: "Home", item: "https://gayvideo.fun/" },
-      { "@type": "ListItem", position: 2, name: "Tags", item: "https://gayvideo.fun/tags" },
-      { "@type": "ListItem", position: 3, name: result.tag.name, item: `https://gayvideo.fun${basePath}` },
+      // There is no /tags page, so no "Tags" step to link to.
+      { "@type": "ListItem", position: 2, name: result.tag.name, item: `https://gayvideo.fun${basePath}` },
     ],
   };
 

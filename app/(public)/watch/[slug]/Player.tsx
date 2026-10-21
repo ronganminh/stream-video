@@ -1,11 +1,24 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { preconnect } from "react-dom";
 
 import { Icon } from "@/components/primitives";
 import type { MirrorPublic } from "@/lib/types";
 
 import styles from "./page.module.css";
+
+// Some hosts take seconds to show their player; after this long, point at
+// the other servers.
+const SLOW_LOAD_MS = 6000;
+
+function originOf(url: string): string | null {
+  try {
+    return new URL(url).origin;
+  } catch {
+    return null;
+  }
+}
 
 type Props = {
   videoId: string;
@@ -23,6 +36,7 @@ export function Player({
   const [activeIndex, setActiveIndex] = useState(0);
   const [started, setStarted] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [slow, setSlow] = useState(false);
   const [viewCounted, setViewCounted] = useState(false);
   const startedAtRef = useRef<number | null>(null);
 
@@ -39,6 +53,21 @@ export function Player({
         : undefined,
     [posterUrl],
   );
+
+  // Warm up the hosts' connections (DNS, TLS) before Play is pressed.
+  for (const mirror of mirrors) {
+    const origin = originOf(mirror.embedUrl);
+    if (origin) preconnect(origin);
+  }
+
+  useEffect(() => {
+    if (!loading) {
+      setSlow(false);
+      return;
+    }
+    const id = window.setTimeout(() => setSlow(true), SLOW_LOAD_MS);
+    return () => window.clearTimeout(id);
+  }, [loading, activeIndex]);
 
   useEffect(() => {
     if (!started || startedAtRef.current === null) return;
@@ -100,13 +129,18 @@ export function Player({
             {loading ? (
               <div className={styles.playerLoading} role="status">
                 <span className={styles.spinner} aria-hidden="true" />
-                Loading player…
+                <span>Loading {activeMirror.label}…</span>
+                {slow && mirrors.length > 1 ? (
+                  <span className={styles.playerSlow}>
+                    Taking a while? Try another server below.
+                  </span>
+                ) : null}
               </div>
             ) : null}
             <iframe
               key={`${activeMirror.hostId}:${activeMirror.embedUrl}`}
               src={activeMirror.embedUrl}
-              title={`${title} — Server ${activeIndex + 1}`}
+              title={`${title} (${activeMirror.label})`}
               loading="eager"
               allowFullScreen
               onLoad={() => setLoading(false)}
@@ -125,8 +159,9 @@ export function Player({
               className={index === activeIndex ? styles.serverActive : styles.serverButton}
               onClick={() => selectServer(index)}
               aria-pressed={index === activeIndex}
+              aria-label={`${mirror.label}, server ${index + 1} of ${mirrors.length}`}
             >
-              {index + 1}
+              {mirror.label}
             </button>
           ))}
         </div>

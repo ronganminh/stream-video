@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
+import { Toast } from "@/components/feedback/Toast";
 import { Icon } from "@/components/primitives";
 
 import styles from "./page.module.css";
@@ -9,6 +10,7 @@ import styles from "./page.module.css";
 type Props = {
   videoId: string;
   slug: string;
+  title: string;
   initialLikes: number;
 };
 
@@ -17,12 +19,15 @@ const SAVE_PREFIX = "gv-saved:";
 export function WatchActions({
   videoId,
   slug,
+  title,
   initialLikes,
 }: Props) {
   const [likes, setLikes] = useState(initialLikes);
   const [liked, setLiked] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [shareLabel, setShareLabel] = useState("Share");
+  const [toast, setToast] = useState<{ message: string; tone: "success" | "error" } | null>(
+    null,
+  );
 
   useEffect(() => {
     try {
@@ -67,21 +72,30 @@ export function WatchActions({
     }
   };
 
+  // The system share sheet where there is one (mostly mobile), otherwise
+  // copy the link and say so.
   const share = async () => {
-    const url = window.location.href;
+    const url = `${window.location.origin}/watch/${slug}`;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({ title, url });
+        return;
+      } catch (error) {
+        // Closing the sheet is not a failure; anything else falls back to copy.
+        if (error instanceof DOMException && error.name === "AbortError") return;
+      }
+    }
 
     try {
-      if (navigator.share) {
-        await navigator.share({ url });
-      } else {
-        await navigator.clipboard.writeText(url);
-        setShareLabel("Copied");
-        window.setTimeout(() => setShareLabel("Share"), 1600);
-      }
+      await navigator.clipboard.writeText(url);
+      setToast({ message: "Link copied", tone: "success" });
     } catch {
-      // User cancellation and clipboard failure leave the action unchanged.
+      setToast({ message: "Couldn't copy the link", tone: "error" });
     }
   };
+
+  const closeToast = useCallback(() => setToast(null), []);
 
   const triggerReport = () => {
     window.dispatchEvent(
@@ -108,12 +122,18 @@ export function WatchActions({
       </button>
       <button type="button" onClick={share}>
         <Icon name="share" />
-        <span>{shareLabel}</span>
+        <span>Share</span>
       </button>
       <button type="button" onClick={triggerReport}>
         <Icon name="flag" />
         <span>Report</span>
       </button>
+      <Toast
+        open={toast !== null}
+        message={toast?.message ?? ""}
+        tone={toast?.tone}
+        onClose={closeToast}
+      />
     </div>
   );
 }

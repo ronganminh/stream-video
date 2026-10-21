@@ -71,10 +71,11 @@ test("list pages have share metadata, canonical and pagination-aware robots", as
   expect(tag.description).toContain("#Gym");
   expect(tag.card).toBe("summary_large_image");
 
-  const page2 = await meta("/category/muscle?page=2");
-  expect(page2.canonical).toMatch(/\/category\/muscle\?page=2$/);
+  // (The seeded categories and tags fit on one page; their page 2 is a 404.)
+  const page2 = await meta("/latest?page=2");
+  expect(page2.canonical).toMatch(/\/latest\?page=2$/);
   expect(page2.robots).toBe("index, follow");
-  expect(page2.description).toContain("Page 2");
+  expect(page2.description).toContain("page 2");
 
   const filtered = await meta("/latest?sort=views&page=2");
   expect(filtered.canonical).toMatch(/\/latest$/);

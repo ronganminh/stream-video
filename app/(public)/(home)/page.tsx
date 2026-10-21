@@ -53,6 +53,9 @@ export default async function HomePage() {
     home.popularTags.length > 0;
 
   const newOnPage = home.latest.items.filter((video) => video.isNew).length;
+  // The quick nav's category link comes from the data (top category with
+  // videos), never a hard-coded slug that may not exist.
+  const quickCategory = home.popularCategories[0];
 
   return (
     <div className={styles.page}>
@@ -62,13 +65,17 @@ export default async function HomePage() {
         </Link>
         <Link href="/latest">Latest</Link>
         <Link href="/most-viewed">Most Viewed</Link>
-        <Link href="/category/fitness">Fitness</Link>
+        {quickCategory ? (
+          <Link href={`/category/${quickCategory.slug}`}>{quickCategory.name}</Link>
+        ) : null}
       </nav>
+
+      <h1 className={styles.srOnly}>GayVideo.fun: free gay videos, updated daily</h1>
 
       {!hasContent ? (
         <section className={styles.empty}>
           <Icon name="video_library" className={styles.emptyIcon} />
-          <h1>No videos are available yet</h1>
+          <h2>No videos are available yet</h2>
           <p>Published videos will appear here when they are available.</p>
         </section>
       ) : (
@@ -77,7 +84,7 @@ export default async function HomePage() {
             <section className={styles.trendingSection}>
               <div className={styles.sectionHeading}>
                 <div className={styles.headingGroup}>
-                  <h1>Trending now</h1>
+                  <h2>Trending now</h2>
                   <span className={styles.subtleLabel}>Updated hourly</span>
                 </div>
                 <SectionLink href="/most-viewed">See all</SectionLink>

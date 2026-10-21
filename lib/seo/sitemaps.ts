@@ -164,10 +164,13 @@ export async function categorySitemapEntries(): Promise<SitemapEntry[]> {
     newest.map((row) => [row.categoryId, row._max.publishedAt]),
   );
 
-  return rows.map((category) => ({
-    loc: absoluteUrl("/category/" + category.slug),
-    lastmod: isoDate(lastmodById.get(category.id)),
-  }));
+  // Empty categories have no page (404), so they stay out of the sitemap.
+  return rows
+    .filter((category) => lastmodById.has(category.id))
+    .map((category) => ({
+      loc: absoluteUrl("/category/" + category.slug),
+      lastmod: isoDate(lastmodById.get(category.id)),
+    }));
 }
 
 export async function tagSitemapEntries(): Promise<SitemapEntry[]> {

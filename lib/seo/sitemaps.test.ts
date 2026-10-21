@@ -131,7 +131,7 @@ describe("video sitemap", () => {
 });
 
 describe("taxonomy and static sitemaps", () => {
-  it("dates categories by their newest public video", async () => {
+  it("dates categories by their newest public video and leaves empty ones out", async () => {
     db.category.findMany.mockResolvedValue([
       { id: "c1", slug: "beach" },
       { id: "c2", slug: "empty" },
@@ -140,7 +140,6 @@ describe("taxonomy and static sitemaps", () => {
 
     expect(await categorySitemapEntries()).toEqual([
       { loc: "https://gayvideo.fun/category/beach", lastmod: "2026-10-05T00:00:00.000Z" },
-      { loc: "https://gayvideo.fun/category/empty", lastmod: undefined },
     ]);
   });
 

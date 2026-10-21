@@ -72,7 +72,7 @@ test("public pages are cached; filters, search, admin and API are not", async ({
     "/hot?page=2",
     "/categories",
     "/tag/gym",
-    "/category/muscle?page=2",
+    "/most-viewed?page=2",
     "/watch/" + AVAILABLE_SLUG,
   ]) {
     // Served from the ISR cache. (Next omits Cache-Control on STALE responses

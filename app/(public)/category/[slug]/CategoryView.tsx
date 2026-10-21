@@ -12,6 +12,7 @@ import { getCategory } from "@/lib/data";
 import { getAdHtml } from "@/lib/data/prisma/ads";
 import { jsonLdHtml } from "@/lib/seo/jsonLd";
 import { listShareMetadata, pageSuffix } from "@/lib/seo/metadata";
+import { notFoundPastLastPage, totalPagesFor } from "@/lib/pagination";
 
 import { CategoryLoadMore } from "./CategoryLoadMore";
 import { getCategoryPageData } from "./data";
@@ -94,7 +95,8 @@ export async function CategoryView({
   if (!result) notFound();
 
   const { category, relatedTags, videos } = result;
-  const totalPages = Math.max(1, Math.ceil(videos.total / videos.pageSize));
+  notFoundPastLastPage(videos);
+  const totalPages = totalPagesFor(videos.total, videos.pageSize);
   const basePath = `/category/${slug}`;
   const pagerQuery = {
     sort: query.sort,

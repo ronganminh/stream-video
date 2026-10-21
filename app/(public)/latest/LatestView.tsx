@@ -14,6 +14,7 @@ import { getAdHtml } from "@/lib/data/prisma/ads";
 import { timeAgo } from "@/lib/format";
 import { jsonLdHtml } from "@/lib/seo/jsonLd";
 import { listShareMetadata, pageSuffix } from "@/lib/seo/metadata";
+import { notFoundPastLastPage, totalPagesFor } from "@/lib/pagination";
 
 import styles from "./page.module.css";
 
@@ -98,7 +99,8 @@ export async function LatestView({ raw }: { raw: RawQuery }) {
     value: tag.slug,
     label: tag.name,
   }));
-  const totalPages = Math.max(1, Math.ceil(result.total / result.pageSize));
+  notFoundPastLastPage(result);
+  const totalPages = totalPagesFor(result.total, result.pageSize);
   const isFirstPage = result.page === 1;
   const hourAgo = Date.now() - 60 * 60 * 1000;
   const lastHour = isFirstPage

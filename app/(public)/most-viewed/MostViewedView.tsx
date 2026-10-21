@@ -11,6 +11,7 @@ import { getMostViewed } from "@/lib/data";
 import { getAdHtml } from "@/lib/data/prisma/ads";
 import { jsonLdHtml } from "@/lib/seo/jsonLd";
 import { listShareMetadata, pageSuffix } from "@/lib/seo/metadata";
+import { notFoundPastLastPage, totalPagesFor } from "@/lib/pagination";
 
 import styles from "./page.module.css";
 
@@ -70,7 +71,8 @@ export async function MostViewedView({ raw }: { raw: RawQuery }) {
     getAdHtml("mobile-in-feed"),
   ]);
 
-  const totalPages = Math.max(1, Math.ceil(result.total / result.pageSize));
+  notFoundPastLastPage(result);
+  const totalPages = totalPagesFor(result.total, result.pageSize);
   const first = result.items.slice(0, 13);
   const rest = result.items.slice(13);
 
