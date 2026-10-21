@@ -8,6 +8,7 @@ import { requireAdmin } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { applyThumbnailSelection } from "@/lib/sync/thumbnailSources";
 
+import { reviewErrorMessage, type ReviewActionResult } from "./reviewState";
 import type { ThumbnailActionState } from "./thumbnailState";
 
 const optionalId = z.preprocess(
@@ -97,26 +98,93 @@ async function applyMetadata(
   });
 }
 
-export async function approveReviewAction(formData: FormData) {
-  const admin = await requireAdmin();
-  const data = readMetadata(formData);
+// The review queue calls these from the client and updates itself
+// optimistically, so they report failures as results instead of throwing
+// (which would hit the error boundary and lose the admin's edits).
+// requireAdmin stays outside the try so a session redirect still propagates.
+//
+// Any revalidation re-renders the whole current page in the action response,
+// and /admin pages are dynamic (nothing else to purge), so only the review
+// queue is revalidated: one cheap re-render that also pulls the next draft in.
 
-  await applyMetadata(data, true);
-  await writeAdminAudit(admin.id, "VIDEO_APPROVE", data.id);
+export async function approveReviewAction(
+  formData: FormData,
+): Promise<ReviewActionResult> {
+  const admin = await requireAdmin();
+
+  try {
+    const data = readMetadata(formData);
+    await applyMetadata(data, true);
+    await writeAdminAudit(admin.id, "VIDEO_APPROVE", data.id);
+  } catch (error) {
+    return { ok: false, error: reviewErrorMessage(error) };
+  }
 
   revalidatePath("/admin/review");
-  revalidatePath("/admin/videos");
+  return { ok: true };
 }
 
-export async function saveReviewAction(formData: FormData) {
+export async function saveReviewAction(
+  formData: FormData,
+): Promise<ReviewActionResult> {
   const admin = await requireAdmin();
-  const data = readMetadata(formData);
 
-  await applyMetadata(data, false);
-  await writeAdminAudit(admin.id, "VIDEO_REVIEW_UPDATE", data.id);
+  try {
+    const data = readMetadata(formData);
+    await applyMetadata(data, false);
+    await writeAdminAudit(admin.id, "VIDEO_REVIEW_UPDATE", data.id);
+  } catch (error) {
+    return { ok: false, error: reviewErrorMessage(error) };
+  }
 
   revalidatePath("/admin/review");
-  revalidatePath(`/admin/videos/${data.id}`);
+  return { ok: true };
+}
+
+/** Undo an approval made from the review queue: back to an unpublished draft. */
+export async function undoApproveReviewAction(
+  formData: FormData,
+): Promise<ReviewActionResult> {
+  const admin = await requireAdmin();
+
+  try {
+    const { id } = z.object({ id: z.string().min(1) }).parse({
+      id: formData.get("id"),
+    });
+    await db.video.update({
+      where: { id },
+      data: { isPublished: false, publishedAt: null },
+    });
+    await writeAdminAudit(admin.id, "VIDEO_UNPUBLISH", id);
+  } catch (error) {
+    return { ok: false, error: reviewErrorMessage(error) };
+  }
+
+  revalidatePath("/admin/review");
+  return { ok: true };
+}
+
+/** Undo a rejection made from the review queue: back into the queue. */
+export async function undoRejectReviewAction(
+  formData: FormData,
+): Promise<ReviewActionResult> {
+  const admin = await requireAdmin();
+
+  try {
+    const { id } = z.object({ id: z.string().min(1) }).parse({
+      id: formData.get("id"),
+    });
+    await db.video.update({
+      where: { id },
+      data: { isHidden: false },
+    });
+    await writeAdminAudit(admin.id, "VIDEO_UNREJECT", id);
+  } catch (error) {
+    return { ok: false, error: reviewErrorMessage(error) };
+  }
+
+  revalidatePath("/admin/review");
+  return { ok: true };
 }
 
 export async function selectReviewThumbnailAction(
@@ -161,23 +229,30 @@ export async function selectReviewThumbnailAction(
   }
 }
 
-export async function rejectReviewAction(formData: FormData) {
+export async function rejectReviewAction(
+  formData: FormData,
+): Promise<ReviewActionResult> {
   const admin = await requireAdmin();
-  const parsed = z.object({ id: z.string().min(1) }).parse({
-    id: formData.get("id"),
-  });
 
-  await db.video.update({
-    where: { id: parsed.id },
-    data: {
-      isHidden: true,
-      isPublished: false,
-    },
-  });
-  await writeAdminAudit(admin.id, "VIDEO_REJECT", parsed.id);
+  try {
+    const parsed = z.object({ id: z.string().min(1) }).parse({
+      id: formData.get("id"),
+    });
+
+    await db.video.update({
+      where: { id: parsed.id },
+      data: {
+        isHidden: true,
+        isPublished: false,
+      },
+    });
+    await writeAdminAudit(admin.id, "VIDEO_REJECT", parsed.id);
+  } catch (error) {
+    return { ok: false, error: reviewErrorMessage(error) };
+  }
 
   revalidatePath("/admin/review");
-  revalidatePath("/admin/videos");
+  return { ok: true };
 }
 
 export async function bulkApproveReviewAction(formData: FormData) {

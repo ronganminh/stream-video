@@ -126,15 +126,14 @@
 }
 
 .thumbnail {
-  background-size: cover;
-  background-position: center;
   display: grid;
   place-items: center;
   color: var(--gv-text-muted);
   font-size: 12px;
 }
 
-.embed iframe {
+.embed iframe,
+.facade {
   width: 100%;
   height: 100%;
   border: 0;
@@ -370,4 +369,203 @@
   .actions button {
     transition: none;
   }
+}
+
+/* Queue slot: holds either a card or the one-line row that replaced it. */
+.slot {
+  display: grid;
+}
+
+.slot > .card[hidden] {
+  display: none;
+}
+
+.doneRow {
+  min-height: 52px;
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  border: 1px solid var(--gv-border);
+  border-radius: var(--gv-radius-lg);
+  background: var(--gv-surface-1);
+  color: var(--gv-text-secondary);
+  font-size: 14px;
+  scroll-margin-top: 16px;
+  animation: doneRowIn var(--gv-dur-fast) var(--gv-ease);
+}
+
+.doneRow:focus {
+  outline: none;
+}
+
+.doneRow:focus-visible {
+  outline: 2px solid var(--gv-violet);
+  outline-offset: 2px;
+}
+
+.doneRow[data-outcome="published"] .doneLabel {
+  color: var(--gv-violet-300);
+}
+
+.doneRow[data-outcome="rejected"] .doneLabel {
+  color: var(--gv-danger-300);
+}
+
+.doneLabel {
+  font-weight: 700;
+  color: var(--gv-text);
+}
+
+.doneTitle {
+  min-width: 0;
+  flex: 1 1 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.doneRow a,
+.doneRow button {
+  min-height: 32px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--gv-border-input);
+  border-radius: var(--gv-radius-md);
+  background: var(--gv-surface-2);
+  color: var(--gv-text);
+  font: inherit;
+  font-size: 13px;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.doneError,
+.cardError {
+  margin: 0;
+  color: var(--gv-danger-300);
+  font-size: 13px;
+}
+
+.doneError {
+  flex-basis: 100%;
+}
+
+.cardNotice {
+  margin: 0;
+  color: var(--gv-text-secondary);
+  font-size: 13px;
+}
+
+@keyframes doneRowIn {
+  from {
+    opacity: 0;
+  }
+}
+
+/* Player facade: poster plus play button; the iframe is created on click. */
+.facade {
+  position: relative;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: var(--gv-bg);
+  color: var(--gv-text);
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.facade img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.55;
+}
+
+.facadePlay {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--gv-bg) 70%, transparent);
+  font-size: 22px;
+}
+
+.facadeLabel {
+  position: absolute;
+  left: 12px;
+  bottom: 10px;
+  padding: 4px 8px;
+  border-radius: var(--gv-radius-md);
+  background: color-mix(in srgb, var(--gv-bg) 75%, transparent);
+  font-size: 12px;
+}
+
+.facade:focus-visible {
+  outline: 2px solid var(--gv-violet);
+  outline-offset: 2px;
+}
+
+/* Fixed 16:9 frame; the image fades in instead of popping. */
+.lazyThumb {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: var(--gv-surface-2);
+}
+
+.lazyThumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 180ms ease-out;
+}
+
+.lazyThumb img[data-state="loaded"] {
+  opacity: 1;
+}
+
+.lazyThumbFailed {
+  color: var(--gv-text-muted);
+  font-size: 12px;
+}
+
+.queueCount {
+  color: var(--gv-text-secondary);
+}
+
+.pagination {
+  margin-top: 18px;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 12px;
+  color: var(--gv-text-secondary);
+  font-size: 14px;
+}
+
+.pagination a {
+  min-height: 40px;
+  padding: 0 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  border: 1px solid var(--gv-border-input);
+  border-radius: var(--gv-radius-md);
+  color: var(--gv-text);
+  text-decoration: none;
+}
+
+.pagination a:last-child {
+  justify-self: end;
 }
