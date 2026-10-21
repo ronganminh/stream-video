@@ -1,5 +1,6 @@
 import { runBackfill } from "../lib/sync/backfill";
 import { runHealthCheck } from "../lib/sync/healthCheck";
+import { findLostDSlugs } from "../lib/sync/lostDSlugs";
 import { runNewVideos } from "../lib/sync/newVideos";
 import { runMediaResize } from "../lib/sync/resizeMedia";
 
@@ -29,6 +30,23 @@ export async function runCli(args = process.argv.slice(2)): Promise<number> {
     return result.errors.length > 0 ? 1 : 0;
   }
 
+  if (command === "slugs:lost-d") {
+    // Read-only: lists slugs that dropped đ/Đ. Changes nothing.
+    const found = await findLostDSlugs();
+    console.info("kind\tpublished\tid\tcurrent slug\tproposed slug\tname");
+    for (const row of found) {
+      console.info(
+        [row.kind, row.published ?? "", row.id, row.slug, row.proposed, row.name].join("\t"),
+      );
+    }
+    const count = (kind: string) => found.filter((row) => row.kind === kind).length;
+    const published = found.filter((row) => row.kind === "video" && row.published).length;
+    console.info(
+      `SLUGS LOST-D dry run: videos=${count("video")} (published=${published}) tags=${count("tag")} categories=${count("category")}; nothing changed`,
+    );
+    return 0;
+  }
+
   if (command === "sync:new") {
     const result = await runNewVideos();
     console.info(
@@ -50,7 +68,7 @@ export async function runCli(args = process.argv.slice(2)): Promise<number> {
   }
 
   console.error(
-    "Usage: tsx worker/cli.ts <sync:new|sync:health|backfill|media:resize [--dry-run]>",
+    "Usage: tsx worker/cli.ts <sync:new|sync:health|backfill|media:resize [--dry-run]|slugs:lost-d>",
   );
   return 1;
 }

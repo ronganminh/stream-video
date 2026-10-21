@@ -254,10 +254,14 @@ export default async function AdminVideoEditorPage({
               <input
                 name="slug"
                 defaultValue={video.slug}
-                required
-                pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
+                placeholder="From the title"
                 maxLength={240}
+                aria-describedby="slug-help"
               />
+              <small id="slug-help">
+                Accents are dropped and đ becomes d. Once published, the old URL
+                keeps working: it redirects (301) to the new one.
+              </small>
             </label>
           </div>
 

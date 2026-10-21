@@ -132,8 +132,7 @@ export function ReviewCard({
             <input
               name="slug"
               defaultValue={item.slug}
-              required
-              pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
+              placeholder="From the title"
               maxLength={240}
             />
           </label>

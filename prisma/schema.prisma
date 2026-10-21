@@ -70,16 +70,29 @@ model Video {
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
 
-  category   Category?        @relation(fields: [categoryId], references: [id])
-  mirrors    Mirror[]
-  hostFiles  HostFile[]
-  videoTags  VideoTag[]
-  dailyStats VideoDailyStat[]
-  reports    Report[]
+  category      Category?        @relation(fields: [categoryId], references: [id])
+  mirrors       Mirror[]
+  hostFiles     HostFile[]
+  videoTags     VideoTag[]
+  dailyStats    VideoDailyStat[]
+  reports       Report[]
+  slugRedirects SlugRedirect[]
 
   // Public listings filter on visibility and sort newest first.
   @@index([isPublished, isHidden, status, publishedAt])
   @@index([categoryId])
+}
+
+/// A slug a published video used to have. /watch/<slug> answers 301 to the
+/// video's current slug, so shared links and search results keep working.
+model SlugRedirect {
+  slug      String   @id
+  videoId   String
+  createdAt DateTime @default(now())
+
+  video Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@index([videoId])
 }
 
 model Mirror {

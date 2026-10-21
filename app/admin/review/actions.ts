@@ -6,6 +6,8 @@ import { z } from "zod";
 import { writeAdminAudit } from "@/lib/auth/audit";
 import { requireAdmin } from "@/lib/auth/session";
 import { db } from "@/lib/db";
+import { SLUG_PATTERN, slugFromInput } from "@/lib/slug";
+import { assertVideoSlugAvailable, recordVideoSlugChange } from "@/lib/videoSlugs";
 import { revalidatePublicPages } from "@/lib/revalidatePublic";
 import { applyThumbnailSelection } from "@/lib/sync/thumbnailSources";
 
@@ -20,12 +22,9 @@ const optionalId = z.preprocess(
 const metadataSchema = z.object({
   id: z.string().min(1),
   title: z.string().trim().min(1).max(240),
-  slug: z
-    .string()
-    .trim()
-    .min(1)
-    .max(240)
-    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+  // Whatever the admin typed, slugified ("Trần Đức" -> "tran-duc"); empty
+  // means "from the title".
+  slug: z.string().min(1, "Enter a slug or a title with letters or digits.").max(240).regex(SLUG_PATTERN),
   categoryId: optionalId,
   quality: z.preprocess(
     (value) => (typeof value === "string" && value.trim() ? value : null),
@@ -34,25 +33,12 @@ const metadataSchema = z.object({
   tagIds: z.array(z.string().min(1)).max(40),
 });
 
-async function assertUniqueSlug(id: string, slug: string) {
-  const existing = await db.video.findFirst({
-    where: {
-      slug,
-      id: { not: id },
-    },
-    select: { id: true },
-  });
-
-  if (existing) {
-    throw new Error("Slug already exists.");
-  }
-}
 
 function readMetadata(formData: FormData) {
   return metadataSchema.parse({
     id: formData.get("id"),
     title: formData.get("title"),
-    slug: formData.get("slug"),
+    slug: slugFromInput(formData.get("slug"), String(formData.get("title") ?? "")),
     categoryId: formData.get("categoryId"),
     quality: formData.get("quality"),
     tagIds: formData.getAll("tagId"),
@@ -63,9 +49,21 @@ async function applyMetadata(
   data: z.infer<typeof metadataSchema>,
   publish: boolean,
 ) {
-  await assertUniqueSlug(data.id, data.slug);
+  await assertVideoSlugAvailable(db, data.id, data.slug);
+  const current = await db.video.findUnique({
+    where: { id: data.id },
+    select: { slug: true, publishedAt: true },
+  });
+  if (!current) throw new Error("Video not found.");
 
   await db.$transaction(async (tx) => {
+    // Drafts have no public URL yet; only a once-published video keeps a 301.
+    await recordVideoSlugChange(tx, {
+      videoId: data.id,
+      oldSlug: current.slug,
+      newSlug: data.slug,
+      wasPublished: current.publishedAt !== null,
+    });
     await tx.video.update({
       where: { id: data.id },
       data: {

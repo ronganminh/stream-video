@@ -7,6 +7,8 @@ import { z } from "zod";
 import { writeAdminAudit } from "@/lib/auth/audit";
 import { requireAdmin } from "@/lib/auth/session";
 import { db } from "@/lib/db";
+import { SLUG_PATTERN, slugFromInput } from "@/lib/slug";
+import { assertVideoSlugAvailable, recordVideoSlugChange } from "@/lib/videoSlugs";
 import { getHostProvider } from "@/lib/hosts/registry";
 import { normalize } from "@/lib/sync/normalize";
 import { storeThumbnail } from "@/lib/sync/thumbnails";
@@ -38,12 +40,9 @@ const optionalInteger = z.preprocess(
 const editSchema = z.object({
   id: z.string().min(1),
   title: z.string().trim().min(1).max(240),
-  slug: z
-    .string()
-    .trim()
-    .min(1)
-    .max(240)
-    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+  // Whatever the admin typed, slugified ("Trần Đức" -> "tran-duc"); empty
+  // means "from the title".
+  slug: z.string().min(1, "Enter a slug or a title with letters or digits.").max(240).regex(SLUG_PATTERN),
   description: optionalString,
   durationSeconds: optionalInteger,
   quality: z.preprocess(
@@ -63,24 +62,13 @@ function checked(formData: FormData, key: string): boolean {
   return formData.get(key) === "on";
 }
 
-async function assertUniqueSlug(id: string, slug: string) {
-  const existing = await db.video.findFirst({
-    where: {
-      slug,
-      id: { not: id },
-    },
-    select: { id: true },
-  });
-
-  if (existing) throw new Error("Slug already exists.");
-}
 
 export async function saveVideoAction(formData: FormData) {
   const admin = await requireAdmin();
   const parsed = editSchema.parse({
     id: formData.get("id"),
     title: formData.get("title"),
-    slug: formData.get("slug"),
+    slug: slugFromInput(formData.get("slug"), String(formData.get("title") ?? "")),
     description: formData.get("description"),
     durationSeconds: formData.get("durationSeconds"),
     quality: formData.get("quality"),
@@ -93,14 +81,21 @@ export async function saveVideoAction(formData: FormData) {
     ageRestricted: checked(formData, "ageRestricted"),
   });
 
-  await assertUniqueSlug(parsed.id, parsed.slug);
+  await assertVideoSlugAvailable(db, parsed.id, parsed.slug);
   const current = await db.video.findUnique({
     where: { id: parsed.id },
-    select: { publishedAt: true },
+    select: { publishedAt: true, slug: true },
   });
   if (!current) throw new Error("Video not found.");
 
   await db.$transaction(async (tx) => {
+    // A published video's old slug keeps working as a 301 (see middleware).
+    await recordVideoSlugChange(tx, {
+      videoId: parsed.id,
+      oldSlug: current.slug,
+      newSlug: parsed.slug,
+      wasPublished: current.publishedAt !== null,
+    });
     await tx.video.update({
       where: { id: parsed.id },
       data: {

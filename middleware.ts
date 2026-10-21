@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { AGE_GATE_CONFIRMED_HASH } from "@/lib/ageGate";
 import { db } from "@/lib/db";
 import { internalListRedirect } from "@/lib/isr/listRoutes";
+import { redirectedVideoSlug } from "@/lib/videoSlugs";
 import {
   AGE_GATE_COOKIE_NAME,
   getAgeGateCookieLifetimeDays,
@@ -32,7 +33,14 @@ async function watchStatusResponse(request: NextRequest) {
     },
   });
 
-  if (!video) return null;
+  if (!video) {
+    // An old slug of a video whose slug was changed: 301 to the current one.
+    const current = await redirectedVideoSlug(db, slug);
+    if (!current) return null;
+    const destination = request.nextUrl.clone();
+    destination.pathname = `/watch/${current}`;
+    return NextResponse.redirect(destination, 301);
+  }
 
   if (!video.isPublished || video.isHidden) {
     return new NextResponse(null, { status: 404 });

@@ -17,6 +17,10 @@ on:
         description: "Run media:resize after deploy (bring every stored thumbnail to 640x360)"
         type: boolean
         default: false
+      report_slugs:
+        description: "Print slugs that dropped đ (read-only report, changes nothing)"
+        type: boolean
+        default: false
   # Enable once manual deploys are proven:
   # push:
   #   branches: [main]
@@ -56,6 +60,7 @@ jobs:
           BUILD_WEB: ${{ inputs.build_web }}
           RUN_BACKFILL: ${{ inputs.run_backfill }}
           RESIZE_MEDIA: ${{ inputs.resize_media }}
+          REPORT_SLUGS: ${{ inputs.report_slugs }}
         run: |
           set -euo pipefail
           # The script is fed on stdin, so every remote command that could read
@@ -65,13 +70,14 @@ jobs:
             -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
             -o ServerAliveInterval=30 \
             "$PROD_USER@$PROD_HOST" \
-            "bash -s -- '$BUILD_WEB' '$RUN_BACKFILL' '$RESIZE_MEDIA'" <<'REMOTE' | tee "$RUNNER_TEMP/deploy.log"
+            "bash -s -- '$BUILD_WEB' '$RUN_BACKFILL' '$RESIZE_MEDIA' '$REPORT_SLUGS'" <<'REMOTE' | tee "$RUNNER_TEMP/deploy.log"
           set -euo pipefail
           # Parsed in full before it runs, with stdin detached from the script.
           main() {
           BUILD_WEB="$1"
           RUN_BACKFILL="$2"
           RESIZE_MEDIA="${3:-false}"
+          REPORT_SLUGS="${4:-false}"
           cd /opt/gayvideo
 
           # The deploy user may not be in the docker group (and a usermod only
@@ -145,6 +151,10 @@ jobs:
           # After backfill, so it only touches thumbnails backfill left alone.
           if [ "$RESIZE_MEDIA" = "true" ]; then
             dc run --rm worker npm run media:resize || echo "::warning::media:resize reported errors"
+          fi
+
+          if [ "$REPORT_SLUGS" = "true" ]; then
+            dc run --rm worker npm run --silent slugs:lost-d </dev/null || echo "::warning::slugs:lost-d failed"
           fi
 
           dc ps
