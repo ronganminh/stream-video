@@ -9,8 +9,12 @@ import { Icon, TagChip } from "@/components/primitives";
 import { getWatch, getPopularTags } from "@/lib/data";
 import { getAdHtml } from "@/lib/data/prisma/ads";
 import { formatViews, timeAgo } from "@/lib/format";
-import { buildWatchMetadata, watchDescription } from "@/lib/seo/metadata";
-import { absoluteUrl } from "@/lib/seo/site";
+import {
+  breadcrumbJsonLd,
+  jsonLdHtml,
+  videoObjectJsonLd,
+} from "@/lib/seo/jsonLd";
+import { buildWatchMetadata } from "@/lib/seo/metadata";
 
 import { Player } from "./Player";
 import { ReportFlow } from "./ReportFlow";
@@ -28,13 +32,6 @@ export const revalidate = 300;
 
 export function generateStaticParams() {
   return [];
-}
-
-function isoDuration(seconds: number | null) {
-  if (!seconds || seconds <= 0) return undefined;
-  const minutes = Math.floor(seconds / 60);
-  const secs = seconds % 60;
-  return `PT${minutes ? `${minutes}M` : ""}${secs ? `${secs}S` : ""}`;
 }
 
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
@@ -134,28 +131,22 @@ export default async function WatchPage({ params }: { params: Params }) {
     return notFound();
   }
 
-  const jsonLd = {
-    "@context": "https://schema.org",
-    "@type": "VideoObject",
-    name: video.title,
-    description: watchDescription(video),
-    thumbnailUrl: video.thumbnailUrl ? [absoluteUrl(video.thumbnailUrl)] : undefined,
-    uploadDate: video.publishedAt,
-    duration: isoDuration(video.durationSeconds),
-    embedUrl: mirrors[0]?.embedUrl,
-    interactionStatistic: {
-      "@type": "InteractionCounter",
-      interactionType: { "@type": "WatchAction" },
-      userInteractionCount: video.views,
-    },
-  };
+  const jsonLd = [
+    videoObjectJsonLd(slug, video, mirrors),
+    breadcrumbJsonLd([
+      { name: "Home", path: "/" },
+      ...(video.category.slug !== "uncategorized"
+        ? [{ name: video.category.name, path: `/category/${video.category.slug}` }]
+        : []),
+      { name: video.title, path: `/watch/${slug}` },
+    ]),
+  ];
 
   return (
     <div className={styles.page}>
       <script
         type="application/ld+json"
-        // Escape "<" so a title containing "</script>" cannot end the tag.
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }}
+        dangerouslySetInnerHTML={{ __html: jsonLdHtml(jsonLd) }}
       />
 
       <div className={styles.layout}>

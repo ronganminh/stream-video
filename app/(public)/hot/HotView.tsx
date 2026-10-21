@@ -10,6 +10,8 @@ import { Pagination } from "@/components/filters/Pagination";
 import { TagChip } from "@/components/primitives";
 import { getHot, getPopularTags } from "@/lib/data";
 import { getAdHtml } from "@/lib/data/prisma/ads";
+import { jsonLdHtml } from "@/lib/seo/jsonLd";
+import { listShareMetadata, pageSuffix } from "@/lib/seo/metadata";
 
 import styles from "./page.module.css";
 
@@ -42,7 +44,7 @@ function windowLabel(value?: string) {
 export async function hotMetadata(raw: RawQuery): Promise<Metadata> {
   const query = parseQuery(raw);
   const filtered = Boolean(query.window && query.window !== "today");
-  const suffix = query.page > 1 ? " – Page " + query.page : "";
+  const suffix = pageSuffix(query.page);
   const canonical = filtered
     ? "/hot"
     : query.page > 1
@@ -51,6 +53,13 @@ export async function hotMetadata(raw: RawQuery): Promise<Metadata> {
 
   return {
     title: "Hot Videos" + suffix + " | GayVideo.fun",
+    ...listShareMetadata({
+      title: "Hot Videos" + suffix,
+      description:
+        "The gay videos trending on GayVideo.fun right now, ranked by today's views" +
+        (query.page > 1 ? ` (page ${query.page}).` : "."),
+      canonical,
+    }),
     alternates: { canonical },
     robots: filtered
       ? { index: false, follow: true }
@@ -87,7 +96,7 @@ export async function HotView({ raw }: { raw: RawQuery }) {
     <main className={styles.page}>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumb) }}
+        dangerouslySetInnerHTML={{ __html: jsonLdHtml(breadcrumb) }}
       />
 
       <nav className={styles.breadcrumbs} aria-label="Breadcrumb">

@@ -128,3 +128,46 @@ export function buildWatchMetadata(
     },
   };
 }
+
+// Description, Open Graph and Twitter fields for list pages (latest, hot,
+// categories, tags). `canonical` is the page's canonical path, which is also
+// the share URL, so filtered variants share the unfiltered page's card.
+export function listShareMetadata(options: {
+  title: string;
+  description: string;
+  canonical: string;
+  image?: string | null;
+}): Pick<Metadata, "description" | "openGraph" | "twitter"> {
+  const url = absoluteUrl(options.canonical);
+  const image = options.image
+    ? {
+        url: absoluteUrl(options.image),
+        width: THUMBNAIL_WIDTH,
+        height: THUMBNAIL_HEIGHT,
+        alt: options.title,
+      }
+    : DEFAULT_IMAGE;
+
+  return {
+    description: options.description,
+    openGraph: {
+      type: "website",
+      siteName: SITE_NAME,
+      title: options.title,
+      description: options.description,
+      url,
+      images: [image],
+    },
+    twitter: {
+      card: options.image ? "summary_large_image" : "summary",
+      title: options.title,
+      description: options.description,
+      images: [image.url],
+    },
+  };
+}
+
+/** " – Page 3" for pages after the first, so paginated titles stay unique. */
+export function pageSuffix(page: number): string {
+  return page > 1 ? ` – Page ${page}` : "";
+}

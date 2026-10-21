@@ -1,15 +1,11 @@
 import {
   categorySitemapEntries,
   sitemapXml,
+  xmlResponse,
 } from "@/lib/seo/sitemaps";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  return new Response(sitemapXml(await categorySitemapEntries()), {
-    headers: {
-      "content-type": "application/xml; charset=utf-8",
-      "cache-control": "public, max-age=0, s-maxage=3600",
-    },
-  });
+  return xmlResponse(sitemapXml(await categorySitemapEntries()));
 }

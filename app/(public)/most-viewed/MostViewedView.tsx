@@ -9,6 +9,8 @@ import { Pagination } from "@/components/filters/Pagination";
 import { Icon } from "@/components/primitives";
 import { getMostViewed } from "@/lib/data";
 import { getAdHtml } from "@/lib/data/prisma/ads";
+import { jsonLdHtml } from "@/lib/seo/jsonLd";
+import { listShareMetadata, pageSuffix } from "@/lib/seo/metadata";
 
 import styles from "./page.module.css";
 
@@ -37,7 +39,7 @@ export async function mostViewedMetadata(raw: RawQuery): Promise<Metadata> {
   const nonDefaultWindow = Boolean(query.window && query.window !== "all");
   const nonDefaultSort = Boolean(query.sort && query.sort !== "most-viewed" && query.sort !== "views");
   const filtered = nonDefaultWindow || nonDefaultSort;
-  const suffix = query.page > 1 ? " – Page " + query.page : "";
+  const suffix = pageSuffix(query.page);
   const canonical = filtered
     ? "/most-viewed"
     : query.page > 1
@@ -46,6 +48,13 @@ export async function mostViewedMetadata(raw: RawQuery): Promise<Metadata> {
 
   return {
     title: "Most Viewed Videos" + suffix + " | GayVideo.fun",
+    ...listShareMetadata({
+      title: "Most Viewed Videos" + suffix,
+      description:
+        "The most-watched gay videos of all time on GayVideo.fun" +
+        (query.page > 1 ? ` (page ${query.page}).` : "."),
+      canonical,
+    }),
     alternates: { canonical },
     robots: filtered
       ? { index: false, follow: true }
@@ -78,7 +87,7 @@ export async function MostViewedView({ raw }: { raw: RawQuery }) {
     <main className={styles.page}>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumb) }}
+        dangerouslySetInnerHTML={{ __html: jsonLdHtml(breadcrumb) }}
       />
 
       <nav className={styles.breadcrumbs} aria-label="Breadcrumb">

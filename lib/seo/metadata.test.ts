@@ -4,6 +4,8 @@ import {
   SITE_NAME,
   buildWatchMetadata,
   defaultMetadata,
+  listShareMetadata,
+  pageSuffix,
   watchDescription,
 } from "./metadata";
 
@@ -120,5 +122,41 @@ describe("default metadata", () => {
       url: "https://gayvideo.fun/",
     });
     expect(metadata.twitter).toMatchObject({ card: "summary" });
+  });
+});
+
+describe("list share metadata", () => {
+  it("builds absolute share URLs with a large card when there is an image", () => {
+    const metadata = listShareMetadata({
+      title: "#Gym Videos – Page 2",
+      description: "12 free gay videos tagged #Gym (page 2).",
+      canonical: "/tag/gym?page=2",
+      image: "/media/v1.webp?v=0123456789ab",
+    });
+
+    expect(metadata.description).toBe("12 free gay videos tagged #Gym (page 2).");
+    expect(metadata.openGraph).toMatchObject({
+      type: "website",
+      siteName: SITE_NAME,
+      title: "#Gym Videos – Page 2",
+      url: "https://gayvideo.fun/tag/gym?page=2",
+      images: [{ url: "https://gayvideo.fun/media/v1.webp?v=0123456789ab", width: 640, height: 360 }],
+    });
+    expect(metadata.twitter).toMatchObject({
+      card: "summary_large_image",
+      images: ["https://gayvideo.fun/media/v1.webp?v=0123456789ab"],
+    });
+  });
+
+  it("falls back to the site icon and a small card", () => {
+    const metadata = listShareMetadata({ title: "Hot Videos", description: "d", canonical: "/hot" });
+
+    expect(metadata.twitter).toMatchObject({ card: "summary" });
+    expect(metadata.openGraph).toMatchObject({ images: [{ url: "https://gayvideo.fun/icon2.png" }] });
+  });
+
+  it("suffixes titles after the first page only", () => {
+    expect(pageSuffix(1)).toBe("");
+    expect(pageSuffix(3)).toBe(" – Page 3");
   });
 });
