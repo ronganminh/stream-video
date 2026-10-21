@@ -6,6 +6,8 @@ import { getCategories } from "@/lib/data";
 import { CategoryBrowser } from "./CategoryBrowser";
 import styles from "./page.module.css";
 
+export const revalidate = 600;
+
 export const metadata: Metadata = {
   title: "Browse Categories | GayVideo.fun",
   alternates: {

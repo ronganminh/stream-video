@@ -22,6 +22,14 @@ type Params = Promise<{ slug: string }>;
 // generateMetadata and the page share one lookup per request.
 const loadWatch = cache(getWatch);
 
+// Cached per slug on first visit. Middleware still checks each request, so a
+// removed or unpublished video returns 410/404 even while a copy is cached.
+export const revalidate = 300;
+
+export function generateStaticParams() {
+  return [];
+}
+
 function isoDuration(seconds: number | null) {
   if (!seconds || seconds <= 0) return undefined;
   const minutes = Math.floor(seconds / 60);

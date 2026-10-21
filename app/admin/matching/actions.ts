@@ -7,6 +7,7 @@ import { writeAdminAudit } from "@/lib/auth/audit";
 import { requireAdmin } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { getHostProvider } from "@/lib/hosts/registry";
+import { revalidatePublicPages } from "@/lib/revalidatePublic";
 
 const linkSchema = z.object({
   hostFileId: z.string().min(1),
@@ -87,6 +88,7 @@ export async function linkHostFileAction(formData: FormData) {
   revalidatePath("/admin/matching");
   revalidatePath("/admin/videos");
   revalidatePath(`/admin/videos/${parsed.videoId}`);
+  revalidatePublicPages();
 }
 
 export async function ignoreHostFileAction(formData: FormData) {

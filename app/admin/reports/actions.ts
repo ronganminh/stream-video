@@ -6,6 +6,7 @@ import { z } from "zod";
 import { writeAdminAudit } from "@/lib/auth/audit";
 import { requireAdmin } from "@/lib/auth/session";
 import { db } from "@/lib/db";
+import { revalidatePublicPages } from "@/lib/revalidatePublic";
 
 const reportSchema = z.object({
   id: z.string().min(1),
@@ -59,4 +60,5 @@ export async function hideVideoAndResolveAction(formData: FormData) {
   revalidatePath("/admin/reports");
   revalidatePath("/admin/videos");
   revalidatePath("/admin");
+  revalidatePublicPages();
 }

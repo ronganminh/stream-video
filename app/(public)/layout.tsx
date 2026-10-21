@@ -1,4 +1,3 @@
-import { cookies } from "next/headers";
 import type { ReactNode } from "react";
 
 import { AgeGate } from "@/components/shell/AgeGate";
@@ -9,12 +8,11 @@ import { MobileHeader } from "@/components/shell/MobileHeader";
 import { db } from "@/lib/db";
 import { AGE_GATE_COOKIE_NAME, getAgeGateCookieLifetimeDays } from "@/lib/settings/ageGate";
 
+// Public pages are cached and shared by every visitor, so nothing here may
+// depend on the request: the age gate decides on the client (lib/ageGate).
 export default async function PublicLayout({ children }: Readonly<{ children: ReactNode }>) {
-  const cookieStore = await cookies();
-  const acknowledged = cookieStore.get(AGE_GATE_COOKIE_NAME)?.value === "1";
-
   const [cookieLifetimeDays, show2257Setting] = await Promise.all([
-    acknowledged ? Promise.resolve(null) : getAgeGateCookieLifetimeDays(),
+    getAgeGateCookieLifetimeDays(),
     db.setting.findUnique({
       where: { key: "show2257" },
       select: { value: true },
@@ -32,7 +30,7 @@ export default async function PublicLayout({ children }: Readonly<{ children: Re
       <PublicContent>{children}</PublicContent>
       <Footer show2257={show2257} />
       <BottomNav />
-      {!acknowledged ? <AgeGate cookieName={AGE_GATE_COOKIE_NAME} cookieLifetimeDays={cookieLifetimeDays} /> : null}
+      <AgeGate cookieName={AGE_GATE_COOKIE_NAME} cookieLifetimeDays={cookieLifetimeDays} />
     </>
   );
 }
