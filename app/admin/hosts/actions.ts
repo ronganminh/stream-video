@@ -6,6 +6,7 @@ import { z } from "zod";
 import { writeAdminAudit } from "@/lib/auth/audit";
 import { requireAdmin } from "@/lib/auth/session";
 import { db } from "@/lib/db";
+import { revalidatePublicPages } from "@/lib/revalidatePublic";
 
 const hostFormSchema = z.object({
   primaryHostId: z.string().min(1),
@@ -82,5 +83,6 @@ export async function saveHostsAction(
 
   revalidatePath("/admin");
   revalidatePath("/admin/hosts");
+  revalidatePublicPages();
   return { success: "Hosts saved." };
 }

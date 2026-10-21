@@ -142,6 +142,11 @@ test("approve swaps the card for a row at once, keeps its slot, and stays stable
     (await prisma.video.findUnique({ where: { id: draftId(1) } }))?.isPublished,
   ).toBe(true);
 
+  // Publishing purges the cached public lists.
+  const onLatest = async () =>
+    (await (await page.request.get("/latest")).text()).includes(`/watch/${draftId(1)}`);
+  await expect.poll(onLatest).toBe(true);
+
   // The row kept card 1's slot: it sits between cards 0 and 2, and the next
   // draft from page 2 was appended at the bottom.
   const slots = page.locator(`main [class*="slot"]`);
@@ -161,6 +166,8 @@ test("approve swaps the card for a row at once, keeps its slot, and stays stable
   await expect.poll(async () =>
     (await prisma.video.findUnique({ where: { id: draftId(1) } }))?.isPublished,
   ).toBe(false);
+  // ...and so does unpublishing: /latest drops it again.
+  await expect.poll(onLatest).toBe(false);
 });
 
 test("buttons lock while an action runs", async ({ page }) => {

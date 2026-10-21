@@ -6,6 +6,7 @@ import { z } from "zod";
 import { writeAdminAudit } from "@/lib/auth/audit";
 import { requireAdmin } from "@/lib/auth/session";
 import { db } from "@/lib/db";
+import { revalidatePublicPages } from "@/lib/revalidatePublic";
 import { applyThumbnailSelection } from "@/lib/sync/thumbnailSources";
 
 import { reviewErrorMessage, type ReviewActionResult } from "./reviewState";
@@ -106,6 +107,7 @@ async function applyMetadata(
 // Any revalidation re-renders the whole current page in the action response,
 // and /admin pages are dynamic (nothing else to purge), so only the review
 // queue is revalidated: one cheap re-render that also pulls the next draft in.
+// Publishing and unpublishing also purge the cached public pages.
 
 export async function approveReviewAction(
   formData: FormData,
@@ -121,6 +123,7 @@ export async function approveReviewAction(
   }
 
   revalidatePath("/admin/review");
+  revalidatePublicPages();
   return { ok: true };
 }
 
@@ -161,6 +164,7 @@ export async function undoApproveReviewAction(
   }
 
   revalidatePath("/admin/review");
+  revalidatePublicPages();
   return { ok: true };
 }
 
@@ -285,4 +289,5 @@ export async function bulkApproveReviewAction(formData: FormData) {
 
   revalidatePath("/admin/review");
   revalidatePath("/admin/videos");
+  revalidatePublicPages();
 }

@@ -6,6 +6,7 @@ import { z } from "zod";
 import { writeAdminAudit } from "@/lib/auth/audit";
 import { requireAdmin } from "@/lib/auth/session";
 import { db } from "@/lib/db";
+import { revalidatePublicPages } from "@/lib/revalidatePublic";
 
 const idsSchema = z.array(z.string().min(1)).min(1).max(200);
 
@@ -82,4 +83,5 @@ export async function bulkVideoAction(formData: FormData) {
 
   revalidatePath("/admin/videos");
   revalidatePath("/admin/review");
+  revalidatePublicPages();
 }

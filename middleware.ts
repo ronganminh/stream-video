@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+import { AGE_GATE_CONFIRMED_HASH } from "@/lib/ageGate";
 import { db } from "@/lib/db";
+import { internalListRedirect } from "@/lib/isr/listRoutes";
 import {
   AGE_GATE_COOKIE_NAME,
   getAgeGateCookieLifetimeDays,
@@ -69,9 +71,29 @@ async function watchStatusResponse(request: NextRequest) {
   });
 }
 
+// List pages are routed by next.config rewrites (lib/isr/listRoutes); this
+// only redirects direct visits to their internal routes.
+function listRedirect(request: NextRequest) {
+  if (request.method !== "GET" && request.method !== "HEAD") return null;
+
+  const target = internalListRedirect(
+    request.nextUrl.pathname,
+    request.nextUrl.searchParams,
+  );
+  if (!target) return null;
+
+  const destination = request.nextUrl.clone();
+  destination.pathname = target.pathname;
+  destination.search = target.search;
+  return NextResponse.redirect(destination, 308);
+}
+
 export async function middleware(request: NextRequest) {
   const watchResponse = await watchStatusResponse(request);
   if (watchResponse) return watchResponse;
+
+  const list = listRedirect(request);
+  if (list) return list;
 
   if (request.method !== "POST") {
     return NextResponse.next();
@@ -99,7 +121,12 @@ export async function middleware(request: NextRequest) {
   }
 
   const cookieLifetimeDays = await getAgeGateCookieLifetimeDays();
-  const response = NextResponse.redirect(request.nextUrl, 303);
+  // Pages are cached and identical for everyone, so the server can't hide the
+  // gate for this visitor. With JS the cookie hides it on every page; without
+  // JS the fragment hides it on the page they return to (CSS :target).
+  const destination = request.nextUrl.clone();
+  destination.hash = AGE_GATE_CONFIRMED_HASH;
+  const response = NextResponse.redirect(destination, 303);
 
   response.cookies.set(AGE_GATE_COOKIE_NAME, "1", {
     path: "/",

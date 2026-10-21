@@ -7,6 +7,7 @@ import { writeAdminAudit } from "@/lib/auth/audit";
 import { requireAdmin } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { storeThumbnail } from "@/lib/sync/thumbnails";
+import { revalidatePublicPages } from "@/lib/revalidatePublic";
 
 const categorySchema = z.object({
   id: z.string().optional(),
@@ -96,6 +97,7 @@ export async function createCategoryAction(formData: FormData) {
 
   await writeAdminAudit(admin.id, "CATEGORY_CREATE", category.id);
   revalidatePath("/admin/categories");
+  revalidatePublicPages();
 }
 
 export async function updateCategoryAction(formData: FormData) {
@@ -133,6 +135,7 @@ export async function updateCategoryAction(formData: FormData) {
 
   await writeAdminAudit(admin.id, "CATEGORY_UPDATE", parsed.id);
   revalidatePath("/admin/categories");
+  revalidatePublicPages();
 }
 
 export async function deleteCategoryAction(formData: FormData) {
@@ -155,4 +158,5 @@ export async function deleteCategoryAction(formData: FormData) {
   revalidatePath("/admin/categories");
   revalidatePath("/admin/videos");
   revalidatePath("/admin/review");
+  revalidatePublicPages();
 }

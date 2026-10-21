@@ -1,7 +1,8 @@
 import { db } from "@/lib/db";
 
+export { AGE_GATE_COOKIE_NAME } from "@/lib/ageGate";
+
 export const AGE_GATE_SETTING_KEY = "ageGateCookieLifetimeDays";
-export const AGE_GATE_COOKIE_NAME = "gv_age_ack";
 
 export function parseAgeGateCookieLifetimeDays(
   value: unknown,
