@@ -10,6 +10,8 @@ import { Pagination } from "@/components/filters/Pagination";
 import { TagChip } from "@/components/primitives";
 import { getTag } from "@/lib/data";
 import { getAdHtml } from "@/lib/data/prisma/ads";
+import { jsonLdHtml } from "@/lib/seo/jsonLd";
+import { listShareMetadata, pageSuffix } from "@/lib/seo/metadata";
 
 import styles from "./page.module.css";
 
@@ -59,7 +61,7 @@ export async function generateMetadata({
   const basePath = `/tag/${slug}`;
   const filtered = hasFilters(query);
   const thin = result.tag.count < 5;
-  const suffix = query.page > 1 ? ` – Page ${query.page}` : "";
+  const suffix = pageSuffix(query.page);
   const canonical = filtered
     ? basePath
     : query.page > 1
@@ -68,6 +70,14 @@ export async function generateMetadata({
 
   return {
     title: `#${result.tag.name} Videos${suffix} | GayVideo.fun`,
+    ...listShareMetadata({
+      title: `#${result.tag.name} Videos${suffix}`,
+      description:
+        `${result.tag.count} free gay videos tagged #${result.tag.name} on GayVideo.fun` +
+        (query.page > 1 ? ` (page ${query.page}).` : "."),
+      canonical,
+      image: result.videos.items[0]?.thumbnailUrl,
+    }),
     alternates: { canonical },
     robots:
       thin || filtered
@@ -116,7 +126,7 @@ export default async function TagPage({
     <main className={styles.page}>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbs) }}
+        dangerouslySetInnerHTML={{ __html: jsonLdHtml(breadcrumbs) }}
       />
 
       <nav className={styles.breadcrumbs} aria-label="Breadcrumb">

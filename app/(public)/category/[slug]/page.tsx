@@ -10,6 +10,8 @@ import { Pagination } from "@/components/filters/Pagination";
 import { TagChip } from "@/components/primitives";
 import { getCategory } from "@/lib/data";
 import { getAdHtml } from "@/lib/data/prisma/ads";
+import { jsonLdHtml } from "@/lib/seo/jsonLd";
+import { listShareMetadata, pageSuffix } from "@/lib/seo/metadata";
 
 import { CategoryLoadMore } from "./CategoryLoadMore";
 import { getCategoryPageData } from "./data";
@@ -56,7 +58,7 @@ export async function generateMetadata({
   const result = await getCategory(slug, { page: 1 });
   if (!result) return {};
 
-  const suffix = query.page > 1 ? ` – Page ${query.page}` : "";
+  const suffix = pageSuffix(query.page);
   const basePath = `/category/${slug}`;
   const canonical = filtered(query)
     ? basePath
@@ -66,7 +68,15 @@ export async function generateMetadata({
 
   return {
     title: `${result.category.name} Videos${suffix} | GayVideo.fun`,
-    description: result.category.description,
+    ...listShareMetadata({
+      title: `${result.category.name} Videos${suffix}`,
+      description:
+        (result.category.description?.trim() ||
+          `Watch ${result.category.count} free ${result.category.name} gay videos on GayVideo.fun.`) +
+        (query.page > 1 ? ` Page ${query.page}.` : ""),
+      canonical,
+      image: result.category.thumbnailUrl ?? result.videos.items[0]?.thumbnailUrl,
+    }),
     alternates: { canonical },
     robots: filtered(query)
       ? { index: false, follow: true }
@@ -112,7 +122,7 @@ export default async function CategoryPage({
     <main className={styles.page}>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbs) }}
+        dangerouslySetInnerHTML={{ __html: jsonLdHtml(breadcrumbs) }}
       />
 
       <nav className={styles.breadcrumbs} aria-label="Breadcrumb">

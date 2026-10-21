@@ -12,6 +12,8 @@ import { Icon } from "@/components/primitives";
 import { getCategories, getLatest, getPopularTags } from "@/lib/data";
 import { getAdHtml } from "@/lib/data/prisma/ads";
 import { timeAgo } from "@/lib/format";
+import { jsonLdHtml } from "@/lib/seo/jsonLd";
+import { listShareMetadata, pageSuffix } from "@/lib/seo/metadata";
 
 import styles from "./page.module.css";
 
@@ -55,7 +57,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const query = parseQuery(await searchParams);
   const filtered = hasFilters(query);
-  const suffix = query.page > 1 ? " – Page " + query.page : "";
+  const suffix = pageSuffix(query.page);
   const canonical = filtered
     ? "/latest"
     : query.page > 1
@@ -64,6 +66,13 @@ export async function generateMetadata({
 
   return {
     title: "Latest Videos" + suffix + " | GayVideo.fun",
+    ...listShareMetadata({
+      title: "Latest Videos" + suffix,
+      description:
+        "The newest gay videos on GayVideo.fun, added as soon as they are published" +
+        (query.page > 1 ? ` (page ${query.page}).` : "."),
+      canonical,
+    }),
     alternates: { canonical },
     robots: filtered
       ? { index: false, follow: true }
@@ -129,7 +138,7 @@ export default async function LatestPage({
     <main className={styles.page}>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumb) }}
+        dangerouslySetInnerHTML={{ __html: jsonLdHtml(breadcrumb) }}
       />
 
       <nav className={styles.breadcrumbs} aria-label="Breadcrumb">

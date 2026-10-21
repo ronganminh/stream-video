@@ -2,12 +2,20 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { getCategories } from "@/lib/data";
+import { jsonLdHtml } from "@/lib/seo/jsonLd";
+import { listShareMetadata } from "@/lib/seo/metadata";
 
 import { CategoryBrowser } from "./CategoryBrowser";
 import styles from "./page.module.css";
 
 export const metadata: Metadata = {
   title: "Browse Categories | GayVideo.fun",
+  ...listShareMetadata({
+    title: "Browse Categories",
+    description:
+      "Browse every gay video category on GayVideo.fun, from trending picks to niche collections.",
+    canonical: "/categories",
+  }),
   alternates: {
     canonical: "/categories",
   },
@@ -39,7 +47,7 @@ export default async function CategoriesPage() {
     <main className={styles.page}>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbs) }}
+        dangerouslySetInnerHTML={{ __html: jsonLdHtml(breadcrumbs) }}
       />
 
       <nav className={styles.breadcrumbs} aria-label="Breadcrumb">
