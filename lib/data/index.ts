@@ -10,6 +10,8 @@ import {
   getCategoryPrisma,
   getPopularTagsPrisma,
   getTagPrisma,
+  publicCategoryExistsPrisma,
+  publicTagExistsPrisma,
 } from "./prisma/categories";
 import { getHomePrisma } from "./prisma/home";
 import {
@@ -49,6 +51,14 @@ export async function getCategory(slug: string, query: ListQuery = {}) {
 
 export async function getTag(slug: string, query: ListQuery = {}) {
   return getTagPrisma(slug, query);
+}
+
+export async function publicCategoryExists(slug: string): Promise<boolean> {
+  return publicCategoryExistsPrisma(slug);
+}
+
+export async function publicTagExists(slug: string): Promise<boolean> {
+  return publicTagExistsPrisma(slug);
 }
 
 export async function search(

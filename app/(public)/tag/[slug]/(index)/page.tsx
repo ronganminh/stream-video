@@ -1,4 +1,4 @@
-import { tagMetadata, TagView } from "./TagView";
+import { tagMetadata, TagView } from "../TagView";
 
 // Served from the ISR cache; ?page=n and filters are rewritten to sibling
 // routes (see lib/isr/listRoutes).

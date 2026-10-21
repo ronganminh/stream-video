@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 
 import { prisma } from "../../db";
+import { escapeRegex, foldSql, foldText } from "../../search/fold";
 import type {
   Category,
   ListQuery,
@@ -75,7 +76,9 @@ async function rankedSearchIds(
   query: ListQuery,
 ): Promise<{ ids: string[]; total: number }> {
   const page = normalizePage(query.page);
-  const needle = searchQuery.trim();
+  // Accent-insensitive: the query and the searched text are both folded
+  // ("tran" matches "Trần", "duc" matches "Đức").
+  const needle = foldText(searchQuery.trim());
   const categoryFilter = query.category
     ? Prisma.sql`AND s."categorySlug" = ${query.category}`
     : Prisma.empty;
@@ -86,17 +89,25 @@ async function rankedSearchIds(
   const textFilter = needle
     ? Prisma.sql`AND (
         to_tsvector('simple', s.haystack) @@ plainto_tsquery('simple', ${needle})
-        OR similarity(s.haystack, lower(${needle})) >= 0.12
-        OR similarity(lower(s.title), lower(${needle})) >= 0.18
-        OR s.haystack LIKE '%' || lower(${needle}) || '%'
+        OR similarity(s.haystack, ${needle}) >= 0.12
+        OR similarity(s.title, ${needle}) >= 0.18
+        OR s.haystack LIKE '%' || ${needle} || '%'
       )`
     : Prisma.empty;
+  // Title matches outrank category/tag matches: "tran" should list
+  // "Trần Đức" before a video that only has the tag "Transgender".
+  const wordInTitle = `(^|[^a-z0-9])${escapeRegex(needle)}([^a-z0-9]|$)`;
   const scoreSql = needle
     ? Prisma.sql`(
-        ts_rank_cd(to_tsvector('simple', s.haystack), plainto_tsquery('simple', ${needle}))
+        CASE
+          WHEN s.title ~ ${wordInTitle} THEN 2
+          WHEN s.title LIKE '%' || ${needle} || '%' THEN 1
+          ELSE 0
+        END
+        + ts_rank_cd(to_tsvector('simple', s.haystack), plainto_tsquery('simple', ${needle}))
         + greatest(
-            similarity(lower(s.title), lower(${needle})),
-            similarity(s.haystack, lower(${needle}))
+            similarity(s.title, ${needle}),
+            similarity(s.haystack, ${needle})
           )
       )`
     : Prisma.sql`0::double precision`;
@@ -106,21 +117,19 @@ async function rankedSearchIds(
     WITH searchable AS (
       SELECT
         v.id,
-        v.title,
+        ${foldSql(Prisma.sql`v.title`)} AS title,
         v.views,
         v."durationSeconds",
         v."publishedAt",
         c.slug AS "categorySlug",
-        lower(
-          concat_ws(
-            ' ',
-            v.title,
-            c.name,
-            c.slug,
-            coalesce(string_agg(DISTINCT t.name, ' '), ''),
-            coalesce(string_agg(DISTINCT t.slug, ' '), '')
-          )
-        ) AS haystack
+        ${foldSql(Prisma.sql`concat_ws(
+          ' ',
+          v.title,
+          c.name,
+          c.slug,
+          coalesce(string_agg(DISTINCT t.name, ' '), ''),
+          coalesce(string_agg(DISTINCT t.slug, ' '), '')
+        )`)} AS haystack
       FROM "Video" v
       LEFT JOIN "Category" c ON c.id = v."categoryId"
       LEFT JOIN "VideoTag" vt ON vt."videoId" = v.id
@@ -177,12 +186,12 @@ async function relatedCategoriesForQuery(needle: string): Promise<Category[]> {
   const categories = await getCategoriesPrisma();
   if (!needle) return categories.slice(0, 6);
 
-  const lower = needle.toLowerCase();
+  const folded = foldText(needle);
   return categories
     .filter(
       (category) =>
-        category.name.toLowerCase().includes(lower) ||
-        category.slug.toLowerCase().includes(lower),
+        foldText(category.name).includes(folded) ||
+        foldText(category.slug).includes(folded),
     )
     .slice(0, 6);
 }
@@ -191,12 +200,12 @@ async function relatedTagsForQuery(needle: string): Promise<Tag[]> {
   const popular = await getPopularTagsPrisma(40);
   if (!needle) return popular.slice(0, 8);
 
-  const lower = needle.toLowerCase();
+  const folded = foldText(needle);
   return popular
     .filter(
       (tag) =>
-        tag.name.toLowerCase().includes(lower) ||
-        tag.slug.toLowerCase().includes(lower),
+        foldText(tag.name).includes(folded) ||
+        foldText(tag.slug).includes(folded),
     )
     .slice(0, 8);
 }
@@ -230,50 +239,25 @@ export async function searchPrisma(
 
 export async function getSuggestionsPrisma(searchQuery: string) {
   const needle = searchQuery.trim();
-  const videoWhere = needle
-    ? {
-        OR: [
-          { title: { contains: needle, mode: Prisma.QueryMode.insensitive } },
-          {
-            category: {
-              is: {
-                OR: [
-                  { name: { contains: needle, mode: Prisma.QueryMode.insensitive } },
-                  { slug: { contains: needle, mode: Prisma.QueryMode.insensitive } },
-                ],
-              },
-            },
-          },
-          {
-            videoTags: {
-              some: {
-                tag: {
-                  OR: [
-                    { name: { contains: needle, mode: Prisma.QueryMode.insensitive } },
-                    { slug: { contains: needle, mode: Prisma.QueryMode.insensitive } },
-                  ],
-                },
-              },
-            },
-          },
-        ],
-      }
-    : {};
 
-  const [popularTags, categories, videoRows] = await Promise.all([
+  const [popularTags, categories, videos] = await Promise.all([
     getPopularTagsPrisma(20),
     getCategoriesPrisma(),
-    prisma.video.findMany({
-      where: withPublicVisibility(videoWhere),
-      select: VIDEO_CARD_SELECT,
-      orderBy: [{ views: "desc" }, { publishedAt: "desc" }],
-      take: 5,
-    }),
+    needle
+      ? // Same accent-insensitive ranking as the search page.
+        rankedSearchIds(needle, { page: 1 }).then(({ ids }) => cardsForIds(ids.slice(0, 5)))
+      : prisma.video
+          .findMany({
+            where: withPublicVisibility(),
+            select: VIDEO_CARD_SELECT,
+            orderBy: [{ views: "desc" }, { publishedAt: "desc" }],
+            take: 5,
+          })
+          .then((rows) => rows.map((row) => toVideoCard(row))),
   ]);
 
-  const lower = needle.toLowerCase();
-  const matches = (value: string) =>
-    !lower || value.toLowerCase().includes(lower);
+  const folded = foldText(needle);
+  const matches = (value: string) => !folded || foldText(value).includes(folded);
   const tags = popularTags.filter((tag) => matches(tag.name) || matches(tag.slug));
   const matchingCategories = categories.filter(
     (category) => matches(category.name) || matches(category.slug),
@@ -286,6 +270,6 @@ export async function getSuggestionsPrisma(searchQuery: string) {
       .slice(0, 5),
     tags: tags.slice(0, 6),
     categories: matchingCategories.slice(0, 5),
-    videos: videoRows.map((row) => toVideoCard(row)),
+    videos,
   };
 }

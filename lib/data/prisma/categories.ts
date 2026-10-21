@@ -74,6 +74,7 @@ export async function getPopularTagsPrisma(
   return (await visibleTagCounts(extraWhere, excludeTagId)).slice(0, limit);
 }
 
+/** Categories with at least one public video, with their counts. */
 export async function getCategoriesPrisma(): Promise<Category[]> {
   const [rows, grouped] = await Promise.all([
     prisma.category.findMany({
@@ -103,7 +104,11 @@ export async function getCategoriesPrisma(): Promise<Category[]> {
     if (group.categoryId) counts.set(group.categoryId, group._count._all);
   }
 
-  return rows.map((row) => categoryFromRow(row, counts.get(row.id) ?? 0));
+  // Public lists (nav, home, /categories, filters, search) only link to
+  // categories that have videos: an empty one has no page (it 404s).
+  return rows
+    .map((row) => categoryFromRow(row, counts.get(row.id) ?? 0))
+    .filter((category) => category.count > 0);
 }
 
 export async function getCategoryPrisma(slug: string, query: ListQuery = {}) {
@@ -172,4 +177,22 @@ export async function getTagPrisma(slug: string, query: ListQuery = {}) {
     videos,
     relatedTags,
   };
+}
+
+/** A category page worth serving: it exists and lists at least one video. */
+export async function publicCategoryExistsPrisma(slug: string): Promise<boolean> {
+  const row = await prisma.category.findFirst({
+    where: { slug, videos: { some: withPublicVisibility() } },
+    select: { id: true },
+  });
+  return Boolean(row);
+}
+
+/** A tag page worth serving: it exists and lists at least one video. */
+export async function publicTagExistsPrisma(slug: string): Promise<boolean> {
+  const row = await prisma.tag.findFirst({
+    where: { slug, videoTags: { some: { video: withPublicVisibility() } } },
+    select: { id: true },
+  });
+  return Boolean(row);
 }
