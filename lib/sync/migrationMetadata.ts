@@ -1,6 +1,7 @@
 import { access, readFile } from "node:fs/promises";
 
 import { prisma } from "../db";
+import { legacySlugify, slugify } from "../slug";
 import { normalize } from "./normalize";
 
 type CsvRow = Record<string, string>;
@@ -216,14 +217,19 @@ export async function loadMigrationEntriesByHostCode(
 export async function tagConnectData(names: string[]) {
   const unique = new Map<string, string>();
   for (const name of names) {
-    const slug = normalize(name).replace(/\s+/g, "-");
+    const slug = slugify(name, 120);
     if (slug && !unique.has(slug)) unique.set(slug, name);
   }
 
   if (unique.size === 0) return [];
 
+  // Tags created before đ was handled have the legacy slug ("Đà Nẵng" ->
+  // "a-nang"); reuse those instead of creating a duplicate tag.
+  const legacyBySlug = new Map(
+    [...unique.entries()].map(([slug, name]) => [slug, legacySlugify(name)]),
+  );
   const existing = await prisma.tag.findMany({
-    where: { slug: { in: [...unique.keys()] } },
+    where: { slug: { in: [...unique.keys(), ...legacyBySlug.values()] } },
     select: { id: true, slug: true },
   });
   const existingBySlug = new Map(
@@ -232,7 +238,8 @@ export async function tagConnectData(names: string[]) {
 
   const tagIds: string[] = [];
   for (const [slug, name] of unique.entries()) {
-    const existingId = existingBySlug.get(slug);
+    const existingId =
+      existingBySlug.get(slug) ?? existingBySlug.get(legacyBySlug.get(slug) ?? "");
     if (existingId) {
       tagIds.push(existingId);
       continue;

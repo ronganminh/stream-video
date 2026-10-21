@@ -61,9 +61,8 @@ export default async function AdminCategoriesPage() {
               <span>Slug</span>
               <input
                 name="slug"
-                required
                 maxLength={120}
-                pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
+                placeholder="From the name"
               />
             </label>
             <label className={styles.field}>
@@ -151,9 +150,8 @@ export default async function AdminCategoriesPage() {
                     <input
                       name="slug"
                       defaultValue={category.slug}
-                      required
                       maxLength={120}
-                      pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
+                      placeholder="From the name"
                     />
                   </label>
                   <label className={styles.field}>

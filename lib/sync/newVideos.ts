@@ -18,6 +18,7 @@ import { normalize } from "./normalize";
 import { getSyncSettings, withSyncLock } from "./settings";
 import { storeThumbnail } from "./thumbnails";
 import { applySourceThumbnail } from "./thumbnailSources";
+import { uniqueVideoSlug } from "../videoSlugs";
 
 const PAGE_SIZE = 100;
 
@@ -30,24 +31,10 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-function slugBase(title: string): string {
-  const value = normalize(title).replace(/\s+/g, "-");
-  return value || "video";
-}
-
-async function uniqueSlug(title: string): Promise<string> {
-  const base = slugBase(title);
-
-  for (let suffix = 0; suffix < 10_000; suffix += 1) {
-    const candidate = suffix === 0 ? base : `${base}-${suffix + 1}`;
-    const exists = await prisma.video.findUnique({
-      where: { slug: candidate },
-      select: { id: true },
-    });
-    if (!exists) return candidate;
-  }
-
-  throw new Error("Unable to generate a unique video slug");
+// Slugs keep đ as d ("Trần Đức" -> "tran-duc") and skip old slugs that
+// redirect to another video (see lib/videoSlugs).
+function uniqueSlug(title: string): Promise<string> {
+  return uniqueVideoSlug(prisma, title);
 }
 
 export function buildPrimaryVideoData(

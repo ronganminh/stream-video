@@ -6,17 +6,15 @@ import { z } from "zod";
 import { writeAdminAudit } from "@/lib/auth/audit";
 import { requireAdmin } from "@/lib/auth/session";
 import { db } from "@/lib/db";
+import { SLUG_PATTERN, slugFromInput } from "@/lib/slug";
 import { storeThumbnail } from "@/lib/sync/thumbnails";
 import { revalidatePublicPages } from "@/lib/revalidatePublic";
 
 const categorySchema = z.object({
   id: z.string().optional(),
-  slug: z
-    .string()
-    .trim()
-    .min(1)
-    .max(120)
-    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+  // Whatever the admin typed, slugified ("Đà Nẵng" -> "da-nang"); empty
+  // means "from the name".
+  slug: z.string().min(1, "Enter a slug or a name with letters or digits.").max(120).regex(SLUG_PATTERN),
   name: z.string().trim().min(1).max(120),
   description: z.preprocess(
     (value) => (typeof value === "string" && value.trim() ? value.trim() : null),
@@ -62,7 +60,7 @@ async function saveImage(
 export async function createCategoryAction(formData: FormData) {
   const admin = await requireAdmin();
   const parsed = categorySchema.parse({
-    slug: formData.get("slug"),
+    slug: slugFromInput(formData.get("slug"), String(formData.get("name") ?? ""), 120),
     name: formData.get("name"),
     description: formData.get("description"),
     group: formData.get("group"),
@@ -106,7 +104,7 @@ export async function updateCategoryAction(formData: FormData) {
     id: z.string().min(1),
   }).parse({
     id: formData.get("id"),
-    slug: formData.get("slug"),
+    slug: slugFromInput(formData.get("slug"), String(formData.get("name") ?? ""), 120),
     name: formData.get("name"),
     description: formData.get("description"),
     group: formData.get("group"),

@@ -55,9 +55,8 @@ export default async function AdminTagsPage() {
               <span>Slug</span>
               <input
                 name="slug"
-                required
                 maxLength={120}
-                pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
+                placeholder="From the name"
               />
             </label>
             <div className={styles.actions}>
@@ -130,9 +129,8 @@ export default async function AdminTagsPage() {
                   <input
                     name="slug"
                     defaultValue={tag.slug}
-                    required
                     maxLength={120}
-                    pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
+                    placeholder="From the name"
                   />
                 </label>
                 <span className={styles.usage}>
