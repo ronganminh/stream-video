@@ -84,12 +84,21 @@ async function watchLayoutShifts(page: Page) {
   });
 }
 
+// Counts every shift, including those right after the click that the CLS
+// metric would forgive (hadRecentInput): the admin still sees those.
 async function cls(page: Page) {
   return page.evaluate(() =>
-    (window as unknown as { __shifts: { value: number; recent: boolean }[] }).__shifts
-      .filter((shift) => !shift.recent)
-      .reduce((sum, shift) => sum + shift.value, 0),
+    (window as unknown as { __shifts: { value: number; recent: boolean }[] }).__shifts.reduce(
+      (sum, shift) => sum + shift.value,
+      0,
+    ),
   );
+}
+
+async function resetShifts(page: Page) {
+  await page.evaluate(() => {
+    (window as unknown as { __shifts: unknown[] }).__shifts.length = 0;
+  });
 }
 
 function editorLink(index: number) {
@@ -156,7 +165,7 @@ test("approve swaps the card for a row at once, keeps its slot, and stays stable
 
   await page.waitForTimeout(1000);
   const shift = await cls(page);
-  console.log(`review approve CLS (excluding recent input): ${shift.toFixed(4)}`);
+  console.log(`review approve CLS: ${shift.toFixed(4)}`);
   expect(shift).toBeLessThan(0.05);
 
   // Undo restores the card in the same slot.
@@ -169,6 +178,77 @@ test("approve swaps the card for a row at once, keeps its slot, and stays stable
   // ...and so does unpublishing: /latest drops it again.
   await expect.poll(onLatest).toBe(false);
 });
+
+// Production cards are ~1,000px (player, thumbnail picker, tag list). Local
+// players never load, so pin the height to match.
+for (const [reducedMotion, approved, next] of [
+  ["no-preference", 7, 8],
+  ["reduce", 8, 9],
+] as const) {
+  test(`approving a ~1,000px card keeps the next card in place (motion: ${reducedMotion})`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1366, height: 768 });
+    await page.emulateMedia({ reducedMotion });
+    await watchLayoutShifts(page);
+    await delayActions(page, 300);
+    await loginAdmin(page);
+    await page.goto("/admin/review");
+    await page.addStyleTag({ content: `main [class*="previewGrid"] { min-height: 520px; }` });
+
+    const target = card(page, approved);
+    const nextCard = card(page, next);
+    expect((await target.boundingBox())!.height).toBeGreaterThanOrEqual(1000);
+
+    // Like an admin who has read down to the buttons: Approve near the bottom
+    // of the screen, the card's top long gone, the next card peeking in.
+    const approve = target.getByRole("button", { name: "Approve & publish" });
+    await nextCard.evaluate((next) => window.scrollBy(0, next.getBoundingClientRect().top - 620));
+    await page.waitForTimeout(300);
+    const before = (await nextCard.boundingBox())!.y;
+    expect(before).toBeCloseTo(620, 0);
+    expect((await target.boundingBox())!.y).toBeLessThan(-200);
+    await expect(approve).toBeInViewport();
+    await resetShifts(page);
+    // Record the spacer's height every frame to see how the slot collapsed.
+    await page.evaluate(() => {
+      const heights: number[] = [];
+      (window as unknown as { __spacer: number[] }).__spacer = heights;
+      const sample = () => {
+        const spacer = document.querySelector(`main [class*="doneSpacer"]`);
+        if (spacer) heights.push(Math.round(spacer.getBoundingClientRect().height));
+        if (heights.length < 90) requestAnimationFrame(sample);
+      };
+      requestAnimationFrame(sample);
+    });
+
+    await approve.click();
+    const row = page.getByRole("status").filter({ hasText: `Review Draft ${approved}` });
+    await expect(row).toContainText("Published");
+    await page.waitForTimeout(800);
+
+    // The slot opened at the card's height, then collapsed: gradually, or in
+    // one step with reduced motion.
+    const spacer = await page.evaluate(
+      () => (window as unknown as { __spacer: number[] }).__spacer,
+    );
+    expect(spacer[0]).toBeGreaterThan(900);
+    const between = spacer.filter((height) => height > 0 && height < spacer[0]);
+    if (reducedMotion === "reduce") expect(between).toHaveLength(0);
+    else expect(between.length).toBeGreaterThanOrEqual(5);
+
+    const shift = await cls(page);
+    console.log(`tall card approve CLS (${reducedMotion}): ${shift.toFixed(4)}`);
+    expect(shift).toBeLessThan(0.1);
+
+    // The next card did not move on screen, and the row sits right above it.
+    expect(Math.abs((await nextCard.boundingBox())!.y - before)).toBeLessThanOrEqual(2);
+    const rowBox = (await row.boundingBox())!;
+    expect(rowBox.y).toBeGreaterThanOrEqual(0);
+    expect(Math.abs(rowBox.y + rowBox.height - before)).toBeLessThanOrEqual(24);
+    await expect(page.locator(`main [class*="doneSpacer"]`).first()).toHaveJSProperty("offsetHeight", 0);
+  });
+}
 
 test("buttons lock while an action runs", async ({ page }) => {
   await delayActions(page, 800);

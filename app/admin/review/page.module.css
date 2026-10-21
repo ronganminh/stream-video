@@ -380,6 +380,30 @@
   display: none;
 }
 
+/* Opens at the replaced card's height (inline style), then the spacer
+   collapses. The slot is kept out of scroll anchoring, so the browser anchors
+   on the next card and the collapse scrolls instead of shifting content. */
+.slot:has(> .doneSlot) {
+  overflow-anchor: none;
+}
+
+.doneSlot {
+  display: grid;
+  grid-template-rows: 0px auto;
+  transition: grid-template-rows calc(var(--gv-dur) * 1.25) var(--gv-ease); /* 250ms */
+}
+
+.doneSpacer {
+  min-height: 0;
+  overflow: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .doneSlot {
+    transition: none;
+  }
+}
+
 .doneRow {
   min-height: 52px;
   padding: 10px 16px;
@@ -392,7 +416,6 @@
   background: var(--gv-surface-1);
   color: var(--gv-text-secondary);
   font-size: 14px;
-  scroll-margin-top: 16px;
   animation: doneRowIn var(--gv-dur-fast) var(--gv-ease);
 }
 
