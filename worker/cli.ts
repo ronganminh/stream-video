@@ -1,6 +1,7 @@
 import { runBackfill } from "../lib/sync/backfill";
 import { runHealthCheck } from "../lib/sync/healthCheck";
 import { runNewVideos } from "../lib/sync/newVideos";
+import { runMediaResize } from "../lib/sync/resizeMedia";
 
 export async function runCli(args = process.argv.slice(2)): Promise<number> {
   const command = args[0];
@@ -11,6 +12,18 @@ export async function runCli(args = process.argv.slice(2)): Promise<number> {
       `BACKFILL complete: scanned=${result.scanned} titled=${result.titled} tagged=${result.tagged} thumbnailed=${result.thumbnailed} errors=${result.errors.length}`,
     );
     for (const error of result.errors.slice(0, 10)) {
+      console.error(`  ${error}`);
+    }
+    return result.errors.length > 0 ? 1 : 0;
+  }
+
+  if (command === "media:resize") {
+    const dryRun = args.includes("--dry-run");
+    const result = await runMediaResize({ dryRun });
+    console.info(
+      `MEDIA RESIZE ${dryRun ? "dry run " : ""}complete: scanned=${result.scanned} resized=${result.resized} versioned=${result.versioned} unchanged=${result.unchanged} errors=${result.errors.length}`,
+    );
+    for (const error of result.errors.slice(0, 20)) {
       console.error(`  ${error}`);
     }
     return result.errors.length > 0 ? 1 : 0;
@@ -36,7 +49,9 @@ export async function runCli(args = process.argv.slice(2)): Promise<number> {
     return result.skipped ? 2 : 0;
   }
 
-  console.error("Usage: tsx worker/cli.ts <sync:new|sync:health|backfill>");
+  console.error(
+    "Usage: tsx worker/cli.ts <sync:new|sync:health|backfill|media:resize [--dry-run]>",
+  );
   return 1;
 }
 

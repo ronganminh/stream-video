@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import sharp from "sharp";
@@ -95,12 +95,31 @@ export async function storeThumbnail(options: {
   const source = await downloadThumbnail(options.url, fetchImpl);
   const output = await toThumbnailWebp(source);
 
-  const mediaDir =
-    options.mediaDir ?? process.env.MEDIA_DIR ?? DEFAULT_MEDIA_DIR;
-  await mkdir(mediaDir, { recursive: true });
+  return writeThumbnail(
+    output,
+    `${safeName(options.videoId)}.webp`,
+    options.mediaDir,
+  );
+}
 
-  const filename = `${safeName(options.videoId)}.webp`;
-  await writeFile(path.join(mediaDir, filename), output);
+export function resolveMediaDir(mediaDir?: string): string {
+  return mediaDir ?? process.env.MEDIA_DIR ?? DEFAULT_MEDIA_DIR;
+}
+
+// Writes a finished thumbnail and returns its public, content-versioned URL.
+export async function writeThumbnail(
+  output: Buffer,
+  filename: string,
+  mediaDir?: string,
+): Promise<string> {
+  const directory = resolveMediaDir(mediaDir);
+  await mkdir(directory, { recursive: true });
+
+  // Write then rename so Caddy never serves a half-written file.
+  const target = path.join(directory, filename);
+  const temporary = `${target}.${process.pid}.tmp`;
+  await writeFile(temporary, output);
+  await rename(temporary, target);
 
   // The file name is fixed per video and Caddy serves /media as immutable, so
   // version the URL by content: a new thumbnail gets a new URL.
