@@ -54,10 +54,10 @@ async function run(
 /**
  * The review queue, updated optimistically:
  * - Approve/Reject swap the card for a one-line "Published · Undo" row the
- *   moment they are clicked, so the layout change lands right on the click
- *   (not ~300 ms later when the server answers) and the row keeps its slot
- *   through the server refresh. A failure brings the card back, edits intact,
- *   with the error.
+ *   moment they are clicked. The row's slot starts at the card's height and
+ *   collapses onto the next card, which stays where the admin was looking
+ *   (see DoneRow). The row keeps its slot through the server refresh. A
+ *   failure brings the card back, edits intact, with the error.
  * - Buttons lock while their card has a request in flight.
  */
 export function ReviewQueue({
@@ -78,6 +78,10 @@ export function ReviewQueue({
     Record<string, ReviewIntent>,
     { id: string; intent: ReviewIntent }
   >({}, (state, update) => ({ ...state, [update.id]: update.intent }));
+  // Height of each card when it was approved/rejected: its row starts there.
+  // A ref, written in the click handler, so it is there when the row mounts
+  // whichever render that lands in.
+  const fromHeights = useRef(new Map<string, number>());
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [notices, setNotices] = useState<Record<string, string>>({});
 
@@ -100,12 +104,26 @@ export function ReviewQueue({
     item: ReviewItem,
     intent: ReviewIntent,
     formData: FormData,
+    card: HTMLElement,
   ) => {
     const id = item.id;
     const title = String(formData.get("title") || item.title);
     const slug = String(formData.get("slug") || item.slug);
     setErrors((current) => without(current, id));
     setNotices((current) => without(current, id));
+    if (intent !== "save") {
+      fromHeights.current.set(id, card.getBoundingClientRect().height);
+      // The browser is likely anchoring scroll on this card's slot (the
+      // admin just clicked in it). It is about to collapse, so take the whole
+      // slot out of anchor selection (excluding only the card would leave the
+      // slot itself as the anchor) and anchor on the next card instead.
+      // Browsers keep their anchor until the next scroll, so nudge the scroll
+      // (net zero) to make them pick a new one. DoneRow undoes this.
+      if (card.parentElement) card.parentElement.style.overflowAnchor = "none";
+      const nudge = window.scrollY > 0 ? -1 : 1;
+      window.scrollBy(0, nudge);
+      window.scrollBy(0, -nudge);
+    }
 
     startTransition(async () => {
       setPending({ id, intent });
@@ -168,6 +186,7 @@ export function ReviewQueue({
             {entry ? (
               <DoneRow
                 entry={entry}
+                fromHeight={() => fromHeights.current.get(id) ?? 0}
                 error={errors[id] ?? null}
                 onUndo={() => handleUndo(id, entry)}
               />
@@ -181,7 +200,7 @@ export function ReviewQueue({
                 error={entry ? null : errors[id] ?? null}
                 notice={notices[id] ?? null}
                 hidden={Boolean(entry)}
-                onIntent={(intent, formData) => handleIntent(item, intent, formData)}
+                onIntent={(intent, formData, card) => handleIntent(item, intent, formData, card)}
               />
             ) : null}
           </div>
@@ -191,28 +210,72 @@ export function ReviewQueue({
   );
 }
 
+/** .doneRow's usual height (min-height plus borders). */
+const ROW_HEIGHT = 54;
+
 function DoneRow({
   entry,
+  fromHeight,
   error,
   onUndo,
 }: {
   entry: ReviewDone;
+  /** Height of the card this row replaced, in px (0 if unknown). */
+  fromHeight: () => number;
   error: string | null;
   onUndo: () => void;
 }) {
+  const wrapRef = useRef<HTMLDivElement>(null);
   const rowRef = useRef<HTMLDivElement>(null);
 
-  // The row replaces a ~1,100px card. If the card's top was above the
-  // viewport, the admin was reading its buttons; bring the row (and the next
-  // card right under it) into view instead of leaving them mid-way through
-  // the following card. Scrolling is not a layout shift.
+  // The card is ~1,000px tall and the row ~54px. Swapping one for the other
+  // would yank everything below up by ~950px (CLS ~0.5). Instead the slot
+  // opens at the card's exact height, with the row at its bottom, and an
+  // empty spacer above the row collapses to nothing. The slot opts out of
+  // scroll anchoring (see handleIntent), so the browser anchors on the next
+  // card and scrolls along with the collapse: the next card and the row stay
+  // put on screen and nothing shifts. With reduced motion the collapse is
+  // instant, anchored the same way.
+  //
+  // The start size is rendered, not set in an effect: a single layout at the
+  // row's height (e.g. forced by focus) would already move the next card.
+  const [startRows] = useState(() => {
+    const spacer = Math.max(0, fromHeight() - ROW_HEIGHT);
+    return spacer > 0 ? `${spacer}px auto` : undefined;
+  });
+
   useLayoutEffect(() => {
+    const wrap = wrapRef.current;
     const row = rowRef.current;
-    if (!row) return;
-    if (row.getBoundingClientRect().top < 0) {
-      row.scrollIntoView({ block: "start" });
-    }
+    if (!wrap || !row) return;
+    const slot = wrap.parentElement;
     row.focus({ preventScroll: true });
+
+    let frame = 0;
+    if (startRows) {
+      // Correct the estimate if the row wrapped, paint, then collapse.
+      const spacer = Math.max(0, fromHeight() - row.getBoundingClientRect().height);
+      wrap.style.gridTemplateRows = `${spacer}px auto`;
+      void wrap.offsetHeight;
+      wrap.style.transition = "";
+      frame = requestAnimationFrame(() => {
+        frame = requestAnimationFrame(() => {
+          // Only collapse as far as the page can scroll back to compensate.
+          // Near the top of the page (first card) the rest stays as blank
+          // space above the row rather than pulling the next card up.
+          const keep = Math.max(0, Math.round(spacer - window.scrollY));
+          wrap.style.gridTemplateRows = `${keep}px auto`;
+        });
+      });
+    }
+
+    return () => {
+      cancelAnimationFrame(frame);
+      // The card is back (undo or a failed action): it may anchor again.
+      if (slot) slot.style.overflowAnchor = "";
+    };
+    // Only on mount: later outcome changes reuse the collapsed slot.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const busy = entry.outcome === "publishing" || entry.outcome === "rejecting" || entry.outcome === "restoring";
@@ -226,33 +289,40 @@ function DoneRow({
 
   return (
     <div
-      ref={rowRef}
-      className={styles.doneRow}
-      data-outcome={entry.outcome}
-      tabIndex={-1}
-      role="status"
-      aria-busy={busy}
+      ref={wrapRef}
+      className={styles.doneSlot}
+      style={startRows ? { gridTemplateRows: startRows, transition: "none" } : undefined}
     >
-      <span className={styles.doneLabel}>
-        {label}
-        {busy ? "…" : ""}
-      </span>
-      <span className={styles.doneTitle}>{entry.title}</span>
-      {entry.outcome === "published" ? (
-        <Link href={`/watch/${entry.slug}`} target="_blank" rel="noreferrer">
-          View
-        </Link>
-      ) : null}
-      {entry.outcome === "published" || entry.outcome === "rejected" ? (
-        <button type="button" onClick={onUndo}>
-          Undo
-        </button>
-      ) : null}
-      {error ? (
-        <span className={styles.doneError} role="alert">
-          {error}
+      <div className={styles.doneSpacer} aria-hidden="true" />
+      <div
+        ref={rowRef}
+        className={styles.doneRow}
+        data-outcome={entry.outcome}
+        tabIndex={-1}
+        role="status"
+        aria-busy={busy}
+      >
+        <span className={styles.doneLabel}>
+          {label}
+          {busy ? "…" : ""}
         </span>
-      ) : null}
+        <span className={styles.doneTitle}>{entry.title}</span>
+        {entry.outcome === "published" ? (
+          <Link href={`/watch/${entry.slug}`} target="_blank" rel="noreferrer">
+            View
+          </Link>
+        ) : null}
+        {entry.outcome === "published" || entry.outcome === "rejected" ? (
+          <button type="button" onClick={onUndo}>
+            Undo
+          </button>
+        ) : null}
+        {error ? (
+          <span className={styles.doneError} role="alert">
+            {error}
+          </span>
+        ) : null}
+      </div>
     </div>
   );
 }
