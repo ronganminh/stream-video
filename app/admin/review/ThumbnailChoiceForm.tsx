@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 
 import { selectReviewThumbnailAction } from "./actions";
+import { LazyThumb } from "./LazyThumb";
 import styles from "./page.module.css";
 import { INITIAL_THUMBNAIL_STATE } from "./thumbnailState";
 
@@ -41,13 +42,7 @@ export function ThumbnailChoiceForm({
         aria-pressed={selected}
         disabled={pending}
       >
-        <span
-          className={styles.thumbnailChoiceImage}
-          style={{
-            backgroundImage: `url("${url.replaceAll('"', "%22")}")`,
-          }}
-          aria-hidden="true"
-        />
+        <LazyThumb src={url} alt="" className={styles.thumbnailChoiceImage} />
         <span className={styles.thumbnailChoiceMeta}>
           <span>{label}</span>
           {selected ? <em>Selected</em> : null}
