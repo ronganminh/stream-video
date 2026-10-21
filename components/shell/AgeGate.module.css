@@ -1,3 +1,18 @@
+/* Confirmed visitors: set before first paint by the <head> boot script
+   (cookie), or by the #gv-age-ok fragment after the no-JS form post. */
+:global(html[data-gv-age-ok]) .overlay,
+.overlay:has(> .confirmedTarget:target) {
+  display: none;
+}
+
+.confirmedTarget {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+}
+
 .overlay {
   position: fixed;
   inset: 0;
@@ -288,4 +303,10 @@
   .leave:active {
     transform: none;
   }
+}
+
+.noscript {
+  margin: 0;
+  color: var(--gv-text-secondary);
+  font-size: 13px;
 }

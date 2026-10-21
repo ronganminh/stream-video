@@ -6,6 +6,7 @@ import { z } from "zod";
 import { writeAdminAudit } from "@/lib/auth/audit";
 import { requireAdmin } from "@/lib/auth/session";
 import { db } from "@/lib/db";
+import { revalidatePublicPages } from "@/lib/revalidatePublic";
 import {
   AD_SLOT_KEYS,
   type AdSlotKey,
@@ -49,6 +50,7 @@ export async function saveAdSlotAction(formData: FormData) {
   );
 
   revalidatePath("/admin/ads");
+  revalidatePublicPages();
 }
 
 export async function ensureAdSlots(): Promise<void> {

@@ -6,6 +6,7 @@ import { z } from "zod";
 import { writeAdminAudit } from "@/lib/auth/audit";
 import { requireAdmin } from "@/lib/auth/session";
 import { db } from "@/lib/db";
+import { revalidatePublicPages } from "@/lib/revalidatePublic";
 
 const tagSchema = z.object({
   id: z.string().optional(),
@@ -48,6 +49,7 @@ export async function createTagAction(formData: FormData) {
 
   await writeAdminAudit(admin.id, "TAG_CREATE", tag.id);
   revalidatePath("/admin/tags");
+  revalidatePublicPages();
 }
 
 export async function updateTagAction(formData: FormData) {
@@ -72,6 +74,7 @@ export async function updateTagAction(formData: FormData) {
 
   await writeAdminAudit(admin.id, "TAG_UPDATE", parsed.id);
   revalidatePath("/admin/tags");
+  revalidatePublicPages();
 }
 
 export async function deleteTagAction(formData: FormData) {
@@ -93,6 +96,7 @@ export async function deleteTagAction(formData: FormData) {
   revalidatePath("/admin/tags");
   revalidatePath("/admin/videos");
   revalidatePath("/admin/review");
+  revalidatePublicPages();
 }
 
 export async function mergeTagAction(formData: FormData) {
@@ -148,4 +152,5 @@ export async function mergeTagAction(formData: FormData) {
   revalidatePath("/admin/tags");
   revalidatePath("/admin/videos");
   revalidatePath("/admin/review");
+  revalidatePublicPages();
 }

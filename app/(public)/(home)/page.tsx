@@ -14,6 +14,8 @@ import { absoluteUrl } from "@/lib/seo/site";
 import { LoadMore } from "../_home/LoadMore";
 import styles from "../page.module.css";
 
+export const revalidate = 60;
+
 export const metadata: Metadata = {
   ...defaultMetadata(),
   alternates: {
