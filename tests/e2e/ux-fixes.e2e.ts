@@ -250,6 +250,9 @@ test("server buttons name their host", async ({ page, context }) => {
   await page.goto(`/watch/${AVAILABLE_SLUG}`);
   const servers = page.getByRole("group", { name: "Video servers" });
   const buttons = servers.getByRole("button");
+  // allTextContents() doesn't wait; the buttons are only exposed once the
+  // page has hydrated.
+  await expect(buttons.first()).toBeVisible();
   const labels = await buttons.allTextContents();
   expect(labels.length).toBeGreaterThan(1);
   for (const [index, label] of labels.entries()) {

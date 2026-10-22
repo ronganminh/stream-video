@@ -1,13 +1,15 @@
 import type { HostProvider } from "../hosts/types";
 import { prisma } from "../db";
 import { normalize } from "./normalize";
+import { decodeHtmlEntities } from "../text/htmlEntities";
 
 export function selectUniqueMatch<T>(items: T[]): T | null {
   return items.length === 1 ? items[0] : null;
 }
 
 export function titleFromFilename(filename: string): string {
-  return filename
+  // Some host titles arrive HTML-escaped ("&#40;P1&#41;").
+  return decodeHtmlEntities(filename)
     .replace(/\.[^.\/\\]+$/, "")
     .replace(/[._]+/g, " ")
     .replace(/\s+/g, " ")

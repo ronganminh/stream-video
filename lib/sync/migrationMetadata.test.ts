@@ -4,7 +4,7 @@ import { join } from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { loadMigrationMetadata } from "./migrationMetadata";
+import { loadMigrationEntriesByHostCode, loadMigrationMetadata } from "./migrationMetadata";
 
 const created: string[] = [];
 const savedEnv = {
@@ -116,5 +116,22 @@ describe("loadMigrationMetadata", () => {
 
     expect(metadata.tagsByHostCode.size).toBe(0);
     expect(metadata.sourceThumbnailByHostCode.size).toBe(0);
+  });
+
+  it("decodes HTML-escaped titles and tags from the old site's export", async () => {
+    writeFixtures(
+      [
+        "post_id,title,thumbnail_url,tags",
+        'p1,"Hoa nắng boy – Nghĩa x Tiến &#40;anh điện lạnh&#41;",,"Đồng hồ &amp; đá banh; Anh &#40;thợ&#41;"',
+        "",
+      ].join("\n"),
+      ["post_id,earnvids_file_code", "p1,codeA", ""].join("\n"),
+    );
+
+    const entries = await loadMigrationEntriesByHostCode("earnvids");
+    expect(entries.get("codeA")).toMatchObject({
+      title: "Hoa nắng boy – Nghĩa x Tiến (anh điện lạnh)",
+      tags: ["Đồng hồ & đá banh", "Anh (thợ)"],
+    });
   });
 });

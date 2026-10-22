@@ -9,6 +9,10 @@ describe("sync matching", () => {
     );
   });
 
+  it("decodes HTML-escaped host titles", () => {
+    expect(titleFromFilename("Tien &#40;anh dien lanh&#41;.mp4")).toBe("Tien (anh dien lanh)");
+  });
+
   it("auto-matches only one exact candidate", () => {
     expect(selectUniqueMatch([{ id: "one" }])).toEqual({ id: "one" });
     expect(selectUniqueMatch([])).toBeNull();
