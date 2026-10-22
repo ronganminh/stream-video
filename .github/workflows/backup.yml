@@ -44,16 +44,19 @@ jobs:
           PROD_USER: ${{ secrets.PROD_USER }}
           PROD_KNOWN_HOSTS: ${{ secrets.PROD_KNOWN_HOSTS }}
           PROD_APP_DEPLOY_SSH_KEY: ${{ secrets.PROD_APP_DEPLOY_SSH_KEY }}
-          BACKUP_AGE_RECIPIENT: ${{ vars.BACKUP_AGE_RECIPIENT }}
+          # A public key: a variable is the intended home, a secret works too.
+          BACKUP_AGE_RECIPIENT: ${{ vars.BACKUP_AGE_RECIPIENT || secrets.BACKUP_AGE_RECIPIENT }}
           RCLONE_DRIVE_TOKEN: ${{ secrets.RCLONE_DRIVE_TOKEN }}
         run: |
           set -euo pipefail
+          # Tolerate a trailing newline or spaces from pasting.
+          BACKUP_AGE_RECIPIENT="$(printf '%s' "$BACKUP_AGE_RECIPIENT" | tr -d '[:space:]')"
           missing=0
           required="PROD_HOST PROD_USER PROD_KNOWN_HOSTS PROD_APP_DEPLOY_SSH_KEY BACKUP_AGE_RECIPIENT"
           if [ "$UPLOAD" = "true" ]; then required="$required RCLONE_DRIVE_TOKEN"; fi
           for name in $required; do
             if [ -z "${!name:-}" ]; then
-              echo "::error::$name is not configured (see docs/BACKUP.md, 'Secrets and variables')"
+              echo "::error::$name is not configured (see docs/BACKUP.md §3.3; BACKUP_AGE_RECIPIENT goes under Variables or Secrets)"
               missing=1
             fi
           done
@@ -100,7 +103,8 @@ jobs:
         env:
           PROD_HOST: ${{ secrets.PROD_HOST }}
           PROD_USER: ${{ secrets.PROD_USER }}
-          BACKUP_AGE_RECIPIENT: ${{ vars.BACKUP_AGE_RECIPIENT }}
+          # A public key: a variable is the intended home, a secret works too.
+          BACKUP_AGE_RECIPIENT: ${{ vars.BACKUP_AGE_RECIPIENT || secrets.BACKUP_AGE_RECIPIENT }}
         run: |
           set -euo pipefail
           umask 077
@@ -119,7 +123,7 @@ jobs:
           # it is encrypted as it arrives and never written to disk unencrypted.
           if ! ssh -F "$HOME/.ssh/config" -o HostName="$PROD_HOST" -l "$PROD_USER" prod \
               "bash -s -- '$stamp'" < scripts/backup/remote-backup.sh \
-            | age -r "$BACKUP_AGE_RECIPIENT" -r "$verify_recipient" -o "$out/$name"; then
+            | age -r "$(printf '%s' "$BACKUP_AGE_RECIPIENT" | tr -d '[:space:]')" -r "$verify_recipient" -o "$out/$name"; then
             rm -f "$out/$name"
             echo "::error::Creating the backup on the VPS failed (see the log above)"
             exit 1

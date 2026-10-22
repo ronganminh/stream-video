@@ -107,7 +107,7 @@ Lưu ý:
 | Secret | `PROD_USER` | có (đã có) | user SSH (`ubuntu`) |
 | Secret | `PROD_KNOWN_HOSTS` | có (đã có) | dòng `ssh-keyscan` của VPS |
 | Secret | `PROD_APP_DEPLOY_SSH_KEY` | có (đã có) | private key SSH dùng chung với workflow deploy |
-| Variable | `BACKUP_AGE_RECIPIENT` | **có (cần thêm)** | public key age `age1…` |
+| Variable | `BACKUP_AGE_RECIPIENT` | **có (cần thêm)** | public key age `age1…` (đặt ở Secrets cũng được) |
 | Secret | `RCLONE_DRIVE_TOKEN` | **có (cần thêm)** | JSON từ `rclone authorize "drive"` |
 | Variable | `BACKUP_DRIVE_FOLDER_ID` | không | mặc định `1v2XiT3tOxBCiRuMLv6exJuVT1HfqeQko` |
 | Secret | `RCLONE_DRIVE_CLIENT_ID` | không | chỉ khi dùng OAuth client riêng |
