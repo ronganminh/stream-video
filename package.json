@@ -18,6 +18,7 @@
     "migration:backfill": "tsx worker/cli.ts backfill",
     "media:resize": "tsx worker/cli.ts media:resize",
     "slugs:lost-d": "tsx worker/cli.ts slugs:lost-d",
+    "slugs:fix-d": "tsx worker/cli.ts slugs:fix-d",
     "caddy:generate": "tsx scripts/generate-caddy.ts",
     "caddy:check": "tsx scripts/generate-caddy.ts --check",
     "migration:thumbnails": "tsx scripts/apply-migration-thumbnails.ts"

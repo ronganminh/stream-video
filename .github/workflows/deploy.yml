@@ -21,6 +21,11 @@ on:
         description: "Print slugs that dropped đ (read-only report, changes nothing)"
         type: boolean
         default: false
+      fix_slugs:
+        description: "Rename video slugs that dropped đ (dry-run only prints; published videos keep a 301)"
+        type: choice
+        options: ["off", "dry-run-all", "apply-drafts", "apply-published", "apply-all"]
+        default: "off"
   # Enable once manual deploys are proven:
   # push:
   #   branches: [main]
@@ -61,6 +66,7 @@ jobs:
           RUN_BACKFILL: ${{ inputs.run_backfill }}
           RESIZE_MEDIA: ${{ inputs.resize_media }}
           REPORT_SLUGS: ${{ inputs.report_slugs }}
+          FIX_SLUGS: ${{ inputs.fix_slugs }}
         run: |
           set -euo pipefail
           # The script is fed on stdin, so every remote command that could read
@@ -70,7 +76,7 @@ jobs:
             -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
             -o ServerAliveInterval=30 \
             "$PROD_USER@$PROD_HOST" \
-            "bash -s -- '$BUILD_WEB' '$RUN_BACKFILL' '$RESIZE_MEDIA' '$REPORT_SLUGS'" <<'REMOTE' | tee "$RUNNER_TEMP/deploy.log"
+            "bash -s -- '$BUILD_WEB' '$RUN_BACKFILL' '$RESIZE_MEDIA' '$REPORT_SLUGS' '$FIX_SLUGS'" <<'REMOTE' | tee "$RUNNER_TEMP/deploy.log"
           set -euo pipefail
           # Parsed in full before it runs, with stdin detached from the script.
           main() {
@@ -78,6 +84,7 @@ jobs:
           RUN_BACKFILL="$2"
           RESIZE_MEDIA="${3:-false}"
           REPORT_SLUGS="${4:-false}"
+          FIX_SLUGS="${5:-off}"
           cd /opt/gayvideo
 
           # The deploy user may not be in the docker group (and a usermod only
@@ -155,6 +162,19 @@ jobs:
 
           if [ "$REPORT_SLUGS" = "true" ]; then
             dc run --rm worker npm run --silent slugs:lost-d </dev/null || echo "::warning::slugs:lost-d failed"
+          fi
+
+          case "$FIX_SLUGS" in
+            off) ;;
+            dry-run-all) FIX_ARGS="--scope=all" ;;
+            apply-drafts) FIX_ARGS="--scope=drafts --apply" ;;
+            apply-published) FIX_ARGS="--scope=published --apply" ;;
+            apply-all) FIX_ARGS="--scope=all --apply" ;;
+            *) echo "::error::unknown fix_slugs=$FIX_SLUGS"; exit 1 ;;
+          esac
+          if [ "$FIX_SLUGS" != "off" ]; then
+            # shellcheck disable=SC2086
+            dc run --rm worker npm run --silent slugs:fix-d -- $FIX_ARGS </dev/null || echo "::warning::slugs:fix-d reported skipped videos"
           fi
 
           dc ps
