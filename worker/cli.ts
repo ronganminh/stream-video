@@ -5,6 +5,7 @@ import {
   planLostDSlugFixes,
   type FixScope,
 } from "../lib/sync/fixLostDSlugs";
+import { applyTitleFixes, planTitleFixes } from "../lib/sync/fixTitleEntities";
 import { findLostDSlugs } from "../lib/sync/lostDSlugs";
 import { runNewVideos } from "../lib/sync/newVideos";
 import { runMediaResize } from "../lib/sync/resizeMedia";
@@ -88,6 +89,37 @@ export async function runCli(args = process.argv.slice(2)): Promise<number> {
     return skipped.length > 0 ? 1 : 0;
   }
 
+  if (command === "titles:decode") {
+    // Dry run unless --apply. --reslug also replaces slugs generated from the
+    // escaped title (published videos keep a 301 from the old slug).
+    const apply = args.includes("--apply");
+    const reslug = args.includes("--reslug");
+    const plan = await planTitleFixes({ reslug });
+    console.info("kind\tid\tslug change\tcurrent\tdecoded");
+    for (const fix of plan) {
+      const slug = fix.slug
+        ? `${fix.slug.from} -> ${fix.slug.to}${fix.slug.redirect ? " (301)" : ""}`
+        : "-";
+      console.info([fix.kind, fix.id, slug, fix.from, fix.to].join("\t"));
+    }
+    const count = (kind: string) => plan.filter((fix) => fix.kind === kind).length;
+    const slugs = plan.filter((fix) => fix.slug).length;
+    const summary = `videos=${count("video")} (slugs=${slugs}) tags=${count("tag")} categories=${count("category")}`;
+    if (!apply) {
+      console.info(
+        `TITLES DECODE dry run${reslug ? " (reslug)" : ""}: would fix ${summary}; nothing changed. Re-run with --apply to write.`,
+      );
+      return 0;
+    }
+
+    const { applied, skipped } = await applyTitleFixes(plan);
+    for (const { fix, reason } of skipped) console.error(`  skipped ${fix.kind} ${fix.id}: ${reason}`);
+    console.info(
+      `TITLES DECODE applied${reslug ? " (reslug)" : ""}: fixed=${applied.length} of ${summary}, skipped=${skipped.length}. Cached pages show the new titles within their revalidate window.`,
+    );
+    return skipped.length > 0 ? 1 : 0;
+  }
+
   if (command === "sync:new") {
     const result = await runNewVideos();
     console.info(
@@ -109,7 +141,7 @@ export async function runCli(args = process.argv.slice(2)): Promise<number> {
   }
 
   console.error(
-    "Usage: tsx worker/cli.ts <sync:new|sync:health|backfill|media:resize [--dry-run]|slugs:lost-d|slugs:fix-d [--scope=drafts|published|all] [--ids=a,b] [--apply]>",
+    "Usage: tsx worker/cli.ts <sync:new|sync:health|backfill|media:resize [--dry-run]|slugs:lost-d|slugs:fix-d [--scope=drafts|published|all] [--ids=a,b] [--apply]|titles:decode [--reslug] [--apply]>",
   );
   return 1;
 }

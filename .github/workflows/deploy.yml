@@ -26,6 +26,11 @@ on:
         type: choice
         options: ["off", "dry-run-all", "apply-drafts", "apply-published", "apply-all"]
         default: "off"
+      fix_titles:
+        description: "Decode HTML entities in titles/tag names (dry-run only prints; reslug also fixes generated slugs, with a 301)"
+        type: choice
+        options: ["off", "dry-run", "dry-run-reslug", "apply", "apply-reslug"]
+        default: "off"
   # Enable once manual deploys are proven:
   # push:
   #   branches: [main]
@@ -67,6 +72,7 @@ jobs:
           RESIZE_MEDIA: ${{ inputs.resize_media }}
           REPORT_SLUGS: ${{ inputs.report_slugs }}
           FIX_SLUGS: ${{ inputs.fix_slugs }}
+          FIX_TITLES: ${{ inputs.fix_titles }}
         run: |
           set -euo pipefail
           # The script is fed on stdin, so every remote command that could read
@@ -76,7 +82,7 @@ jobs:
             -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
             -o ServerAliveInterval=30 \
             "$PROD_USER@$PROD_HOST" \
-            "bash -s -- '$BUILD_WEB' '$RUN_BACKFILL' '$RESIZE_MEDIA' '$REPORT_SLUGS' '$FIX_SLUGS'" <<'REMOTE' | tee "$RUNNER_TEMP/deploy.log"
+            "bash -s -- '$BUILD_WEB' '$RUN_BACKFILL' '$RESIZE_MEDIA' '$REPORT_SLUGS' '$FIX_SLUGS' '$FIX_TITLES'" <<'REMOTE' | tee "$RUNNER_TEMP/deploy.log"
           set -euo pipefail
           # Parsed in full before it runs, with stdin detached from the script.
           main() {
@@ -85,6 +91,7 @@ jobs:
           RESIZE_MEDIA="${3:-false}"
           REPORT_SLUGS="${4:-false}"
           FIX_SLUGS="${5:-off}"
+          FIX_TITLES="${6:-off}"
           cd /opt/gayvideo
 
           # The deploy user may not be in the docker group (and a usermod only
@@ -175,6 +182,19 @@ jobs:
           if [ "$FIX_SLUGS" != "off" ]; then
             # shellcheck disable=SC2086
             dc run --rm worker npm run --silent slugs:fix-d -- $FIX_ARGS </dev/null || echo "::warning::slugs:fix-d reported skipped videos"
+          fi
+
+          case "$FIX_TITLES" in
+            off) ;;
+            dry-run) TITLE_ARGS="" ;;
+            dry-run-reslug) TITLE_ARGS="--reslug" ;;
+            apply) TITLE_ARGS="--apply" ;;
+            apply-reslug) TITLE_ARGS="--reslug --apply" ;;
+            *) echo "::error::unknown fix_titles=$FIX_TITLES"; exit 1 ;;
+          esac
+          if [ "$FIX_TITLES" != "off" ]; then
+            # shellcheck disable=SC2086
+            dc run --rm worker npm run --silent titles:decode -- $TITLE_ARGS </dev/null || echo "::warning::titles:decode reported skipped rows"
           fi
 
           dc ps

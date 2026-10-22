@@ -19,6 +19,7 @@
     "media:resize": "tsx worker/cli.ts media:resize",
     "slugs:lost-d": "tsx worker/cli.ts slugs:lost-d",
     "slugs:fix-d": "tsx worker/cli.ts slugs:fix-d",
+    "titles:decode": "tsx worker/cli.ts titles:decode",
     "caddy:generate": "tsx scripts/generate-caddy.ts",
     "caddy:check": "tsx scripts/generate-caddy.ts --check",
     "migration:thumbnails": "tsx scripts/apply-migration-thumbnails.ts"

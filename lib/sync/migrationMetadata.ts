@@ -2,6 +2,7 @@ import { access, readFile } from "node:fs/promises";
 
 import { prisma } from "../db";
 import { legacySlugify, slugify } from "../slug";
+import { cleanTitle, decodeHtmlEntities } from "../text/htmlEntities";
 import { normalize } from "./normalize";
 
 type CsvRow = Record<string, string>;
@@ -95,8 +96,9 @@ function splitTags(value: string | undefined): string[] {
   const seen = new Set<string>();
   const tags: string[] = [];
 
-  for (const item of value.split(/[;,]/)) {
-    const tag = item.replace(/\s+/g, " ").trim();
+  // Decode before splitting: an entity's own ";" ("&#40;") is not a separator.
+  for (const item of decodeHtmlEntities(value).split(/[;,]/)) {
+    const tag = cleanTitle(item);
     const key = normalize(tag);
     if (!tag || !key || seen.has(key)) continue;
     seen.add(key);
@@ -202,7 +204,8 @@ export async function loadMigrationEntriesByHostCode(
     const thumbnailUrl = source.thumbnail_url?.trim();
     entries.set(hostCode, {
       postId,
-      title: (source.title ?? "").trim(),
+      // The old site's export is HTML-escaped ("Tiến &#40;anh điện lạnh&#41;").
+      title: cleanTitle(source.title ?? ""),
       tags: splitTags(source.tags),
       sourceThumbnailUrl:
         thumbnailUrl && /^https?:\/\//i.test(thumbnailUrl)
