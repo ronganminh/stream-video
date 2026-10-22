@@ -1,5 +1,10 @@
 import { runBackfill } from "../lib/sync/backfill";
 import { runHealthCheck } from "../lib/sync/healthCheck";
+import {
+  applyLostDSlugFixes,
+  planLostDSlugFixes,
+  type FixScope,
+} from "../lib/sync/fixLostDSlugs";
 import { findLostDSlugs } from "../lib/sync/lostDSlugs";
 import { runNewVideos } from "../lib/sync/newVideos";
 import { runMediaResize } from "../lib/sync/resizeMedia";
@@ -47,6 +52,42 @@ export async function runCli(args = process.argv.slice(2)): Promise<number> {
     return 0;
   }
 
+  if (command === "slugs:fix-d") {
+    // Dry run unless --apply. --scope=drafts|published|all (default drafts:
+    // the safe batch, no public URLs), --ids=a,b to pick videos.
+    const apply = args.includes("--apply");
+    const option = (name: string) =>
+      args.find((arg) => arg.startsWith(`--${name}=`))?.slice(name.length + 3);
+    const scope = (option("scope") ?? "drafts") as FixScope;
+    if (!["drafts", "published", "all"].includes(scope)) {
+      console.error(`Unknown --scope=${scope} (drafts|published|all)`);
+      return 1;
+    }
+    const ids = option("ids")?.split(",").filter(Boolean);
+
+    const plan = await planLostDSlugFixes({ scope, ids });
+    console.info("id\tredirect\tcurrent slug\tnew slug\ttitle");
+    for (const fix of plan) {
+      console.info(
+        [fix.id, fix.redirect ? "301" : "-", fix.from, fix.to + (fix.suffixed ? " (suffixed)" : ""), fix.title].join("\t"),
+      );
+    }
+    const redirects = plan.filter((fix) => fix.redirect).length;
+    if (!apply) {
+      console.info(
+        `SLUGS FIX-D dry run (scope=${scope}): would rename ${plan.length} videos, ${redirects} with a 301 from the old slug; nothing changed. Re-run with --apply to write.`,
+      );
+      return 0;
+    }
+
+    const { applied, skipped } = await applyLostDSlugFixes(plan);
+    for (const { fix, reason } of skipped) console.error(`  skipped ${fix.id} (${fix.from}): ${reason}`);
+    console.info(
+      `SLUGS FIX-D applied (scope=${scope}): renamed=${applied.length} redirects=${applied.filter((fix) => fix.redirect).length} skipped=${skipped.length}. Cached list pages pick up the new slugs within their revalidate window; old URLs 301 meanwhile.`,
+    );
+    return skipped.length > 0 ? 1 : 0;
+  }
+
   if (command === "sync:new") {
     const result = await runNewVideos();
     console.info(
@@ -68,7 +109,7 @@ export async function runCli(args = process.argv.slice(2)): Promise<number> {
   }
 
   console.error(
-    "Usage: tsx worker/cli.ts <sync:new|sync:health|backfill|media:resize [--dry-run]|slugs:lost-d>",
+    "Usage: tsx worker/cli.ts <sync:new|sync:health|backfill|media:resize [--dry-run]|slugs:lost-d|slugs:fix-d [--scope=drafts|published|all] [--ids=a,b] [--apply]>",
   );
   return 1;
 }
