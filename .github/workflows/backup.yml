@@ -1,0 +1,218 @@
+name: Weekly backup
+
+# Weekly encrypted backup of production (database, media, .env) to Google
+# Drive, plus a copy on the VPS. Everything about it, including how to
+# restore, is in docs/BACKUP.md.
+on:
+  schedule:
+    # Sundays 19:23 UTC = Mondays 02:23 in Vietnam (UTC+7), a quiet hour.
+    - cron: "23 19 * * 0"
+  workflow_dispatch:
+    inputs:
+      upload:
+        description: "Upload to Google Drive (off: build, verify and keep the VPS copy only)"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backup-production
+  cancel-in-progress: false
+
+env:
+  KEEP_ON_DRIVE: "8"
+  KEEP_ON_VPS: "7"
+  VPS_BACKUP_DIR: /var/backups/gayvideo/weekly
+  # Not a secret; overridable with the BACKUP_DRIVE_FOLDER_ID variable.
+  DRIVE_FOLDER_ID: ${{ vars.BACKUP_DRIVE_FOLDER_ID || '1v2XiT3tOxBCiRuMLv6exJuVT1HfqeQko' }}
+  # Scheduled runs have no inputs: upload by default.
+  UPLOAD: ${{ github.event_name == 'schedule' || inputs.upload }}
+
+jobs:
+  backup:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check configuration
+        env:
+          PROD_HOST: ${{ secrets.PROD_HOST }}
+          PROD_USER: ${{ secrets.PROD_USER }}
+          PROD_KNOWN_HOSTS: ${{ secrets.PROD_KNOWN_HOSTS }}
+          PROD_APP_DEPLOY_SSH_KEY: ${{ secrets.PROD_APP_DEPLOY_SSH_KEY }}
+          BACKUP_AGE_RECIPIENT: ${{ vars.BACKUP_AGE_RECIPIENT }}
+          RCLONE_DRIVE_TOKEN: ${{ secrets.RCLONE_DRIVE_TOKEN }}
+        run: |
+          set -euo pipefail
+          missing=0
+          required="PROD_HOST PROD_USER PROD_KNOWN_HOSTS PROD_APP_DEPLOY_SSH_KEY BACKUP_AGE_RECIPIENT"
+          if [ "$UPLOAD" = "true" ]; then required="$required RCLONE_DRIVE_TOKEN"; fi
+          for name in $required; do
+            if [ -z "${!name:-}" ]; then
+              echo "::error::$name is not configured (see docs/BACKUP.md, 'Secrets and variables')"
+              missing=1
+            fi
+          done
+          [ "$missing" = 0 ] || exit 1
+          # A public key only: the private key never goes to GitHub or the VPS.
+          if ! [[ "$BACKUP_AGE_RECIPIENT" =~ ^age1[0-9a-z]{58}$ ]]; then
+            echo "::error::BACKUP_AGE_RECIPIENT must be an age public key (age1…), not a private key"
+            exit 1
+          fi
+          if [ "$UPLOAD" = "true" ] && ! jq -e '.refresh_token | length > 0' <<<"$RCLONE_DRIVE_TOKEN" >/dev/null 2>&1; then
+            echo "::error::RCLONE_DRIVE_TOKEN must be the JSON printed by 'rclone authorize \"drive\"' (with a refresh_token)"
+            exit 1
+          fi
+
+      - name: Install age and rclone
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq age rclone >/dev/null
+          echo "age $(age --version)"
+          rclone version | head -1
+
+      - name: Configure SSH
+        env:
+          PROD_KNOWN_HOSTS: ${{ secrets.PROD_KNOWN_HOSTS }}
+          PROD_APP_DEPLOY_SSH_KEY: ${{ secrets.PROD_APP_DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          umask 077
+          mkdir -p "$HOME/.ssh"
+          printf '%s\n' "$PROD_APP_DEPLOY_SSH_KEY" > "$HOME/.ssh/deploy_key"
+          printf '%s\n' "$PROD_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          cat > "$HOME/.ssh/config" <<'EOF'
+          Host prod
+            IdentityFile ~/.ssh/deploy_key
+            IdentitiesOnly yes
+            BatchMode yes
+            StrictHostKeyChecking yes
+            ServerAliveInterval 30
+          EOF
+
+      - name: Create and encrypt the backup
+        id: create
+        env:
+          PROD_HOST: ${{ secrets.PROD_HOST }}
+          PROD_USER: ${{ secrets.PROD_USER }}
+          BACKUP_AGE_RECIPIENT: ${{ vars.BACKUP_AGE_RECIPIENT }}
+        run: |
+          set -euo pipefail
+          umask 077
+          stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+          name="gayvideo-backup-$stamp.tar.age"
+          out="$RUNNER_TEMP/backup"
+          mkdir -p "$out"
+
+          # A one-off key, so the next step can prove this very file decrypts
+          # and restores. It is deleted when the job ends; only the owner's
+          # BACKUP_AGE_RECIPIENT key can open the file afterwards.
+          age-keygen -o "$RUNNER_TEMP/verify-key.txt" 2>/dev/null
+          verify_recipient="$(age-keygen -y "$RUNNER_TEMP/verify-key.txt")"
+
+          # The VPS streams the plain bundle (see scripts/backup/remote-backup.sh);
+          # it is encrypted as it arrives and never written to disk unencrypted.
+          if ! ssh -F "$HOME/.ssh/config" -o HostName="$PROD_HOST" -l "$PROD_USER" prod \
+              "bash -s -- '$stamp'" < scripts/backup/remote-backup.sh \
+            | age -r "$BACKUP_AGE_RECIPIENT" -r "$verify_recipient" -o "$out/$name"; then
+            rm -f "$out/$name"
+            echo "::error::Creating the backup on the VPS failed (see the log above)"
+            exit 1
+          fi
+
+          (cd "$out" && sha256sum "$name" > "$name.sha256")
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+          echo "Encrypted $name ($(du -h "$out/$name" | cut -f1))"
+
+      - name: Verify the backup restores
+        env:
+          NAME: ${{ steps.create.outputs.name }}
+        run: |
+          set -euo pipefail
+          if ! scripts/backup/verify-backup.sh "$RUNNER_TEMP/backup/$NAME" "$RUNNER_TEMP/verify-key.txt" \
+            | tee "$RUNNER_TEMP/verify.log"; then
+            echo "::error::The new backup did not restore; it was not uploaded"
+            exit 1
+          fi
+
+      - name: Forget the verification key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/verify-key.txt"
+
+      - name: Upload to Google Drive
+        if: env.UPLOAD == 'true'
+        env:
+          NAME: ${{ steps.create.outputs.name }}
+          RCLONE_CONFIG_GDRIVE_TYPE: drive
+          RCLONE_CONFIG_GDRIVE_SCOPE: drive
+          RCLONE_CONFIG_GDRIVE_ROOT_FOLDER_ID: ${{ env.DRIVE_FOLDER_ID }}
+          RCLONE_CONFIG_GDRIVE_TOKEN: ${{ secrets.RCLONE_DRIVE_TOKEN }}
+          # Optional: your own OAuth client (docs/BACKUP.md); empty = rclone's.
+          RCLONE_CONFIG_GDRIVE_CLIENT_ID: ${{ secrets.RCLONE_DRIVE_CLIENT_ID }}
+          RCLONE_CONFIG_GDRIVE_CLIENT_SECRET: ${{ secrets.RCLONE_DRIVE_CLIENT_SECRET }}
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/backup"
+          if ! rclone lsf gdrive: --max-depth 1 >/dev/null; then
+            echo "::error::Cannot open the Drive folder: check RCLONE_DRIVE_TOKEN and BACKUP_DRIVE_FOLDER_ID (docs/BACKUP.md)"
+            exit 1
+          fi
+
+          # rclone checks the uploaded MD5 against the local file.
+          rclone copyto "$out/$NAME" "gdrive:$NAME"
+          rclone copyto "$out/$NAME.sha256" "gdrive:$NAME.sha256"
+          # The restore guide sits next to the backups; replaced every run.
+          rclone copyto docs/BACKUP.md gdrive:README.md
+          echo "Uploaded $NAME and README.md"
+
+          # Keep the newest backups; only workflow-made names are ever deleted
+          # (deleted files go to the Drive owner's trash for 30 days).
+          rclone lsf gdrive: --files-only | scripts/backup/retention.sh "$KEEP_ON_DRIVE" \
+            | while IFS= read -r old; do
+                echo "Removing old Drive backup $old"
+                rclone deletefile "gdrive:$old"
+              done
+          echo "Backups on Drive:"
+          rclone lsl gdrive: --include 'gayvideo-backup-*' | sort -k4 | sed 's/^/  /'
+
+      - name: Keep a copy on the VPS
+        env:
+          PROD_HOST: ${{ secrets.PROD_HOST }}
+          PROD_USER: ${{ secrets.PROD_USER }}
+          NAME: ${{ steps.create.outputs.name }}
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/backup"
+          ssh_prod() { ssh -F "$HOME/.ssh/config" -o HostName="$PROD_HOST" -l "$PROD_USER" prod "$@"; }
+          for file in "$NAME" "$NAME.sha256"; do
+            ssh_prod "umask 077 && cat > ~/'$file.upload'" < "$out/$file"
+          done
+          if ! cat scripts/backup/retention-lib.sh scripts/backup/vps-keep.sh \
+            | ssh_prod "bash -s -- '$VPS_BACKUP_DIR' '$KEEP_ON_VPS' '$NAME' '$NAME.sha256'"; then
+            echo "::error::Storing the backup on the VPS failed"
+            exit 1
+          fi
+
+      - name: Summary
+        env:
+          NAME: ${{ steps.create.outputs.name }}
+        run: |
+          set -euo pipefail
+          {
+            echo "### Backup $NAME"
+            echo
+            echo "- $(grep '^BACKUP OK' "$RUNNER_TEMP/verify.log")"
+            echo "- Size: $(du -h "$RUNNER_TEMP/backup/$NAME" | cut -f1)"
+            echo "- sha256: \`$(cut -d' ' -f1 "$RUNNER_TEMP/backup/$NAME.sha256")\`"
+            echo "- Google Drive: $([ "$UPLOAD" = true ] && echo "uploaded (keeping $KEEP_ON_DRIVE)" || echo "skipped")"
+            echo "- VPS: $VPS_BACKUP_DIR (keeping $KEEP_ON_VPS)"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Clean up
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/backup" "$RUNNER_TEMP/verify-key.txt" "$HOME/.ssh/deploy_key"

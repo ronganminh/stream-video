@@ -183,6 +183,9 @@ curl -fsSI "https://$SITE_DOMAIN/" | grep -i '^strict-transport-security:'
 
 ## 9. Daily database backup
 
+The weekly encrypted off-site backup (database, media, `.env` to Google Drive) and the full restore runbook are in [`docs/BACKUP.md`](BACKUP.md).
+
+
 `scripts/backup.sh` creates a PostgreSQL custom-format dump and deletes dumps older than the configured retention window. The supplied cron runs daily at 03:15 UTC and keeps 14 days.
 
 Install it:
