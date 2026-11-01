@@ -238,7 +238,25 @@ model AdminUser {
   email        String
   passwordHash String
 
-  actions AdminAction[]
+  actions   AdminAction[]
+  apiTokens ApiToken[]
+}
+
+/// A bearer token for the publish API (/api/v1). Only the SHA-256 of the
+/// token is stored; the token itself is shown once when it is created
+/// (npm run api-token -- create). Acts as the admin it belongs to.
+model ApiToken {
+  id         String    @id @default(cuid())
+  name       String
+  tokenHash  String    @unique
+  adminId    String
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+
+  admin AdminUser @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@index([adminId])
 }
 
 model AdminAction {

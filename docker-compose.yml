@@ -34,6 +34,12 @@ services:
       # same volume caddy serves; without it writes hit the read-only app
       # image and fail with EACCES.
       MEDIA_DIR: /data/media
+      # The publish API (/api/v1) and the admin "link mirror" check files on
+      # the hosts, so the web container needs the same keys as the worker.
+      HOST_DOOD_API_KEY: ${HOST_DOOD_API_KEY:-}
+      HOST_DOOD_EMBED_BASE: ${HOST_DOOD_EMBED_BASE:-https://playmogo.com}
+      HOST_VOE_API_KEY: ${HOST_VOE_API_KEY:-}
+      HOST_EARNVIDS_API_KEY: ${HOST_EARNVIDS_API_KEY:-}
     depends_on:
       postgres:
         condition: service_healthy

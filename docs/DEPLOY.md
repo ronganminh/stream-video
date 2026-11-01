@@ -131,6 +131,8 @@ Use a password of at least 12 characters:
 docker compose run --rm worker npm run admin:create -- admin@example.com 'REPLACE_WITH_A_STRONG_PASSWORD'
 ```
 
+To post videos from scripts (Google Colab, a laptop), create a publish-API token for that admin: see [`docs/API.md`](API.md).
+
 ## 6. Start the application
 
 ```bash
