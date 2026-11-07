@@ -26,6 +26,10 @@ on:
         type: choice
         options: ["off", "dry-run-all", "apply-drafts", "apply-published", "apply-all"]
         default: "off"
+      social_check:
+        description: "After deploy, show which Buffer X channel the queue posts to (social:channels)"
+        type: boolean
+        default: false
   # Enable once manual deploys are proven:
   # push:
   #   branches: [main]
@@ -58,6 +62,51 @@ jobs:
           printf '%s\n' "$PROD_APP_DEPLOY_SSH_KEY" > "$HOME/.ssh/deploy_key"
           printf '%s\n' "$PROD_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
 
+      # The Buffer key lives in the BUFFER_API_KEY Actions secret; compose reads
+      # it from /opt/gayvideo/.env. Written before the deploy so the recreated
+      # web/worker containers get it. It travels over SSH on stdin, never on a
+      # command line, and is never echoed (GitHub also masks it).
+      - name: Put BUFFER_API_KEY into the server .env
+        env:
+          PROD_HOST: ${{ secrets.PROD_HOST }}
+          PROD_USER: ${{ secrets.PROD_USER }}
+          BUFFER_API_KEY: ${{ secrets.BUFFER_API_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${BUFFER_API_KEY:-}" ]; then
+            echo "No BUFFER_API_KEY secret; the server .env is left as is"
+            exit 0
+          fi
+          # .env is sourced by bash and read by compose: keep the value shell-safe.
+          if ! [[ "$BUFFER_API_KEY" =~ ^[A-Za-z0-9._~+/=-]+$ ]]; then
+            echo "::error::BUFFER_API_KEY contains unexpected characters; not writing it"
+            exit 1
+          fi
+          remote=$(cat <<'REMOTE'
+          set -euo pipefail
+          IFS= read -r key
+          cd /opt/gayvideo
+          SUDO=""
+          if [ ! -r .env ] || [ ! -w .env ]; then SUDO="sudo -n"; fi
+          line="BUFFER_API_KEY=$key"
+          if $SUDO grep -qxF -- "$line" .env; then
+            echo "BUFFER_API_KEY in .env is already up to date"
+            exit 0
+          fi
+          umask 077
+          tmp=$(mktemp)
+          trap 'rm -f "$tmp"' EXIT
+          { $SUDO grep -v '^BUFFER_API_KEY=' .env || true; printf '%s\n' "$line"; } > "$tmp"
+          # Same owner and mode as before, swapped in atomically.
+          $SUDO install -m "$(stat -c %a .env)" -o "$(stat -c %u .env)" -g "$(stat -c %g .env)" "$tmp" .env.new
+          $SUDO mv .env.new .env
+          echo "BUFFER_API_KEY written to .env"
+          REMOTE
+          )
+          printf '%s\n' "$BUFFER_API_KEY" | ssh -i "$HOME/.ssh/deploy_key" \
+            -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            "$PROD_USER@$PROD_HOST" "bash -c $(printf '%q' "$remote")"
+
       - name: Deploy on the VPS
         env:
           PROD_HOST: ${{ secrets.PROD_HOST }}
@@ -67,6 +116,7 @@ jobs:
           RESIZE_MEDIA: ${{ inputs.resize_media }}
           REPORT_SLUGS: ${{ inputs.report_slugs }}
           FIX_SLUGS: ${{ inputs.fix_slugs }}
+          SOCIAL_CHECK: ${{ inputs.social_check }}
         run: |
           set -euo pipefail
           # The script is fed on stdin, so every remote command that could read
@@ -76,7 +126,7 @@ jobs:
             -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
             -o ServerAliveInterval=30 \
             "$PROD_USER@$PROD_HOST" \
-            "bash -s -- '$BUILD_WEB' '$RUN_BACKFILL' '$RESIZE_MEDIA' '$REPORT_SLUGS' '$FIX_SLUGS'" <<'REMOTE' | tee "$RUNNER_TEMP/deploy.log"
+            "bash -s -- '$BUILD_WEB' '$RUN_BACKFILL' '$RESIZE_MEDIA' '$REPORT_SLUGS' '$FIX_SLUGS' '$SOCIAL_CHECK'" <<'REMOTE' | tee "$RUNNER_TEMP/deploy.log"
           set -euo pipefail
           # Parsed in full before it runs, with stdin detached from the script.
           main() {
@@ -85,6 +135,7 @@ jobs:
           RESIZE_MEDIA="${3:-false}"
           REPORT_SLUGS="${4:-false}"
           FIX_SLUGS="${5:-off}"
+          SOCIAL_CHECK="${6:-false}"
           cd /opt/gayvideo
 
           # The deploy user may not be in the docker group (and a usermod only
@@ -175,6 +226,12 @@ jobs:
           if [ "$FIX_SLUGS" != "off" ]; then
             # shellcheck disable=SC2086
             dc run --rm worker npm run --silent slugs:fix-d -- $FIX_ARGS </dev/null || echo "::warning::slugs:fix-d reported skipped videos"
+          fi
+
+          if [ "$SOCIAL_CHECK" = "true" ]; then
+            # Channel and organization ids only; no secret is printed.
+            dc run --rm worker npm run --silent social:channels </dev/null || echo "::warning::social:channels failed"
+            dc run --rm worker npm run --silent social:status </dev/null || true
           fi
 
           dc ps
