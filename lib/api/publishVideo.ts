@@ -5,6 +5,9 @@ import { db } from "@/lib/db";
 import { getHostProvider } from "@/lib/hosts/registry";
 import type { HostFileDTO } from "@/lib/hosts/types";
 import { slugify, SLUG_PATTERN } from "@/lib/slug";
+import { findClip, isClipId } from "@/lib/social/clips";
+import { socialConfig } from "@/lib/social/config";
+import { enqueueXPost } from "@/lib/social/queue";
 import { tagConnectData } from "@/lib/sync/migrationMetadata";
 import { normalize } from "@/lib/sync/normalize";
 import { storeThumbnail } from "@/lib/sync/thumbnails";
@@ -49,6 +52,15 @@ export const publishInputSchema = z
     // A local image from a laptop/Colab, as a data: URL (max ~8 MB of image).
     thumbnailDataUrl: z.string().max(11_200_000).regex(DATA_URL).optional(),
     publish: z.boolean().default(false),
+    // Also announce it on X (through Buffer) once it is public: an English
+    // caption and a clip uploaded first with POST /api/v1/clips.
+    x: z
+      .object({
+        caption: z.string().trim().min(1).max(1000),
+        clipId: z.string().refine(isClipId, "clipId comes from POST /api/v1/clips"),
+      })
+      .strict()
+      .optional(),
   })
   .strict()
   .refine((input) => !(input.thumbnailUrl && input.thumbnailDataUrl), {
@@ -81,6 +93,8 @@ export type PublishedVideo = {
 export type PublishResult = {
   created: boolean;
   video: PublishedVideo;
+  /** The X post, when one was requested: waiting (draft), queued, or already in Buffer. */
+  x?: { status: string };
   warnings: string[];
 };
 
@@ -164,6 +178,11 @@ function publicVideo(video: {
 export async function publishVideo(input: PublishInput, actor: ApiActor): Promise<PublishResult> {
   const warnings: string[] = [];
   const title = input.title.replace(/\s+/g, " ");
+
+  // Refuse a bad clip before writing anything.
+  if (input.x && !(await findClip(input.x.clipId))) {
+    throw new ApiError(422, "unknown_clip", "That clip was not found: upload it with POST /api/v1/clips first.");
+  }
 
   // 1. Hosts: known, enabled, one file per host.
   const hostIds = input.mirrors.map((mirror) => mirror.host);
@@ -378,11 +397,26 @@ export async function publishVideo(input: PublishInput, actor: ApiActor): Promis
   );
   if (input.publish) await writeAdminAudit(actor.adminId, "API_VIDEO_PUBLISH", videoId);
 
+  // 7. X. Never fails the web publish: problems become warnings.
+  let x: PublishResult["x"];
+  if (input.x) {
+    try {
+      const queued = await enqueueXPost({ videoId, clipId: input.x.clipId, caption: input.x.caption });
+      x = { status: queued.status };
+      if (queued.warning) warnings.push(queued.warning);
+      if (!socialConfig().enabled) {
+        warnings.push("Buffer is not configured on the server (BUFFER_API_KEY); the X post waits until it is.");
+      }
+    } catch (error) {
+      warnings.push(`X post not queued: ${errorText(error)}`);
+    }
+  }
+
   const video = await db.video.findUniqueOrThrow({
     where: { id: videoId },
     select: { id: true, slug: true, title: true, isPublished: true, thumbnailPath: true },
   });
-  return { created: !target, video: publicVideo(video), warnings };
+  return { created: !target, video: publicVideo(video), ...(x ? { x } : {}), warnings };
 }
 
 export async function getVideoForApi(id: string) {
@@ -403,6 +437,9 @@ export async function getVideoForApi(id: string) {
       category: { select: { slug: true, name: true } },
       videoTags: { select: { tag: { select: { slug: true, name: true } } } },
       mirrors: { select: { hostId: true, fileCode: true, status: true } },
+      socialPosts: {
+        select: { network: true, status: true, externalLink: true, lastError: true, sentAt: true },
+      },
     },
   });
   if (!video) return null;
@@ -421,5 +458,6 @@ export async function getVideoForApi(id: string) {
       fileCode: mirror.fileCode,
       status: mirror.status,
     })),
+    social: video.socialPosts,
   };
 }

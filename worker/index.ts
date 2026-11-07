@@ -1,6 +1,7 @@
 import cron from "node-cron";
 
 import { prisma } from "../lib/db";
+import { runSocialSyncIfDue } from "../lib/social/queue";
 import { runHealthCheck } from "../lib/sync/healthCheck";
 import { runNewVideos } from "../lib/sync/newVideos";
 import { getSyncSettings } from "../lib/sync/settings";
@@ -77,6 +78,18 @@ export async function runScheduledSync(now = new Date()): Promise<void> {
 export async function workerTick(now = new Date()): Promise<void> {
   await processSyncRequests();
   await runScheduledSync(now);
+  // X posts through Buffer: separate, so a Buffer problem never stops sync.
+  try {
+    const summary = await runSocialSyncIfDue(now);
+    if (summary && !summary.skipped) {
+      console.info(
+        `X queue: promoted=${summary.promoted} pushed=${summary.pushed} sent=${summary.sent} failed=${summary.failed} room=${summary.room}`,
+      );
+    }
+    for (const message of summary?.errors ?? []) console.warn(`X queue: ${message}`);
+  } catch (error) {
+    console.error(`X queue: ${error instanceof Error ? error.message : String(error)}`);
+  }
 }
 
 export function startWorker(): void {

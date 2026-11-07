@@ -40,6 +40,15 @@ services:
       HOST_DOOD_EMBED_BASE: ${HOST_DOOD_EMBED_BASE:-https://playmogo.com}
       HOST_VOE_API_KEY: ${HOST_VOE_API_KEY:-}
       HOST_EARNVIDS_API_KEY: ${HOST_EARNVIDS_API_KEY:-}
+      # X through Buffer (docs/API.md): the worker pushes, web takes clips.
+      BUFFER_API_KEY: ${BUFFER_API_KEY:-}
+      BUFFER_X_HANDLE: ${BUFFER_X_HANDLE:-Gayvideofun}
+      BUFFER_X_CHANNEL_ID: ${BUFFER_X_CHANNEL_ID:-}
+      BUFFER_ORGANIZATION_ID: ${BUFFER_ORGANIZATION_ID:-}
+      BUFFER_QUEUE_LIMIT: ${BUFFER_QUEUE_LIMIT:-10}
+      BUFFER_SYNC_MINUTES: ${BUFFER_SYNC_MINUTES:-120}
+      X_CLIP_SECONDS: ${X_CLIP_SECONDS:-120}
+      X_CLIP_MAX_MB: ${X_CLIP_MAX_MB:-512}
     depends_on:
       postgres:
         condition: service_healthy
@@ -71,6 +80,15 @@ services:
       HOST_DOOD_EMBED_BASE: ${HOST_DOOD_EMBED_BASE:-https://playmogo.com}
       HOST_VOE_API_KEY: ${HOST_VOE_API_KEY:-}
       HOST_EARNVIDS_API_KEY: ${HOST_EARNVIDS_API_KEY:-}
+      # X through Buffer (docs/API.md): the worker pushes, web takes clips.
+      BUFFER_API_KEY: ${BUFFER_API_KEY:-}
+      BUFFER_X_HANDLE: ${BUFFER_X_HANDLE:-Gayvideofun}
+      BUFFER_X_CHANNEL_ID: ${BUFFER_X_CHANNEL_ID:-}
+      BUFFER_ORGANIZATION_ID: ${BUFFER_ORGANIZATION_ID:-}
+      BUFFER_QUEUE_LIMIT: ${BUFFER_QUEUE_LIMIT:-10}
+      BUFFER_SYNC_MINUTES: ${BUFFER_SYNC_MINUTES:-120}
+      X_CLIP_SECONDS: ${X_CLIP_SECONDS:-120}
+      X_CLIP_MAX_MB: ${X_CLIP_MAX_MB:-512}
       MEDIA_DIR: /data/media
       MIGRATION_VIDEOS_CSV: ${MIGRATION_VIDEOS_CSV:-}
       MIGRATION_LOG_CSV: ${MIGRATION_LOG_CSV:-}
