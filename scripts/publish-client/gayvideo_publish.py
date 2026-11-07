@@ -15,7 +15,17 @@ Standard library only, so it runs as-is on Google Colab and on a laptop
     )
     print(result["video"]["url"])
 
-    python gayvideo_publish.py --title "..." --mirror dood:abc123 --tag Bevis --publish
+Also announce it on X (@Gayvideofun, through Buffer): pass an English
+caption and the source video; a short clip (X_CLIP_SECONDS, from the
+server) is cut here with ffmpeg, uploaded, and posted once the video is
+public, with a link to its page:
+
+    client.publish(..., publish=True,
+                   x_caption="New: Bevis & Pinky's love story 🔥",
+                   x_video="/content/full.mp4", x_clip_start=30)
+
+    python gayvideo_publish.py --title "..." --mirror dood:abc123 --tag Bevis --publish \
+        --x-caption "New video" --x-video full.mp4
 """
 
 from __future__ import annotations
@@ -25,7 +35,10 @@ import base64
 import json
 import mimetypes
 import os
+import shutil
+import subprocess
 import sys
+import tempfile
 import urllib.error
 import urllib.request
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple, Union
@@ -59,19 +72,31 @@ class GayVideoClient:
         self.base_url = (base_url or os.environ.get("GAYVIDEO_API_URL") or DEFAULT_BASE_URL).rstrip("/")
         self.timeout = timeout
 
-    def _request(self, method: str, path: str, body: Optional[dict] = None) -> dict:
-        data = json.dumps(body).encode("utf-8") if body is not None else None
-        request = urllib.request.Request(
-            self.base_url + path,
-            data=data,
-            method=method,
-            headers={
-                "Authorization": f"Bearer {self.token}",
-                "Accept": "application/json",
-                "User-Agent": "gayvideo-publish/1",
-                **({"Content-Type": "application/json"} if data is not None else {}),
-            },
-        )
+    def _request(
+        self,
+        method: str,
+        path: str,
+        body: Optional[dict] = None,
+        *,
+        upload: Optional[str] = None,
+    ) -> dict:
+        headers = {
+            "Authorization": f"Bearer {self.token}",
+            "Accept": "application/json",
+            "User-Agent": "gayvideo-publish/2",
+        }
+        data: Any = None
+        handle = None
+        if upload is not None:
+            # Streamed from disk, not read into memory.
+            handle = open(upload, "rb")
+            data = handle
+            headers["Content-Type"] = "video/mp4"
+            headers["Content-Length"] = str(os.path.getsize(upload))
+        elif body is not None:
+            data = json.dumps(body).encode("utf-8")
+            headers["Content-Type"] = "application/json"
+        request = urllib.request.Request(self.base_url + path, data=data, method=method, headers=headers)
         try:
             with urllib.request.urlopen(request, timeout=self.timeout) as response:
                 return json.loads(response.read().decode("utf-8"))
@@ -88,6 +113,9 @@ class GayVideoClient:
                 info.get("message", raw[:200] or error.reason),
                 payload if isinstance(payload, dict) else None,
             ) from None
+        finally:
+            if handle is not None:
+                handle.close()
 
     def meta(self) -> dict:
         """Enabled hosts and category slugs; also checks the token works."""
@@ -95,6 +123,17 @@ class GayVideoClient:
 
     def get_video(self, video_id: str) -> dict:
         return self._request("GET", f"/api/v1/videos/{video_id}")["video"]
+
+    def upload_clip(self, clip_path: str) -> dict:
+        """Upload an MP4 made by cut_clip(); returns {"clipId", "bytes", "seconds"}."""
+        return self._request("POST", "/api/v1/clips", upload=clip_path)
+
+    def clip_seconds(self) -> int:
+        """X_CLIP_SECONDS: from the environment if set, else the server's (0 = full video)."""
+        local = os.environ.get("X_CLIP_SECONDS", "").strip()
+        if local:
+            return int(local)
+        return int(self.meta().get("x", {}).get("clipSeconds", 120))
 
     def publish(
         self,
@@ -108,12 +147,37 @@ class GayVideoClient:
         quality: Optional[str] = None,
         thumbnail: Optional[str] = None,
         publish: bool = False,
+        x_caption: Optional[str] = None,
+        x_video: Optional[str] = None,
+        x_clip: Optional[str] = None,
+        x_clip_start: float = 0,
+        x_clip_seconds: Optional[int] = None,
     ) -> dict:
         """Create the video, or update the draft its files already belong to.
 
-        Returns {"created": bool, "video": {...}, "warnings": [...]}.
+        For X, pass x_caption (English) and either x_video (the source file;
+        a clip is cut from x_clip_start) or x_clip (an MP4 you cut yourself).
+        The X post goes out once the video is public; it never blocks the web.
+
+        Returns {"created": bool, "video": {...}, "x": {...}?, "warnings": [...]}.
         Raises PublishError on refusal (e.g. 409 already_published).
         """
+        clip_id = None
+        if x_caption:
+            if not (x_video or x_clip):
+                raise ValueError("x_caption needs x_video (source to cut) or x_clip (ready MP4)")
+            if x_clip:
+                clip_id = self.upload_clip(x_clip)["clipId"]
+            else:
+                seconds = self.clip_seconds() if x_clip_seconds is None else x_clip_seconds
+                workdir = tempfile.mkdtemp(prefix="gv-clip-")
+                try:
+                    clip_path = cut_clip(x_video, os.path.join(workdir, "clip.mp4"),
+                                         start=x_clip_start, seconds=seconds)
+                    clip_id = self.upload_clip(clip_path)["clipId"]
+                finally:
+                    shutil.rmtree(workdir, ignore_errors=True)
+
         pairs = list(mirrors.items()) if isinstance(mirrors, Mapping) else list(mirrors)
         body: Dict[str, Any] = {
             "title": title,
@@ -135,7 +199,40 @@ class GayVideoClient:
                 body["thumbnailUrl"] = thumbnail
             else:
                 body["thumbnailDataUrl"] = image_data_url(thumbnail)
+        if clip_id:
+            body["x"] = {"caption": x_caption, "clipId": clip_id}
         return self._request("POST", "/api/v1/videos", body)
+
+
+def cut_clip(source: str, output: str, *, start: float = 0, seconds: int = 120) -> str:
+    """Cut and re-encode a clip X accepts: MP4, H.264 High (yuv420p), AAC-LC
+    stereo 44.1 kHz, longest side at most 1280 and 60 fps, moov at the start
+    (+faststart). seconds=0 keeps the whole video. Needs ffmpeg on PATH
+    (Colab has it; Windows: winget install Gyan.FFmpeg; macOS: brew install ffmpeg).
+    """
+    if shutil.which("ffmpeg") is None:
+        raise RuntimeError("ffmpeg is not installed (see docs/API.md)")
+    command = ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y"]
+    if start:
+        command += ["-ss", str(start)]
+    command += ["-i", source]
+    if seconds:
+        command += ["-t", str(seconds)]
+    command += [
+        "-map", "0:v:0", "-map", "0:a:0?",
+        # Longest side at most 1280 (720p landscape or portrait), even sizes.
+        "-vf", "scale='if(gte(iw,ih),min(1280,iw),-2)':'if(gte(iw,ih),-2,min(1280,ih))'",
+        "-fpsmax", "60",
+        "-c:v", "libx264", "-profile:v", "high", "-level:v", "4.1", "-pix_fmt", "yuv420p",
+        "-preset", "medium", "-crf", "23", "-maxrate", "6M", "-bufsize", "12M",
+        "-c:a", "aac", "-b:a", "128k", "-ar", "44100", "-ac", "2",
+        "-movflags", "+faststart",
+        output,
+    ]
+    result = subprocess.run(command, capture_output=True, text=True)
+    if result.returncode != 0 or not os.path.exists(output):
+        raise RuntimeError(f"ffmpeg failed: {result.stderr.strip()[-500:]}")
+    return output
 
 
 def image_data_url(path: str) -> str:
@@ -168,6 +265,12 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--quality", choices=["HD", "4K"])
     parser.add_argument("--thumbnail", help="local image file or https URL")
     parser.add_argument("--publish", action="store_true", help="make it public now (default: draft)")
+    parser.add_argument("--x-caption", help="also post on X with this English caption")
+    parser.add_argument("--x-video", help="source video to cut the X clip from")
+    parser.add_argument("--x-clip", help="a ready MP4 clip (skips cutting)")
+    parser.add_argument("--x-start", type=float, default=0, help="clip start, in seconds")
+    parser.add_argument("--x-seconds", type=int, default=None,
+                        help="clip length (default: X_CLIP_SECONDS from the server; 0 = full)")
     parser.add_argument("--base-url", default=None)
     args = parser.parse_args(argv)
 
@@ -183,6 +286,11 @@ def main(argv: Optional[List[str]] = None) -> int:
             quality=args.quality,
             thumbnail=args.thumbnail,
             publish=args.publish,
+            x_caption=args.x_caption,
+            x_video=args.x_video,
+            x_clip=args.x_clip,
+            x_clip_start=args.x_start,
+            x_clip_seconds=args.x_seconds,
         )
     except PublishError as error:
         print(f"Refused: {error}", file=sys.stderr)
@@ -190,6 +298,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     video = result["video"]
     state = "published" if video["published"] else "draft (approve it in /admin/review)"
     print(f"{'Created' if result['created'] else 'Updated'}: {client.base_url}{video['url']} [{state}]")
+    if "x" in result:
+        print(f"X: {result['x']['status']} (posted through Buffer once public)")
     for warning in result.get("warnings", []):
         print(f"warning: {warning}", file=sys.stderr)
     return 0

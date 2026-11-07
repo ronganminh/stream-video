@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { withApiToken } from "@/lib/api/respond";
 import { db } from "@/lib/db";
+import { socialConfig } from "@/lib/social/config";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -21,8 +22,20 @@ export async function GET(request: Request) {
         orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
       }),
     ]);
+    const social = socialConfig();
     return NextResponse.json(
-      { token: actor.tokenName, hosts, categories },
+      {
+        token: actor.tokenName,
+        hosts,
+        categories,
+        // How to cut the X clip; clients read this instead of hard-coding it.
+        x: {
+          enabled: social.enabled,
+          handle: social.xHandle,
+          clipSeconds: social.clipSeconds,
+          clipMaxBytes: social.clipMaxBytes,
+        },
+      },
       { headers: { "cache-control": "no-store" } },
     );
   });

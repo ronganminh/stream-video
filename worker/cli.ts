@@ -1,4 +1,8 @@
 import { runBackfill } from "../lib/sync/backfill";
+import { prisma } from "../lib/db";
+import { bufferClient } from "../lib/social/buffer";
+import { socialConfig } from "../lib/social/config";
+import { runSocialSync, X_NETWORK } from "../lib/social/queue";
 import { runHealthCheck } from "../lib/sync/healthCheck";
 import {
   applyLostDSlugFixes,
@@ -88,6 +92,64 @@ export async function runCli(args = process.argv.slice(2)): Promise<number> {
     return skipped.length > 0 ? 1 : 0;
   }
 
+  if (command === "social:status") {
+    // The X queue, newest first. Read-only; no Buffer call.
+    const rows = await prisma.socialPost.findMany({
+      where: { network: X_NETWORK },
+      include: { video: { select: { slug: true } } },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+    });
+    for (const row of rows) {
+      console.info(
+        [row.status, row.video.slug, row.externalLink ?? "", row.lastError ?? ""].filter(Boolean).join("\t"),
+      );
+    }
+    const counts = await prisma.socialPost.groupBy({ by: ["status"], _count: true });
+    console.info(`X queue: ${counts.map((c) => `${c.status}=${c._count}`).join(" ") || "empty"}; Buffer ${socialConfig().enabled ? "configured" : "NOT configured (BUFFER_API_KEY)"}`);
+    return 0;
+  }
+
+  if (command === "social:sync") {
+    // One cycle now, ignoring BUFFER_SYNC_MINUTES.
+    const summary = await runSocialSync();
+    console.info(`X queue: ${JSON.stringify(summary)}`);
+    return 0;
+  }
+
+  if (command === "social:channels") {
+    // Which X channel of the Buffer account the queue posts to.
+    const config = socialConfig();
+    if (!config.enabled) {
+      console.error("BUFFER_API_KEY is not set");
+      return 1;
+    }
+    const channel = await bufferClient(config.apiKey).findXChannel(config.xHandle);
+    console.info(`@${config.xHandle}: channelId=${channel.channelId} organizationId=${channel.organizationId}`);
+    return 0;
+  }
+
+  if (command === "social:retry" || command === "social:cancel") {
+    const slug = args[1];
+    if (!slug) {
+      console.error(`Usage: ${command} <video slug>`);
+      return 1;
+    }
+    const retry = command === "social:retry";
+    const result = await prisma.socialPost.updateMany({
+      where: {
+        network: X_NETWORK,
+        video: { slug },
+        status: { in: retry ? ["failed", "cancelled"] : ["waiting", "queued", "failed"] },
+      },
+      data: retry
+        ? { status: "queued", attempts: 0, lastError: null, nextAttemptAt: null }
+        : { status: "cancelled", lastError: "Cancelled by an admin" },
+    });
+    console.info(result.count ? `${retry ? "Requeued" : "Cancelled"} the X post of ${slug}` : `Nothing to ${retry ? "retry" : "cancel"} for ${slug}`);
+    return result.count ? 0 : 1;
+  }
+
   if (command === "sync:new") {
     const result = await runNewVideos();
     console.info(
@@ -109,7 +171,7 @@ export async function runCli(args = process.argv.slice(2)): Promise<number> {
   }
 
   console.error(
-    "Usage: tsx worker/cli.ts <sync:new|sync:health|backfill|media:resize [--dry-run]|slugs:lost-d|slugs:fix-d [--scope=drafts|published|all] [--ids=a,b] [--apply]>",
+    "Usage: tsx worker/cli.ts <sync:new|sync:health|backfill|media:resize [--dry-run]|slugs:lost-d|slugs:fix-d [--scope=drafts|published|all] [--ids=a,b] [--apply]|social:status|social:sync|social:channels|social:retry <slug>|social:cancel <slug>>",
   );
   return 1;
 }
