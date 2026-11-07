@@ -12,6 +12,7 @@
     "db:migrate": "prisma migrate dev",
     "db:seed": "prisma db seed",
     "admin:create": "tsx scripts/admin-create.ts",
+    "api-token": "tsx scripts/api-token.ts",
     "worker": "tsx worker/index.ts",
     "sync:new": "tsx worker/cli.ts sync:new",
     "sync:health": "tsx worker/cli.ts sync:health",

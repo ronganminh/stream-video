@@ -28,3 +28,6 @@ __pycache__/
 # OS / editor noise
 .DS_Store
 *.log
+
+# Local MEDIA_DIR default (thumbnails written in dev/E2E)
+/public/media/
