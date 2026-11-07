@@ -47,6 +47,9 @@ Token có quyền đăng bài lên web, nên giữ kín như mật khẩu: khôn
 
 ## 3. Dùng trên Google Colab
 
+> **Notebook dựng sẵn:** `scripts/publish-client/colab_publish.ipynb` (mở bằng *File → Upload notebook* trên Colab). Notebook nhận link Google Photos (một video hoặc album; Drive là phương án phụ), tải bản gốc, gắn watermark, upload lên host, tạo thumbnail, rồi đăng lên web và X; có sổ ghi để không đăng trùng. Hướng dẫn nằm ngay đầu notebook. Notebook được sinh từ `build_notebook.py`: sửa code thì chạy lại `python3 scripts/publish-client/build_notebook.py`.
+
+
 1. Mở biểu tượng chìa khóa (**Secrets**) ở thanh bên trái của Colab, thêm secret tên `GAYVIDEO_API_TOKEN` với giá trị là token, rồi bật *Notebook access*.
 2. Đưa file `gayvideo_publish.py` vào Colab: kéo thả vào thư mục `/content`, hoặc lấy từ Google Drive.
 3. Chạy:
