@@ -216,14 +216,14 @@ class SecretsTest(unittest.TestCase):
         uploader = ch.HostUploader("dood", key)
         seen = {}
 
-        def fake_run(args, **kwargs):
+        def fake_run(args, step):
             seen["args"] = args
             seen["config"] = Path(args[-1]).read_text()
             seen["mode"] = os.stat(args[-1]).st_mode & 0o777
-            return subprocess.CompletedProcess(args, 0, stdout='{"result":[{"filecode":"abc123"}]}', stderr="")
+            return 0, '{"result":[{"filecode":"abc123"}]}', ""
 
         with mock.patch.object(uploader, "_get", return_value={"result": "https://up.example/upload/01"}), \
-                mock.patch.object(ch.subprocess, "run", side_effect=fake_run):
+                mock.patch.object(ch, "_run_curl", side_effect=fake_run):
             code = uploader.upload(Path(__file__), "Title")
         self.assertEqual(code, "abc123")
         self.assertNotIn(key, " ".join(seen["args"]))
@@ -234,9 +234,9 @@ class SecretsTest(unittest.TestCase):
     def test_upload_errors_are_redacted(self):
         key = "VOEKEY-ABCDEFGHIJ"
         uploader = ch.HostUploader("voe", key)
-        failed = subprocess.CompletedProcess([], 22, stdout="", stderr=f"403 for https://up/?key={key}")
+        failed = (22, "", f"403 for https://up/?key={key}")
         with mock.patch.object(uploader, "_get", return_value={"result": "https://up.example/u"}), \
-                mock.patch.object(ch.subprocess, "run", return_value=failed):
+                mock.patch.object(ch, "_run_curl", return_value=failed):
             with self.assertRaises(RuntimeError) as caught:
                 uploader.upload(Path(__file__), "T")
         self.assertNotIn(key, str(caught.exception))
@@ -342,6 +342,191 @@ class InputExampleTest(unittest.TestCase):
         self.assertIn("photos.app.goo.gl/XXXXXXXX", links)
         self.assertEqual(ch.parse_lines(links), [])
         self.assertIn('X_CAPTION_TEMPLATE = "New video: {title} 🔥"', build_notebook.CONFIG)
+
+
+class FakeClock:
+    def __init__(self):
+        self.now = 100.0
+
+    def __call__(self):
+        return self.now
+
+
+class ProgressTest(unittest.TestCase):
+    def test_bytes_step_shows_percent_mb_speed_and_time_left_on_one_line(self):
+        out, clock = io.StringIO(), FakeClock()
+        with ch.Step("Tải từ Google Photos", out=out, clock=clock) as step:
+            step.total = 100 * 1_048_576
+            for _ in range(50):  # 50 MB in 10 s
+                clock.now += 0.2
+                step.update(1_048_576)
+            line = step.line()
+        self.assertEqual(line, "Tải từ Google Photos ·  50% · 50.0/100.0 MB · 5.0 MB/s · còn 0:10")
+        text = out.getvalue()
+        self.assertEqual(text.count("\n"), 1)  # progress rewrites one line, then one summary line
+        self.assertGreater(text.count("\r"), 5)
+        self.assertLess(text.count("\r"), 30)  # throttled to every 0.5 s
+        self.assertTrue(text.endswith("\n"))
+        self.assertTrue(text.rstrip().endswith("\r  ✓ Tải từ Google Photos · 10.0 s · 50.0 MB · 5.0 MB/s"), text[-80:])
+
+    def test_seconds_step_shows_media_time_and_speed(self):
+        out, clock = io.StringIO(), FakeClock()
+        with ch.Step("Watermark", unit="s", total=200, out=out, clock=clock) as step:
+            clock.now += 25
+            step.set(50)
+            self.assertEqual(step.line(), "Watermark ·  25% · 0:50/3:20 · 2.0x · còn 1:15")
+
+    def test_failed_step_is_marked_and_the_error_propagates(self):
+        out = io.StringIO()
+        with self.assertRaises(ValueError):
+            with ch.Step("Upload lên dood", out=out):
+                raise ValueError("boom")
+        self.assertIn("✗ Upload lên dood", out.getvalue())
+
+    def test_shorter_lines_clear_the_previous_one(self):
+        out, clock = io.StringIO(), FakeClock()
+        with ch.Step("X", out=out, clock=clock) as step:
+            step.total = 10 * 1_048_576
+            clock.now += 1
+            step.set(1_048_576)
+        last = out.getvalue().rsplit("\r", 1)[1]
+        self.assertTrue(last.startswith("  ✓ X"))
+        self.assertGreaterEqual(len(last.rstrip("\n")), len("  X ·  10% · 1.0/10.0 MB · 1.0 MB/s · còn 0:09"))
+
+    def test_batch_line(self):
+        out = io.StringIO()
+        ch.batch_line(2, 3, "Tiêu đề", out=out)
+        self.assertEqual(out.getvalue(), "▶ video 2/3 · Tiêu đề\n")
+
+    def test_photos_download_reports_content_length(self):
+        media = b"x" * (3 * 1024 * 1024 + 5)
+
+        class Session(FakeSession):
+            def get(self, url, **kwargs):
+                response = FakeResponse(url=url, content=media, content_type="video/mp4")
+                response.headers["content-length"] = str(len(media))
+                return response
+
+        steps = []
+        with tempfile.TemporaryDirectory() as tmp, \
+                mock.patch.object(ch, "verify_video", return_value={}):
+            download = ch._download_photos_video(V1, Session(ALBUM))
+            with ch.Step("Tải", out=io.StringIO()) as step:
+                download(Path(tmp) / "v.mp4", step=step)
+                steps.append((step.total, step.done))
+        self.assertEqual(steps, [(len(media), len(media))])
+
+
+class CurlMeterTest(unittest.TestCase):
+    def test_meter_lines(self):
+        self.assertEqual(ch.parse_curl_meter(" 45  100M    0     0   45 45.2M      0  5120k  0:00:20  0:00:09  0:00:11 5200k"),
+                         (45.2 * 1_048_576, 5120 * 1024))
+        self.assertEqual(ch.parse_curl_meter("100  2048  100    35  100  2013     12    700  0:00:02  0:00:02 --:--:--   712"),
+                         (2013, 700))
+        for header in ("  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current",
+                       "                                 Dload  Upload   Total   Spent    Left  Speed",
+                       "curl: (22) The requested URL returned error: 403", ""):
+            self.assertIsNone(ch.parse_curl_meter(header))
+
+    def test_real_curl_upload_reports_progress_and_keeps_the_key_off_argv(self):
+        import http.server
+        import threading
+
+        received = {}
+
+        class Handler(http.server.BaseHTTPRequestHandler):
+            def do_POST(self):
+                body = self.rfile.read(int(self.headers["Content-Length"]))
+                received["query"], received["bytes"] = self.path, len(body)
+                payload = b'{"result":[{"filecode":"code42"}]}'
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(payload)))
+                self.end_headers()
+                self.wfile.write(payload)
+
+            def log_message(self, *args):
+                pass
+
+        server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        self.addCleanup(server.shutdown)
+        key = "VOEKEY-REAL-CURL-123"
+        uploader = ch.HostUploader("voe", key)
+        real, argv = ch._run_curl, []
+
+        def spy(args, step):
+            argv.extend(args)
+            return real(args, step)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            video = Path(tmp) / "v.mp4"
+            video.write_bytes(os.urandom(2 * 1024 * 1024))
+            out = io.StringIO()
+            env = {"NO_PROXY": "127.0.0.1,localhost", "no_proxy": "127.0.0.1,localhost"}
+            with mock.patch.dict(os.environ, env), \
+                    mock.patch.object(uploader, "_get", return_value={"result": f"http://127.0.0.1:{server.server_port}/up"}), \
+                    mock.patch.object(ch, "_run_curl", side_effect=spy):
+                with ch.Step("Upload lên voe", out=out) as step:
+                    code = uploader.upload(video, "T", step=step)
+        self.assertEqual(code, "code42")
+        self.assertEqual(received["query"], f"/up?key={key}")
+        self.assertGreater(received["bytes"], 2 * 1024 * 1024)
+        self.assertEqual(step.total, 2 * 1024 * 1024)
+        self.assertGreaterEqual(step.done, 2 * 1024 * 1024)  # multipart adds a few headers
+        self.assertNotIn(key, " ".join(argv))
+        self.assertNotIn(key, out.getvalue())
+        self.assertIn("✓ Upload lên voe", out.getvalue())
+
+
+@unittest.skipUnless(HAS_FFMPEG, "needs ffmpeg")
+class FfmpegProgressTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+        self.source = self.tmp / "source.mp4"
+        subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", "testsrc=size=640x360:rate=25:duration=6",
+                        "-f", "lavfi", "-i", "sine=duration=6", "-shortest", "-pix_fmt", "yuv420p", str(self.source)],
+                       check=True)
+
+    def test_watermark_moves_to_100_percent(self):
+        seen = []
+        out = io.StringIO()
+        with ch.Step("Watermark", out=out, interval=0) as step:
+            original = step.set
+            step.set = lambda value: (seen.append(value), original(value))[1]
+            ch.watermark(self.source, self.tmp / "up.mp4", HERE / "assets" / "logo-mark.svg", 640, 6.0, step)
+        self.assertEqual(step.unit, "s")
+        self.assertEqual(step.total, 6.0)
+        self.assertEqual(seen[-1], 6.0)
+        self.assertTrue(all(0 <= value <= 6.0 for value in seen))
+        self.assertIn("%", out.getvalue())
+        self.assertTrue((self.tmp / "up.mp4").stat().st_size > 0)
+
+    def test_x_clip_progress_uses_clip_length(self):
+        with ch.Step("Cắt clip X", out=io.StringIO()) as step:
+            clip = ch.cut_x_clip(self.source, self.tmp / "clip.mp4", 6.0, start=2, seconds=3,
+                                 label="gayvideo.fun", step=step)
+        self.assertEqual(step.total, 3.0)
+        self.assertEqual(step.done, 3.0)
+        self.assertAlmostEqual(ch.probe(clip)["duration"], 3.0, delta=0.2)
+        with ch.Step("Cắt clip X", out=io.StringIO()) as step:
+            ch.cut_x_clip(self.source, self.tmp / "clip2.mp4", 6.0, start=4, seconds=120, step=step)
+        self.assertEqual(step.total, 2.0)
+
+    def test_ffmpeg_failure_raises(self):
+        with self.assertRaises(RuntimeError):
+            ch.run_ffmpeg(["ffmpeg", "-y", "-i", str(self.tmp / "missing.mp4"), str(self.tmp / "o.mp4")], 1.0)
+
+
+class ClipUploadProgressTest(unittest.TestCase):
+    def test_reader_reports_cumulative_bytes(self):
+        import gayvideo_publish as gp
+        seen = []
+        reader = gp._ProgressReader(io.BytesIO(b"a" * 20_000), seen.append)
+        while reader.read(8192):
+            pass
+        self.assertEqual(seen, [8192, 16384, 20000, 20000])
 
 
 class ClipLabelTest(unittest.TestCase):
