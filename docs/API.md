@@ -47,6 +47,9 @@ Token có quyền đăng bài lên web, nên giữ kín như mật khẩu: khôn
 
 ## 3. Dùng trên Google Colab
 
+> **Notebook dựng sẵn:** `scripts/publish-client/colab_publish.ipynb` (mở bằng *File → Upload notebook* trên Colab). Notebook nhận link Google Photos (một video hoặc album; Drive là phương án phụ), tải bản gốc, gắn watermark, upload lên host, tạo thumbnail, rồi đăng lên web và X; có sổ ghi để không đăng trùng. Logo watermark lấy từ `scripts/publish-client/assets/logo-mark.svg` trên GitHub (nhánh main, repo công khai) và được kiểm tra ngay đầu ô Đăng, trước khi tải video; đổi bằng ô `LOGO_URL`. Hướng dẫn nằm ngay đầu notebook. Notebook được sinh từ `build_notebook.py`: sửa code thì chạy lại `python3 scripts/publish-client/build_notebook.py`.
+
+
 1. Mở biểu tượng chìa khóa (**Secrets**) ở thanh bên trái của Colab, thêm secret tên `GAYVIDEO_API_TOKEN` với giá trị là token, rồi bật *Notebook access*.
 2. Đưa file `gayvideo_publish.py` vào Colab: kéo thả vào thư mục `/content`, hoặc lấy từ Google Drive.
 3. Chạy:
@@ -210,6 +213,7 @@ except PublishError as e:
     print("Bị từ chối:", e.status, e.code, e)
 ```
 
+- **Chữ trên clip:** clip tự cắt có chữ `gayvideo.fun` ở cạnh dưới, để vẫn thấy tên trang khi clip bị tải về hoặc đăng lại. Đổi chữ bằng `x_label="…"` (dòng lệnh: `--x-label "…"`), tắt bằng `x_label=None` (dòng lệnh: `--x-label ""`). Logo góc trên đến từ watermark của file nguồn. Link bài viết luôn nằm trong nội dung bài X, sau caption.
 - **Đã có clip cắt sẵn:** truyền `x_clip="/content/clip.mp4"` thay cho `x_video`. Clip phải là MP4 H.264/AAC, có `+faststart`, và không dài quá `X_CLIP_SECONDS`.
 - **Đổi độ dài clip cho một lần chạy:** truyền `x_clip_seconds=…`, hoặc đặt biến môi trường `X_CLIP_SECONDS` trên Colab hay laptop. Server vẫn từ chối clip dài hơn giới hạn của server.
 - **Đăng dạng nháp** (`publish=False`): bài X chờ ở trạng thái `waiting`, và tự vào hàng đợi khi bạn bấm *Approve & publish* trong admin.
