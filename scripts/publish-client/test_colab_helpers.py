@@ -253,6 +253,97 @@ class LedgerTest(unittest.TestCase):
         self.assertEqual(again.done_hashes(), {"h1"})
 
 
+class LogoSession:
+    """Answers the logo URL with the given (status, body) pairs in turn."""
+
+    def __init__(self, *answers):
+        self.answers, self.calls = list(answers), 0
+
+    def get(self, url, **kwargs):
+        self.calls += 1
+        status, body = self.answers.pop(0)
+        response = FakeResponse(status=status, url=url)
+        response.content = body
+        return response
+
+
+LOGO_SVG = (HERE / "assets" / "logo-mark.svg").read_bytes()
+HTML_404 = b"<!DOCTYPE html><html><head><title>404</title></head><body>Not found</body></html>"
+
+
+@unittest.skipUnless(shutil.which("rsvg-convert"), "needs rsvg-convert")
+class LogoTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+
+    def load(self, *answers):
+        session = LogoSession(*answers)
+        return ch.load_logo(ch.LOGO_URL, self.tmp, session=session, base_delay=0), session
+
+    def test_logo_in_the_repo_renders(self):
+        path, _ = self.load((200, LOGO_SVG))
+        self.assertEqual(path.name, "gv-logo.svg")
+        self.assertGreater((self.tmp / "gv-logo-check.png").stat().st_size, 0)
+
+    def test_default_url_points_at_the_repo_file(self):
+        self.assertTrue(ch.LOGO_URL.endswith("/main/scripts/publish-client/assets/logo-mark.svg"))
+        import build_notebook
+        self.assertIn(f'LOGO_URL = "{ch.LOGO_URL}"', build_notebook.CONFIG)
+        # Same mark as the site's logo.
+        self.assertEqual(LOGO_SVG, (HERE.parent.parent / "public" / "brand" / "logo-mark.svg").read_bytes())
+
+    def test_html_404_page_is_refused_before_any_video(self):
+        with self.assertRaises(ch.LogoError) as caught:
+            self.load((404, HTML_404))
+        self.assertIn("HTTP 404", str(caught.exception))
+        # Some servers answer 200 with an HTML page: also refused, clearly.
+        with self.assertRaises(ch.LogoError) as caught:
+            self.load((200, HTML_404))
+        self.assertIn("trang HTML", str(caught.exception))
+
+    def test_xml_that_is_not_svg_is_refused(self):
+        with self.assertRaises(ch.LogoError):
+            self.load((200, b"<?xml version='1.0'?><html xmlns='http://www.w3.org/1999/xhtml'/>"))
+
+    def test_svg_that_rsvg_cannot_render_is_refused(self):
+        with self.assertRaises(ch.LogoError) as caught:
+            self.load((200, b"<svg xmlns='http://www.w3.org/2000/svg' width='0' height='0'/>"))
+        self.assertIn("không render được", str(caught.exception))
+
+    def test_png_logo_works(self):
+        from PIL import Image
+        buffer = io.BytesIO()
+        Image.new("RGBA", (300, 300), (255, 0, 0, 255)).save(buffer, "PNG")
+        path, _ = self.load((200, buffer.getvalue()))
+        self.assertEqual(path.suffix, ".png")
+        with self.assertRaises(ch.LogoError):
+            self.load((200, ch.PNG_MAGIC + b"broken"))
+
+    def test_server_errors_are_retried(self):
+        path, session = self.load((503, b""), (200, LOGO_SVG))
+        self.assertEqual(session.calls, 2)
+        with self.assertRaises(ch.LogoError) as caught:
+            self.load((503, b""), (503, b""), (503, b""))
+        self.assertIn("3 lần", str(caught.exception))
+
+    def test_local_file_path(self):
+        path = ch.load_logo(str(HERE / "assets" / "logo-mark.svg"), self.tmp)
+        self.assertEqual(path.name, "gv-logo.svg")
+        with self.assertRaises(ch.LogoError):
+            ch.load_logo(str(self.tmp / "missing.svg"), self.tmp)
+
+
+class InputExampleTest(unittest.TestCase):
+    def test_example_line_in_the_notebook_posts_nothing(self):
+        import build_notebook
+        cell = build_notebook.INPUT
+        links = cell[cell.index('LINKS = """') + 11:cell.index('"""', cell.index('LINKS = """') + 11)]
+        self.assertIn("photos.app.goo.gl/XXXXXXXX", links)
+        self.assertEqual(ch.parse_lines(links), [])
+        self.assertIn('X_CAPTION_TEMPLATE = "New video: {title} 🔥"', build_notebook.CONFIG)
+
+
 class ClipLabelTest(unittest.TestCase):
     def test_label_is_escaped_for_both_ffmpeg_levels(self):
         import gayvideo_publish as gp

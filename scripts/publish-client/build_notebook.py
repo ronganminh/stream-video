@@ -85,6 +85,8 @@ CLIP_START = 0  #@param {type:"number"}
 X_LABEL = "gayvideo.fun"  #@param {type:"string"}
 #@markdown Gắn watermark GayVideo.fun trước khi upload (giống luồng hiện tại).
 WATERMARK = True  #@param {type:"boolean"}
+#@markdown Logo watermark (SVG hoặc PNG): mặc định lấy từ GitHub, nhánh main. Có thể thay bằng URL khác hoặc đường dẫn file, ví dụ trên Drive.
+LOGO_URL = "https://raw.githubusercontent.com/ronganminh/stream-video/main/scripts/publish-client/assets/logo-mark.svg"  #@param {type:"string"}
 #@markdown Upload thêm lên các host phụ (cần key trong Secrets).
 UPLOAD_MIRRORS = False  #@param {type:"boolean"}
 #@markdown Lấy thumbnail ở giây thứ (-1 = tự chọn, khoảng 20% thời lượng).
@@ -104,7 +106,8 @@ elif LEDGER_PATH.startswith("/content/drive"):
 INPUT = '''#@title 3. Danh sách video
 #@markdown Mỗi dòng: `link | tiêu đề | tag1, tag2 | category | caption X (tiếng Anh) | giây bắt đầu clip`. Chỉ link là bắt buộc. Album → mỗi video một bài, tiêu đề tự thêm "– P1, P2…". Dòng bắt đầu bằng `#` bị bỏ qua.
 LINKS = """
-# https://photos.app.goo.gl/XXXXXXXX | Bevis Trần Đức Vương – My love story | Bevis, Couple | couple | Bevis & his love story 🔥 | 30
+# Dòng mẫu (bắt đầu bằng # nên không được đăng). Xoá dấu # và thay bằng nội dung thật:
+# https://photos.app.goo.gl/XXXXXXXX | Tiêu đề video | tag1, tag2 | category | English caption | 0
 """
 #@markdown Hoặc đọc từ CSV (cột: `link,title,tags,category,x_caption,clip_start`); để trống nếu dùng ô trên.
 CSV_PATH = ""  #@param {type:"string"}
@@ -136,16 +139,25 @@ import shutil, tempfile
 from pathlib import Path
 
 import pandas as pd
-import requests
 from google.colab import userdata
 from IPython.display import display
 
-from colab_helpers import (HostUploader, Ledger, SourceError, ascii_text, make_thumbnail, probe,
-                           redact, register_secret, sha256_file, source_items, watermark)
+from colab_helpers import (HostUploader, Ledger, LogoError, SourceError, ascii_text, load_logo,
+                           make_thumbnail, probe, redact, register_secret, sha256_file, source_items,
+                           watermark)
 from gayvideo_publish import GayVideoClient, PublishError
 
 if not globals().get("XAC_NHAN"):
     raise SystemExit("Dừng: hãy đánh dấu ô xác nhận ở bước 4 rồi chạy lại ô đó.")
+
+# Kiểm tra logo trước khi đụng tới video nào.
+logo = None
+if WATERMARK:
+    try:
+        logo = load_logo(LOGO_URL, Path("/content/gv-logo"))
+    except LogoError as error:
+        raise SystemExit(f"Dừng: {error} Sửa LOGO_URL ở bước 2 (hoặc tắt WATERMARK) rồi chạy lại.")
+    print("Logo OK:", logo.name)
 
 
 def secret(name):
@@ -174,10 +186,6 @@ if POST_TO_X and not meta.get("x", {}).get("enabled"):
     print("Lưu ý: server chưa cấu hình Buffer; bài X sẽ chờ trong hàng đợi.")
 print(f"Host chính: {primary}; upload lên: {', '.join(uploaders)}")
 
-logo = None
-if WATERMARK:
-    logo = Path("/content/gv-logo.svg")
-    logo.write_bytes(requests.get(API_URL.rstrip("/") + "/brand/logo-mark.svg", timeout=60).content)
 
 ledger = Ledger(LEDGER_PATH)
 results = []

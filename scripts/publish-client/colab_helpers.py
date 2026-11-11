@@ -394,16 +394,92 @@ def make_thumbnail(source: Path, target: Path, duration: float, at: Optional[flo
     return target
 
 
-def watermark(source: Path, target: Path, logo_svg: Path, width: int) -> Path:
+LOGO_URL = ("https://raw.githubusercontent.com/ronganminh/stream-video/main/"
+            "scripts/publish-client/assets/logo-mark.svg")
+PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
+
+
+class LogoError(RuntimeError):
+    pass
+
+
+def render_logo(logo: Path, size: int, out_png: Path) -> Path:
+    """The logo as a size x size PNG: SVG through rsvg-convert, PNG through Pillow."""
+    from PIL import Image
+
+    if logo.suffix.lower() == ".png":
+        image = Image.open(logo).convert("RGBA")
+        image.thumbnail((size, size))
+        image.save(out_png)
+    else:
+        run(["rsvg-convert", "-w", str(size), "-h", str(size), "-o", str(out_png), str(logo)], timeout=120)
+    return out_png
+
+
+def load_logo(url: str, folder: Path, session: Any = None, attempts: int = 3, base_delay: float = 3.0) -> Path:
+    """Download the watermark logo and prove it renders, before any video is
+    touched. url may also be a local path (e.g. a file on Drive). Raises LogoError with the reason (HTTP error, an HTML page
+    instead of an image, invalid SVG/PNG, rsvg-convert failing)."""
+    import xml.etree.ElementTree as ET
+
+    data = b""
+    if not url.startswith(("http://", "https://")):
+        try:
+            data = Path(url).expanduser().read_bytes()
+        except OSError as error:
+            raise LogoError(f"Không đọc được file logo {url}: {error}.") from None
+        attempts = 0
+    session = session or requests.Session()
+    for attempt in range(attempts):
+        try:
+            response = session.get(url, timeout=60)
+        except requests.RequestException as error:
+            problem = f"lỗi mạng ({redact(str(error), 200)})"
+        else:
+            if response.status_code == 200:
+                data = response.content
+                break
+            problem = f"HTTP {response.status_code}"
+            if response.status_code != 429 and response.status_code < 500:
+                raise LogoError(f"Không tải được logo {url}: {problem}.")
+        if attempt == attempts - 1:
+            raise LogoError(f"Không tải được logo {url} sau {attempts} lần thử: {problem}.")
+        time.sleep(base_delay * (2 ** attempt))
+
+    folder.mkdir(parents=True, exist_ok=True)
+    if data.startswith(PNG_MAGIC):
+        path = folder / "gv-logo.png"
+    else:
+        try:
+            root = ET.fromstring(data)
+        except ET.ParseError as error:
+            head = data[:200].decode("utf-8", "replace").strip().lower()
+            kind = "một trang HTML" if head.startswith(("<!doctype html", "<html")) else "không phải SVG/PNG"
+            raise LogoError(f"logo {url} là {kind}, không dùng được ({error}).") from None
+        tag = root.tag.rsplit("}", 1)[-1].lower()
+        if tag == "html":
+            raise LogoError(f"logo {url} là một trang HTML, không dùng được.")
+        if tag != "svg":
+            raise LogoError(f"logo {url}: XML nhưng không phải SVG (thẻ gốc <{tag}>).")
+        path = folder / "gv-logo.svg"
+    path.write_bytes(data)
+    try:
+        render_logo(path, 150, folder / "gv-logo-check.png")
+    except Exception as error:
+        raise LogoError(f"logo {url} không render được: {redact(str(error), 300)}") from None
+    return path
+
+
+def watermark(source: Path, target: Path, logo: Path, width: int) -> Path:
     """Same mark as the migration pipeline (scripts/video-migration/common.py):
-    the logo with "GayVideo.fun" under it, top right, 82% opacity."""
+    the logo with "GayVideo.fun" under it, top right, 82% opacity. logo is
+    an SVG or PNG file (see load_logo)."""
     from PIL import Image, ImageDraw, ImageFont
 
     logo_size = max(48, min(150, round(width * 0.07)))
     font_size = max(12, min(28, round(width * 0.014)))
     margin = max(12, round(width * 0.0125))
-    logo_png = target.with_name("logo.png")
-    run(["rsvg-convert", "-w", str(logo_size), "-h", str(logo_size), "-o", str(logo_png), str(logo_svg)], timeout=120)
+    logo_png = render_logo(logo, logo_size, target.with_name("logo.png"))
 
     text_width = round(font_size * 7.4)
     canvas = Image.new("RGBA", (max(logo_size, text_width), logo_size + round(font_size * 1.65) + 4), (0, 0, 0, 0))
