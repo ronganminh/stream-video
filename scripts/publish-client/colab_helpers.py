@@ -68,6 +68,7 @@ class Job:
     category: str = ""
     x_caption: str = ""
     clip_start: Optional[float] = None
+    keywords: str = ""  # Vietnamese keywords for the AI caption (never posted)
 
 
 def _split_tags(value: str) -> List[str]:
@@ -75,15 +76,15 @@ def _split_tags(value: str) -> List[str]:
 
 
 def parse_lines(text: str) -> List[Job]:
-    """`link | title | tags | category | x caption | clip start`, all but the
-    link optional; blank lines and lines starting with # are ignored."""
+    """`link | title | tags | category | x caption | clip start | keywords`,
+    all but the link optional; blank lines and lines starting with # are ignored."""
     jobs = []
     for raw in (text or "").splitlines():
         line = raw.strip()
         if not line or line.startswith("#"):
             continue
         parts = [part.strip() for part in line.split("|")]
-        parts += [""] * (6 - len(parts))
+        parts += [""] * (7 - len(parts))
         start = parts[5]
         jobs.append(
             Job(
@@ -93,13 +94,14 @@ def parse_lines(text: str) -> List[Job]:
                 category=parts[3],
                 x_caption=parts[4],
                 clip_start=float(start) if start else None,
+                keywords="|".join(parts[6:]).strip(),
             )
         )
     return jobs
 
 
 def parse_csv(path: str) -> List[Job]:
-    """CSV with a header: link (required), title, tags, category, x_caption, clip_start."""
+    """CSV with a header: link (required), title, tags, category, x_caption, clip_start, keywords."""
     jobs = []
     with open(path, newline="", encoding="utf-8-sig") as handle:
         for row in csv.DictReader(handle):
@@ -115,6 +117,7 @@ def parse_csv(path: str) -> List[Job]:
                     category=(row.get("category") or "").strip(),
                     x_caption=(row.get("x_caption") or "").strip(),
                     clip_start=float(start) if start else None,
+                    keywords=(row.get("keywords") or "").strip(),
                 )
             )
     return jobs
@@ -146,7 +149,7 @@ class Step:
     place (carriage return), then replaced by "✓ name · 12.3 s" when done
     (or "✗ name · …" if it raised). unit "B" shows %, MB, MB/s and time
     left; unit "s" (ffmpeg) shows %, media time, speed (x real time) and
-    time left. total may be set later (e.g. from Content-Length).
+    time left; any other unit is a count ("2/4 khung hình"). total may be set later (e.g. from Content-Length).
 
         with Step("Tải Google Photos") as step:
             step.total = 1_000_000
@@ -203,9 +206,11 @@ class Step:
         if self.unit == "B":
             parts.append(f"{_mb(self.done)}/{_mb(total)} MB" if total else f"{_mb(self.done)} MB")
             parts.append(f"{_mb(rate)} MB/s")
-        else:
+        elif self.unit == "s":
             parts.append(f"{_clock(self.done)}/{_clock(total)}" if total else _clock(self.done))
             parts.append(f"{rate:.1f}x")
+        else:  # a count, e.g. unit="khung hình"
+            parts.append(f"{int(self.done)}/{int(total)} {self.unit}" if total else f"{int(self.done)} {self.unit}")
         if total and rate > 0 and self.done < total:
             parts.append(f"còn {_clock((total - self.done) / rate)}")
         return " · ".join(parts)
