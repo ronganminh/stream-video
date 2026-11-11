@@ -253,6 +253,26 @@ class LedgerTest(unittest.TestCase):
         self.assertEqual(again.done_hashes(), {"h1"})
 
 
+class ClipLabelTest(unittest.TestCase):
+    def test_label_is_escaped_for_both_ffmpeg_levels(self):
+        import gayvideo_publish as gp
+        self.assertEqual(gp._filter_value("a:b,c'd[e];f\\g"), r"a\\:b\,c\\\'d\[e\]\;f\\\\g")
+        self.assertIn("text=gayvideo.fun:", gp.label_filter(" gayvideo.fun "))
+
+    @unittest.skipUnless(HAS_FFMPEG, "needs ffmpeg")
+    def test_clip_with_awkward_label_still_encodes(self):
+        import gayvideo_publish as gp
+        with tempfile.TemporaryDirectory() as tmp:
+            source = os.path.join(tmp, "source.mp4")
+            subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i",
+                            "testsrc=size=640x360:rate=10:duration=2", "-pix_fmt", "yuv420p", source], check=True)
+            clip = gp.cut_clip(source, os.path.join(tmp, "clip.mp4"), seconds=1,
+                               label="50% off: a,b \\ it's [x]; Trần Đức")
+            self.assertGreater(os.path.getsize(clip), 0)
+            plain = gp.cut_clip(source, os.path.join(tmp, "plain.mp4"), seconds=1, label="")
+            self.assertGreater(os.path.getsize(plain), 0)
+
+
 class NotebookTest(unittest.TestCase):
     def test_notebook_is_built_from_the_current_sources(self):
         result = subprocess.run([sys.executable, str(HERE / "build_notebook.py"), "--check"],

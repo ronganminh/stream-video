@@ -152,11 +152,13 @@ class GayVideoClient:
         x_clip: Optional[str] = None,
         x_clip_start: float = 0,
         x_clip_seconds: Optional[int] = None,
+        x_label: Optional[str] = "gayvideo.fun",
     ) -> dict:
         """Create the video, or update the draft its files already belong to.
 
         For X, pass x_caption (English) and either x_video (the source file;
-        a clip is cut from x_clip_start) or x_clip (an MP4 you cut yourself).
+        a clip is cut from x_clip_start, with x_label such as "gayvideo.fun"
+        burned in at the bottom; None = no text) or x_clip (an MP4 you cut yourself).
         The X post goes out once the video is public; it never blocks the web.
 
         Returns {"created": bool, "video": {...}, "x": {...}?, "warnings": [...]}.
@@ -173,7 +175,7 @@ class GayVideoClient:
                 workdir = tempfile.mkdtemp(prefix="gv-clip-")
                 try:
                     clip_path = cut_clip(x_video, os.path.join(workdir, "clip.mp4"),
-                                         start=x_clip_start, seconds=seconds)
+                                         start=x_clip_start, seconds=seconds, label=x_label)
                     clip_id = self.upload_clip(clip_path)["clipId"]
                 finally:
                     shutil.rmtree(workdir, ignore_errors=True)
@@ -204,11 +206,45 @@ class GayVideoClient:
         return self._request("POST", "/api/v1/videos", body)
 
 
-def cut_clip(source: str, output: str, *, start: float = 0, seconds: int = 120) -> str:
+# Fonts tried for the clip label, in order; without one, ffmpeg's fontconfig
+# picks a default sans font.
+LABEL_FONTS = (
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+    "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+    "/Library/Fonts/Arial Bold.ttf",
+    "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
+    "C:/Windows/Fonts/arialbd.ttf",
+)
+
+
+def _filter_value(value: str) -> str:
+    """Escape a filter option value for both ffmpeg parsing levels: the
+    option string (\\ ' :) and then the filter graph (\\ ' [ ] , ;)."""
+    for level in ("\\':", "\\'[],;"):
+        value = "".join("\\" + c if c in level else c for c in value)
+    return value
+
+
+def label_filter(label: str) -> str:
+    """A drawtext filter that writes label at the bottom centre of the clip,
+    white on a translucent box, sized to the frame (works for portrait too)."""
+    font = next((f for f in LABEL_FONTS if os.path.exists(f)), None)
+    font_opt = f"fontfile={_filter_value(font)}:" if font else "font=Sans:"
+    return (
+        f"drawtext={font_opt}expansion=none:text={_filter_value(label.strip())}:fontcolor=white:"
+        "fontsize='max(16,min(w,h)/18)':box=1:boxcolor=black@0.45:boxborderw=10:"
+        "x='(w-text_w)/2':y='h-text_h-min(w,h)/14'"
+    )
+
+
+def cut_clip(source: str, output: str, *, start: float = 0, seconds: int = 120,
+             label: Optional[str] = None) -> str:
     """Cut and re-encode a clip X accepts: MP4, H.264 High (yuv420p), AAC-LC
     stereo 44.1 kHz, longest side at most 1280 and 60 fps, moov at the start
-    (+faststart). seconds=0 keeps the whole video. Needs ffmpeg on PATH
-    (Colab has it; Windows: winget install Gyan.FFmpeg; macOS: brew install ffmpeg).
+    (+faststart). seconds=0 keeps the whole video. label (e.g. "gayvideo.fun")
+    is burned in at the bottom so the site stays visible if the clip is
+    re-shared. Needs ffmpeg on PATH (Colab has it; Windows: winget install
+    Gyan.FFmpeg; macOS: brew install ffmpeg).
     """
     if shutil.which("ffmpeg") is None:
         raise RuntimeError("ffmpeg is not installed (see docs/API.md)")
@@ -218,10 +254,13 @@ def cut_clip(source: str, output: str, *, start: float = 0, seconds: int = 120) 
     command += ["-i", source]
     if seconds:
         command += ["-t", str(seconds)]
+    # Longest side at most 1280 (720p landscape or portrait), even sizes.
+    video_filter = "scale='if(gte(iw,ih),min(1280,iw),-2)':'if(gte(iw,ih),-2,min(1280,ih))'"
+    if label and label.strip():
+        video_filter += "," + label_filter(label)
     command += [
         "-map", "0:v:0", "-map", "0:a:0?",
-        # Longest side at most 1280 (720p landscape or portrait), even sizes.
-        "-vf", "scale='if(gte(iw,ih),min(1280,iw),-2)':'if(gte(iw,ih),-2,min(1280,ih))'",
+        "-vf", video_filter,
         "-fpsmax", "60",
         "-c:v", "libx264", "-profile:v", "high", "-level:v", "4.1", "-pix_fmt", "yuv420p",
         "-preset", "medium", "-crf", "23", "-maxrate", "6M", "-bufsize", "12M",
@@ -271,6 +310,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--x-start", type=float, default=0, help="clip start, in seconds")
     parser.add_argument("--x-seconds", type=int, default=None,
                         help="clip length (default: X_CLIP_SECONDS from the server; 0 = full)")
+    parser.add_argument("--x-label", default="gayvideo.fun",
+                        help='text burned into the bottom of the X clip ("" = none)')
     parser.add_argument("--base-url", default=None)
     args = parser.parse_args(argv)
 
@@ -291,6 +332,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             x_clip=args.x_clip,
             x_clip_start=args.x_start,
             x_clip_seconds=args.x_seconds,
+            x_label=args.x_label or None,
         )
     except PublishError as error:
         print(f"Refused: {error}", file=sys.stderr)

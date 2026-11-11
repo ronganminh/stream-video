@@ -213,6 +213,7 @@ except PublishError as e:
     print("Bị từ chối:", e.status, e.code, e)
 ```
 
+- **Chữ trên clip:** clip tự cắt có chữ `gayvideo.fun` ở cạnh dưới, để vẫn thấy tên trang khi clip bị tải về hoặc đăng lại. Đổi chữ bằng `x_label="…"` (dòng lệnh: `--x-label "…"`), tắt bằng `x_label=None` (dòng lệnh: `--x-label ""`). Logo góc trên đến từ watermark của file nguồn. Link bài viết luôn nằm trong nội dung bài X, sau caption.
 - **Đã có clip cắt sẵn:** truyền `x_clip="/content/clip.mp4"` thay cho `x_video`. Clip phải là MP4 H.264/AAC, có `+faststart`, và không dài quá `X_CLIP_SECONDS`.
 - **Đổi độ dài clip cho một lần chạy:** truyền `x_clip_seconds=…`, hoặc đặt biến môi trường `X_CLIP_SECONDS` trên Colab hay laptop. Server vẫn từ chối clip dài hơn giới hạn của server.
 - **Đăng dạng nháp** (`publish=False`): bài X chờ ở trạng thái `waiting`, và tự vào hàng đợi khi bạn bấm *Approve & publish* trong admin.

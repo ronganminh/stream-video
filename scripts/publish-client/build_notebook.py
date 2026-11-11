@@ -27,7 +27,7 @@ Notebook này lấy video từ **link chia sẻ Google Photos** `photos.app.goo.
 2. gắn watermark GayVideo.fun (giống luồng migration hiện tại);
 3. upload lên **host chính**, và các host phụ nếu bật, để lấy mã file;
 4. tạo thumbnail;
-5. gọi **publish API**: lên web, và nếu bật thì vào hàng đợi đăng **X @Gayvideofun** qua Buffer, với clip ngắn cắt bằng ffmpeg và caption tiếng Anh.
+5. gọi **publish API**: lên web, và nếu bật thì vào hàng đợi đăng **X @Gayvideofun** qua Buffer, với clip ngắn cắt bằng ffmpeg (có logo và chữ `gayvideo.fun` ở cạnh dưới) và caption tiếng Anh kèm link bài viết.
 
 ### Chuẩn bị (một lần)
 - **Colab Secrets** (biểu tượng 🔑 bên trái, bật *Notebook access* cho từng secret):
@@ -81,6 +81,8 @@ POST_TO_X = True  #@param {type:"boolean"}
 X_CAPTION_TEMPLATE = "New video: {title} 🔥"  #@param {type:"string"}
 #@markdown Clip X bắt đầu từ giây thứ (khi dòng không ghi riêng).
 CLIP_START = 0  #@param {type:"number"}
+#@markdown Chữ in ở cạnh dưới clip X (logo đã có sẵn nhờ watermark); để trống = không in.
+X_LABEL = "gayvideo.fun"  #@param {type:"string"}
 #@markdown Gắn watermark GayVideo.fun trước khi upload (giống luồng hiện tại).
 WATERMARK = True  #@param {type:"boolean"}
 #@markdown Upload thêm lên các host phụ (cần key trong Secrets).
@@ -236,6 +238,7 @@ for job in JOBS:
                 title, codes, tags=job.tags or None, category=category, thumbnail=str(thumb), publish=PUBLISH,
                 x_caption=caption if POST_TO_X else None, x_video=str(upload_file) if POST_TO_X else None,
                 x_clip_start=job.clip_start if job.clip_start is not None else CLIP_START,
+                x_label=X_LABEL.strip() or None,
             )
             video = result["video"]
             url = API_URL.rstrip("/") + video["url"]
