@@ -135,16 +135,16 @@ print("Đã xác nhận lúc", XAC_NHAN_LUC) if XAC_NHAN else print("Chưa xác 
 """
 
 RUN = """#@title 5. Đăng
-import shutil, tempfile
+import shutil, tempfile, time
 from pathlib import Path
 
 import pandas as pd
 from google.colab import userdata
 from IPython.display import display
 
-from colab_helpers import (HostUploader, Ledger, LogoError, SourceError, ascii_text, load_logo,
-                           make_thumbnail, probe, redact, register_secret, sha256_file, source_items,
-                           watermark)
+from colab_helpers import (HostUploader, Ledger, LogoError, SourceError, Step, ascii_text, batch_line,
+                           cut_x_clip, load_logo, make_thumbnail, probe, redact, register_secret,
+                           sha256_file, source_items, watermark)
 from gayvideo_publish import GayVideoClient, PublishError
 
 if not globals().get("XAC_NHAN"):
@@ -196,74 +196,104 @@ def note(job, title, status, detail="", url="", x=""):
                     "link web": url, "X": x, "ghi chú": redact(detail, 300)})
 
 
+# Đọc hết các link trước để biết cả lô có bao nhiêu video.
+queue = []
 for job in JOBS:
     try:
-        album_title, items = source_items(job.link)
+        with Step(f"Đọc link {job.link[:60]}", indent="") as step:
+            album_title, items = source_items(job.link)
+            step.extra = f"{len(items)} video"
     except Exception as error:  # one bad link never stops the batch
+        print("  ", redact(error, 300))
         note(job, job.title, "lỗi", error)
         ledger.add(link=job.link, status="error", error=redact(error))
         continue
     if not items:
         note(job, job.title, "lỗi", "Không có video nào trong link.")
         continue
-
     for index, item in enumerate(items):
         base_title = job.title or album_title or f"Video {datetime.date.today():%d-%m-%Y}"
         title = f"{base_title} – P{index + 1}" if len(items) > 1 else base_title
-        if item.key in ledger.done_keys():
-            note(job, title, "bỏ qua", "Đã đăng trước đó (theo link).")
+        queue.append((job, item, title))
+
+clip_seconds = client.clip_seconds() if POST_TO_X else 0
+batch_started = time.monotonic()
+for number, (job, item, title) in enumerate(queue, 1):
+    batch_line(number, len(queue), title)
+    if item.key in ledger.done_keys():
+        print("  bỏ qua: đã đăng trước đó (theo link)")
+        note(job, title, "bỏ qua", "Đã đăng trước đó (theo link).")
+        continue
+    work = Path(tempfile.mkdtemp(prefix="gv-job-"))
+    codes, digest = {}, ""
+    video_started = time.monotonic()
+    try:
+        with Step(f"Tải từ {item.source}") as step:
+            source = item.download(work / "source.mp4", step=step)
+        with Step("Kiểm tra trùng (sha256)") as step:
+            digest = sha256_file(source, step=step)
+        if digest in ledger.done_hashes():
+            print("  bỏ qua: đã đăng trước đó (cùng file)")
+            note(job, title, "bỏ qua", "Đã đăng trước đó (cùng file).")
+            ledger.add(link=job.link, item_key=item.key, sha256=digest, title=title, status="duplicate")
             continue
-        work = Path(tempfile.mkdtemp(prefix="gv-job-"))
-        codes, digest = {}, ""
-        try:
-            print(f"▶ {title}: tải video…")
-            source = item.download(work / "source.mp4")
-            digest = sha256_file(source)
-            if digest in ledger.done_hashes():
-                note(job, title, "bỏ qua", "Đã đăng trước đó (cùng file).")
-                ledger.add(link=job.link, item_key=item.key, sha256=digest, title=title, status="duplicate")
-                continue
-            info = probe(source)
-            upload_file = watermark(source, work / "upload.mp4", logo, info["width"]) if WATERMARK else source
+        info = probe(source)
+        upload_file = source
+        if WATERMARK:
+            with Step("Watermark (ffmpeg)") as step:
+                upload_file = watermark(source, work / "upload.mp4", logo, info["width"], info["duration"], step)
 
-            warnings = []
-            for host, uploader in uploaders.items():
-                print(f"  upload {host}…")
-                try:
-                    codes[host] = uploader.upload(upload_file, title, job.tags)
-                except Exception as error:
-                    if host == primary:
-                        raise
-                    warnings.append(f"{host}: {redact(error, 150)}")
+        warnings = []
+        for host, uploader in uploaders.items():
+            try:
+                with Step(f"Upload lên {host}") as step:
+                    codes[host] = uploader.upload(upload_file, title, job.tags, step=step)
+                    step.extra = f"mã {codes[host]}"
+            except Exception as error:
+                if host == primary:
+                    raise
+                warnings.append(f"{host}: {redact(error, 150)}")
 
+        with Step("Thumbnail") as step:
             thumb = make_thumbnail(source, work / "thumb.jpg", info["duration"], None if THUMB_AT < 0 else THUMB_AT)
-            category = job.category if job.category in categories else None
-            if job.category and not category:
-                warnings.append(f"category '{job.category}' không tồn tại, đã bỏ")
+        category = job.category if job.category in categories else None
+        if job.category and not category:
+            warnings.append(f"category '{job.category}' không tồn tại, đã bỏ")
+
+        caption, clip_id = None, None
+        if POST_TO_X:
             caption = job.x_caption or X_CAPTION_TEMPLATE.format(title=ascii_text(title))
-            print("  publish…")
+            with Step("Cắt clip X (ffmpeg)") as step:
+                clip = cut_x_clip(upload_file, work / "clip.mp4", info["duration"],
+                                  start=job.clip_start if job.clip_start is not None else CLIP_START,
+                                  seconds=clip_seconds, label=X_LABEL.strip() or None, step=step)
+            with Step("Upload clip X lên web") as step:
+                step.total = clip.stat().st_size
+                clip_id = client.upload_clip(str(clip), progress=step.set)["clipId"]
+        with Step("Publish lên web") as step:
             result = client.publish(
                 title, codes, tags=job.tags or None, category=category, thumbnail=str(thumb), publish=PUBLISH,
-                x_caption=caption if POST_TO_X else None, x_video=str(upload_file) if POST_TO_X else None,
-                x_clip_start=job.clip_start if job.clip_start is not None else CLIP_START,
-                x_label=X_LABEL.strip() or None,
+                x_caption=caption, x_clip_id=clip_id,
             )
-            video = result["video"]
-            url = API_URL.rstrip("/") + video["url"]
-            x_status = (result.get("x") or {}).get("status", "")
-            ledger.add(link=job.link, item_key=item.key, sha256=digest, title=title, video_id=video["id"],
-                       url=url, x=x_status, status="done", error=f"xác nhận {XAC_NHAN_LUC}")
-            note(job, title, "đã đăng" if video["published"] else "bản nháp", "; ".join(warnings + result["warnings"]),
-                 url, x_status)
-        except Exception as error:
-            detail = f"{error.code}: {error}" if isinstance(error, PublishError) else str(error)
-            if codes:
-                detail += f" (đã upload: {codes}; có thể đăng lại thủ công bằng mã file này)"
-            note(job, title, "lỗi", detail)
-            ledger.add(link=job.link, item_key=item.key, sha256=digest, title=title, status="error", error=redact(detail))
-        finally:
-            shutil.rmtree(work, ignore_errors=True)
+        video = result["video"]
+        url = API_URL.rstrip("/") + video["url"]
+        x_status = (result.get("x") or {}).get("status", "")
+        ledger.add(link=job.link, item_key=item.key, sha256=digest, title=title, video_id=video["id"],
+                   url=url, x=x_status, status="done", error=f"xác nhận {XAC_NHAN_LUC}")
+        note(job, title, "đã đăng" if video["published"] else "bản nháp", "; ".join(warnings + result["warnings"]),
+             url, x_status)
+        print(f"  xong video {number}/{len(queue)} sau {time.monotonic() - video_started:.0f} s: {url}")
+    except Exception as error:
+        detail = f"{error.code}: {error}" if isinstance(error, PublishError) else str(error)
+        if codes:
+            detail += f" (đã upload: {codes}; có thể đăng lại thủ công bằng mã file này)"
+        print("  lỗi:", redact(detail, 300))
+        note(job, title, "lỗi", detail)
+        ledger.add(link=job.link, item_key=item.key, sha256=digest, title=title, status="error", error=redact(detail))
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
 
+print(f"Cả lô: {len(queue)} video trong {(time.monotonic() - batch_started) / 60:.1f} phút.")
 pd.set_option("display.max_colwidth", 120)
 display(pd.DataFrame(results))
 print("Sổ ghi:", LEDGER_PATH)

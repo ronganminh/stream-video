@@ -41,7 +41,7 @@ import sys
 import tempfile
 import urllib.error
 import urllib.request
-from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple, Union
+from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple, Union
 
 DEFAULT_BASE_URL = "https://gayvideo.fun"
 MAX_THUMBNAIL_BYTES = 8 * 1024 * 1024
@@ -57,6 +57,19 @@ class PublishError(Exception):
         self.status = status
         self.code = code
         self.body = body or {}
+
+
+class _ProgressReader:
+    """File wrapper that reports how many bytes urllib has read (sent) so far."""
+
+    def __init__(self, handle: Any, progress: Callable[[int], None]):
+        self.handle, self.progress, self.sent = handle, progress, 0
+
+    def read(self, size: int = -1) -> bytes:
+        chunk = self.handle.read(size)
+        self.sent += len(chunk)
+        self.progress(self.sent)
+        return chunk
 
 
 class GayVideoClient:
@@ -79,6 +92,7 @@ class GayVideoClient:
         body: Optional[dict] = None,
         *,
         upload: Optional[str] = None,
+        progress: Optional[Callable[[int], None]] = None,
     ) -> dict:
         headers = {
             "Authorization": f"Bearer {self.token}",
@@ -90,7 +104,7 @@ class GayVideoClient:
         if upload is not None:
             # Streamed from disk, not read into memory.
             handle = open(upload, "rb")
-            data = handle
+            data = _ProgressReader(handle, progress) if progress else handle
             headers["Content-Type"] = "video/mp4"
             headers["Content-Length"] = str(os.path.getsize(upload))
         elif body is not None:
@@ -124,9 +138,10 @@ class GayVideoClient:
     def get_video(self, video_id: str) -> dict:
         return self._request("GET", f"/api/v1/videos/{video_id}")["video"]
 
-    def upload_clip(self, clip_path: str) -> dict:
-        """Upload an MP4 made by cut_clip(); returns {"clipId", "bytes", "seconds"}."""
-        return self._request("POST", "/api/v1/clips", upload=clip_path)
+    def upload_clip(self, clip_path: str, progress: Optional[Callable[[int], None]] = None) -> dict:
+        """Upload an MP4 made by cut_clip(); returns {"clipId", "bytes", "seconds"}.
+        progress, if given, is called with the number of bytes sent so far."""
+        return self._request("POST", "/api/v1/clips", upload=clip_path, progress=progress)
 
     def clip_seconds(self) -> int:
         """X_CLIP_SECONDS: from the environment if set, else the server's (0 = full video)."""
@@ -150,6 +165,7 @@ class GayVideoClient:
         x_caption: Optional[str] = None,
         x_video: Optional[str] = None,
         x_clip: Optional[str] = None,
+        x_clip_id: Optional[str] = None,
         x_clip_start: float = 0,
         x_clip_seconds: Optional[int] = None,
         x_label: Optional[str] = "gayvideo.fun",
@@ -158,16 +174,17 @@ class GayVideoClient:
 
         For X, pass x_caption (English) and either x_video (the source file;
         a clip is cut from x_clip_start, with x_label such as "gayvideo.fun"
-        burned in at the bottom; None = no text) or x_clip (an MP4 you cut yourself).
+        burned in at the bottom; None = no text), x_clip (an MP4 you cut yourself)
+        or x_clip_id (a clip already sent with upload_clip()).
         The X post goes out once the video is public; it never blocks the web.
 
         Returns {"created": bool, "video": {...}, "x": {...}?, "warnings": [...]}.
         Raises PublishError on refusal (e.g. 409 already_published).
         """
-        clip_id = None
-        if x_caption:
+        clip_id = x_clip_id
+        if x_caption and not clip_id:
             if not (x_video or x_clip):
-                raise ValueError("x_caption needs x_video (source to cut) or x_clip (ready MP4)")
+                raise ValueError("x_caption needs x_video (source to cut), x_clip (ready MP4) or x_clip_id")
             if x_clip:
                 clip_id = self.upload_clip(x_clip)["clipId"]
             else:
@@ -248,6 +265,16 @@ def cut_clip(source: str, output: str, *, start: float = 0, seconds: int = 120,
     """
     if shutil.which("ffmpeg") is None:
         raise RuntimeError("ffmpeg is not installed (see docs/API.md)")
+    command = clip_command(source, output, start=start, seconds=seconds, label=label)
+    result = subprocess.run(command, capture_output=True, text=True)
+    if result.returncode != 0 or not os.path.exists(output):
+        raise RuntimeError(f"ffmpeg failed: {result.stderr.strip()[-500:]}")
+    return output
+
+
+def clip_command(source: str, output: str, *, start: float = 0, seconds: int = 120,
+                 label: Optional[str] = None) -> List[str]:
+    """The ffmpeg command cut_clip() runs (callers may add -progress)."""
     command = ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y"]
     if start:
         command += ["-ss", str(start)]
@@ -268,10 +295,7 @@ def cut_clip(source: str, output: str, *, start: float = 0, seconds: int = 120,
         "-movflags", "+faststart",
         output,
     ]
-    result = subprocess.run(command, capture_output=True, text=True)
-    if result.returncode != 0 or not os.path.exists(output):
-        raise RuntimeError(f"ffmpeg failed: {result.stderr.strip()[-500:]}")
-    return output
+    return command
 
 
 def image_data_url(path: str) -> str:
