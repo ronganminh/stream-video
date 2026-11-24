@@ -5,6 +5,8 @@ import { requireAdmin } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 
 import { bulkVideoAction } from "./actions";
+import { X_NETWORK } from "@/lib/social/queue";
+import { xStatusLabel } from "@/lib/social/reviewPost";
 import styles from "./page.module.css";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
@@ -88,6 +90,10 @@ export default async function AdminVideosPage({
         mirrors: {
           include: { host: true },
           orderBy: { host: { sortOrder: "asc" } },
+        },
+        socialPosts: {
+          where: { network: X_NETWORK },
+          select: { status: true, lastError: true, externalLink: true },
         },
       },
     }),
@@ -227,6 +233,7 @@ export default async function AdminVideosPage({
               <th>Status</th>
               <th>Category</th>
               <th>Mirrors</th>
+              <th>X</th>
               <th>Updated</th>
               <th aria-label="Actions" />
             </tr>
@@ -262,6 +269,9 @@ export default async function AdminVideosPage({
                       {okHosts.length} OK / {video.mirrors.length} total
                     </span>
                   </td>
+                  <td>
+                    <XStatusCell post={video.socialPosts[0] ?? null} />
+                  </td>
                   <td>{video.updatedAt.toISOString()}</td>
                   <td>
                     <Link href={`/admin/videos/${video.id}`}>
@@ -280,5 +290,27 @@ export default async function AdminVideosPage({
         ) : null}
       </div>
     </main>
+  );
+}
+
+/** The video's X post status (what the review page shows too). */
+function XStatusCell({
+  post,
+}: {
+  post: { status: Parameters<typeof xStatusLabel>[0]; lastError: string | null; externalLink: string | null } | null;
+}) {
+  if (!post) return <span className={styles.xNone}>—</span>;
+  const { label, tone } = xStatusLabel(post.status);
+  return (
+    <span className={styles.xCell}>
+      <span className={styles.xStatus} data-tone={tone} title={post.lastError ?? undefined}>
+        {label}
+      </span>
+      {post.externalLink ? (
+        <a href={post.externalLink} target="_blank" rel="noreferrer">
+          Xem
+        </a>
+      ) : null}
+    </span>
   );
 }

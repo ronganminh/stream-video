@@ -27,6 +27,24 @@ export type SocialConfig = {
   clipSeconds: number;
   /** Largest clip upload, in bytes (X accepts up to 512 MB). */
   clipMaxBytes: number;
+  /**
+   * Longest video the X account accepts (free accounts: ~140 s; raise it
+   * after upgrading to Premium). "Keep whole video" is cut to this length.
+   */
+  maxVideoSeconds: number;
+  /**
+   * Clips for posts approved in /admin/review are cut by the GitHub Actions
+   * workflow .github/workflows/x-clips.yml, started through the GitHub API
+   * with a fine-grained token (Actions: write on this repository only).
+   */
+  dispatch: {
+    token: string;
+    repository: string;
+    workflow: string;
+    ref: string;
+    /** Wait this long after the last approval, so a burst starts one run. */
+    debounceSeconds: number;
+  };
 };
 
 export function socialConfig(): SocialConfig {
@@ -42,5 +60,13 @@ export function socialConfig(): SocialConfig {
     rateReserve: intEnv("BUFFER_RATE_RESERVE", 50, 0, 100_000),
     clipSeconds: intEnv("X_CLIP_SECONDS", 120, 0, 4 * 60 * 60),
     clipMaxBytes: intEnv("X_CLIP_MAX_MB", 512, 1, 512) * 1024 * 1024,
+    maxVideoSeconds: intEnv("X_MAX_VIDEO_SECONDS", 140, 1, 4 * 60 * 60),
+    dispatch: {
+      token: process.env.GAYVIDEO_CLIP_DISPATCH?.trim() ?? "",
+      repository: process.env.X_CLIPS_REPOSITORY?.trim() || "ronganminh/stream-video",
+      workflow: process.env.X_CLIPS_WORKFLOW?.trim() || "x-clips.yml",
+      ref: process.env.X_CLIPS_REF?.trim() || "main",
+      debounceSeconds: intEnv("X_CLIPS_DEBOUNCE_SECONDS", 90, 0, 3600),
+    },
   };
 }

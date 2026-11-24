@@ -1,7 +1,7 @@
 // Shared, non-action values for the review queue. Kept out of the
 // "use server" actions module, which may only export async functions.
 
-export type ReviewActionResult = { ok: true } | { ok: false; error: string };
+export type ReviewActionResult = { ok: true; note?: string } | { ok: false; error: string };
 
 export const REVIEW_PAGE_SIZE = 10;
 
@@ -16,6 +16,8 @@ export type ReviewDone = {
   outcome: ReviewOutcome;
   title: string;
   slug: string;
+  /** What happens on X, e.g. "X: making the clip (cut to 2:20)". */
+  note?: string;
 };
 
 /**

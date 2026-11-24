@@ -49,6 +49,13 @@ services:
       BUFFER_SYNC_MINUTES: ${BUFFER_SYNC_MINUTES:-120}
       X_CLIP_SECONDS: ${X_CLIP_SECONDS:-120}
       X_CLIP_MAX_MB: ${X_CLIP_MAX_MB:-512}
+      # X clips approved in /admin/review are cut by the GitHub Actions
+      # workflow x-clips.yml; this fine-grained token (Actions: write on this
+      # repository only) starts it. Never logged.
+      X_MAX_VIDEO_SECONDS: ${X_MAX_VIDEO_SECONDS:-140}
+      GAYVIDEO_CLIP_DISPATCH: ${GAYVIDEO_CLIP_DISPATCH:-}
+      X_CLIPS_REPOSITORY: ${X_CLIPS_REPOSITORY:-ronganminh/stream-video}
+      X_CLIPS_DEBOUNCE_SECONDS: ${X_CLIPS_DEBOUNCE_SECONDS:-90}
     depends_on:
       postgres:
         condition: service_healthy
@@ -89,6 +96,13 @@ services:
       BUFFER_SYNC_MINUTES: ${BUFFER_SYNC_MINUTES:-120}
       X_CLIP_SECONDS: ${X_CLIP_SECONDS:-120}
       X_CLIP_MAX_MB: ${X_CLIP_MAX_MB:-512}
+      # X clips approved in /admin/review are cut by the GitHub Actions
+      # workflow x-clips.yml; this fine-grained token (Actions: write on this
+      # repository only) starts it. Never logged.
+      X_MAX_VIDEO_SECONDS: ${X_MAX_VIDEO_SECONDS:-140}
+      GAYVIDEO_CLIP_DISPATCH: ${GAYVIDEO_CLIP_DISPATCH:-}
+      X_CLIPS_REPOSITORY: ${X_CLIPS_REPOSITORY:-ronganminh/stream-video}
+      X_CLIPS_DEBOUNCE_SECONDS: ${X_CLIPS_DEBOUNCE_SECONDS:-90}
       MEDIA_DIR: /data/media
       MIGRATION_VIDEOS_CSV: ${MIGRATION_VIDEOS_CSV:-}
       MIGRATION_LOG_CSV: ${MIGRATION_LOG_CSV:-}

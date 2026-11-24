@@ -62,50 +62,58 @@ jobs:
           printf '%s\n' "$PROD_APP_DEPLOY_SSH_KEY" > "$HOME/.ssh/deploy_key"
           printf '%s\n' "$PROD_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
 
-      # The Buffer key lives in the BUFFER_API_KEY Actions secret; compose reads
-      # it from /opt/gayvideo/.env. Written before the deploy so the recreated
-      # web/worker containers get it. It travels over SSH on stdin, never on a
-      # command line, and is never echoed (GitHub also masks it).
-      - name: Put BUFFER_API_KEY into the server .env
+      # Server secrets kept as Actions secrets (BUFFER_API_KEY for X through
+      # Buffer, GAYVIDEO_CLIP_DISPATCH to start the X clip workflow); compose
+      # reads them from /opt/gayvideo/.env. Written before the deploy so the
+      # recreated web/worker containers get them. Each travels over SSH on
+      # stdin, never on a command line, and is never echoed (GitHub also
+      # masks secrets).
+      - name: Put server secrets into the server .env
         env:
           PROD_HOST: ${{ secrets.PROD_HOST }}
           PROD_USER: ${{ secrets.PROD_USER }}
           BUFFER_API_KEY: ${{ secrets.BUFFER_API_KEY }}
+          GAYVIDEO_CLIP_DISPATCH: ${{ secrets.GAYVIDEO_CLIP_DISPATCH }}
         run: |
           set -euo pipefail
-          if [ -z "${BUFFER_API_KEY:-}" ]; then
-            echo "No BUFFER_API_KEY secret; the server .env is left as is"
-            exit 0
-          fi
-          # .env is sourced by bash and read by compose: keep the value shell-safe.
-          if ! [[ "$BUFFER_API_KEY" =~ ^[A-Za-z0-9._~+/=-]+$ ]]; then
-            echo "::error::BUFFER_API_KEY contains unexpected characters; not writing it"
-            exit 1
-          fi
           remote=$(cat <<'REMOTE'
           set -euo pipefail
+          IFS= read -r name
           IFS= read -r key
+          case "$name" in BUFFER_API_KEY|GAYVIDEO_CLIP_DISPATCH) ;; *) echo "unexpected name"; exit 1 ;; esac
           cd /opt/gayvideo
           SUDO=""
           if [ ! -r .env ] || [ ! -w .env ]; then SUDO="sudo -n"; fi
-          line="BUFFER_API_KEY=$key"
+          line="$name=$key"
           if $SUDO grep -qxF -- "$line" .env; then
-            echo "BUFFER_API_KEY in .env is already up to date"
+            echo "$name in .env is already up to date"
             exit 0
           fi
           umask 077
           tmp=$(mktemp)
           trap 'rm -f "$tmp"' EXIT
-          { $SUDO grep -v '^BUFFER_API_KEY=' .env || true; printf '%s\n' "$line"; } > "$tmp"
+          { $SUDO grep -v "^$name=" .env || true; printf '%s\n' "$line"; } > "$tmp"
           # Same owner and mode as before, swapped in atomically.
           $SUDO install -m "$(stat -c %a .env)" -o "$(stat -c %u .env)" -g "$(stat -c %g .env)" "$tmp" .env.new
           $SUDO mv .env.new .env
-          echo "BUFFER_API_KEY written to .env"
+          echo "$name written to .env"
           REMOTE
           )
-          printf '%s\n' "$BUFFER_API_KEY" | ssh -i "$HOME/.ssh/deploy_key" \
-            -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
-            "$PROD_USER@$PROD_HOST" "bash -c $(printf '%q' "$remote")"
+          for name in BUFFER_API_KEY GAYVIDEO_CLIP_DISPATCH; do
+            value="${!name:-}"
+            if [ -z "$value" ]; then
+              echo "No $name secret; the server .env is left as is for it"
+              continue
+            fi
+            # .env is sourced by bash and read by compose: keep the value shell-safe.
+            if ! [[ "$value" =~ ^[A-Za-z0-9._~+/=-]+$ ]]; then
+              echo "::error::$name contains unexpected characters; not writing it"
+              exit 1
+            fi
+            printf '%s\n%s\n' "$name" "$value" | ssh -i "$HOME/.ssh/deploy_key" \
+              -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+              "$PROD_USER@$PROD_HOST" "bash -c $(printf '%q' "$remote")"
+          done
 
       - name: Deploy on the VPS
         env:

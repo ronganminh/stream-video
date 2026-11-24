@@ -206,7 +206,8 @@ for (const [reducedMotion, approved, next] of [
     await nextCard.evaluate((next) => window.scrollBy(0, next.getBoundingClientRect().top - 620));
     await page.waitForTimeout(300);
     const before = (await nextCard.boundingBox())!.y;
-    expect(before).toBeCloseTo(620, 0);
+    // Setup only (the scroll may land on a half pixel); the check is below.
+    expect(Math.abs(before - 620)).toBeLessThanOrEqual(1);
     expect((await target.boundingBox())!.y).toBeLessThan(-200);
     await expect(approve).toBeInViewport();
     await resetShifts(page);

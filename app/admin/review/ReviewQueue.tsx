@@ -146,7 +146,12 @@ export function ReviewQueue({
         } else {
           setDone((current) => ({
             ...current,
-            [id]: { outcome: intent === "approve" ? "published" : "rejected", title, slug },
+            [id]: {
+              outcome: intent === "approve" ? "published" : "rejected",
+              title,
+              slug,
+              note: result.note,
+            },
           }));
         }
       });
@@ -307,6 +312,9 @@ function DoneRow({
           {busy ? "…" : ""}
         </span>
         <span className={styles.doneTitle}>{entry.title}</span>
+        {entry.note && entry.outcome === "published" ? (
+          <span className={styles.doneNote}>{entry.note}</span>
+        ) : null}
         {entry.outcome === "published" ? (
           <Link href={`/watch/${entry.slug}`} target="_blank" rel="noreferrer">
             View

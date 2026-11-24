@@ -124,6 +124,8 @@ curl -sS https://gayvideo.fun/api/v1/videos \
 
 ## 5. Đăng lên X (qua Buffer)
 
+> Duyệt video trong /admin/review cũng đăng X được (Cắt clip / Giữ nguyên / Không đăng X); clip được cắt trên GitHub Actions. Xem [X_CLIPS.md](X_CLIPS.md).
+
 ### 5.1. Luồng hoạt động
 
 1. **Trên Colab hoặc laptop** (nơi có file gốc), client dùng ffmpeg cắt một clip ngắn từ video:
@@ -237,8 +239,14 @@ Trả về `{ token, hosts: [{id, label, isPrimary}], categories: [{slug, name}]
 
 ### `POST /api/v1/clips`
 - Body là chính file MP4, với header `Content-Type: video/mp4`.
-- Kích thước tối đa là `X_CLIP_MAX_MB` (mặc định 512 MB). Độ dài tối đa là `X_CLIP_SECONDS`, cho phép dư thêm 1 giây.
+- Kích thước tối đa là `X_CLIP_MAX_MB` (mặc định 512 MB). Độ dài tối đa là số lớn hơn giữa `X_CLIP_SECONDS` và `X_MAX_VIDEO_SECONDS` (bài "Giữ nguyên"), cho phép dư thêm 1 giây.
 - Trả về `201` cùng `{clipId, bytes, seconds}`. Dùng `clipId` trong trường `x` của `POST /api/v1/videos`.
+
+### `GET /api/v1/social/pending`, `POST /api/v1/social/{id}/clip`, `POST /api/v1/social/{id}/failure`
+Dành cho workflow cắt clip trên GitHub Actions (docs/X_CLIPS.md):
+- `pending` trả `{ posts: [{ postId, videoId, slug, title, mode: "clip"|"full", start, seconds, durationSeconds, attempts, mirrors: [{host, fileCode, primary}] }] }`;
+- `clip` nhận `{ clipId, source }` (clip đã upload qua `/api/v1/clips`);
+- `failure` nhận `{ reason, final }`; link trong `reason` bị xoá.
 
 ### `POST /api/v1/videos`
 Body là JSON:

@@ -23,7 +23,8 @@ export async function POST(request: Request) {
     try {
       const clip = await storeClip(request.body, {
         maxBytes: config.clipMaxBytes,
-        maxSeconds: config.clipSeconds,
+        // "Keep whole video" posts may be up to X_MAX_VIDEO_SECONDS long.
+        maxSeconds: config.clipSeconds === 0 ? 0 : Math.max(config.clipSeconds, config.maxVideoSeconds),
       });
       return NextResponse.json(
         { clipId: clip.clipId, bytes: clip.bytes, seconds: Math.round(clip.seconds * 10) / 10 },

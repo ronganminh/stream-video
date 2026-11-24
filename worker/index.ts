@@ -1,6 +1,7 @@
 import cron from "node-cron";
 
 import { prisma } from "../lib/db";
+import { runClipDispatch } from "../lib/social/dispatch";
 import { runSocialSyncIfDue } from "../lib/social/queue";
 import { runHealthCheck } from "../lib/sync/healthCheck";
 import { runNewVideos } from "../lib/sync/newVideos";
@@ -76,6 +77,14 @@ export async function runScheduledSync(now = new Date()): Promise<void> {
 }
 
 export async function workerTick(now = new Date()): Promise<void> {
+  // X clips approved in /admin/review are cut by a GitHub Actions workflow;
+  // start it once approvals settle (lib/social/dispatch.ts). Never blocks sync.
+  try {
+    const { outcome, state } = await runClipDispatch({ now });
+    if (outcome === "dispatched" || outcome === "error") console.info(`X clips: ${state.message}`);
+  } catch (error) {
+    console.error(`X clips: ${error instanceof Error ? error.message : String(error)}`);
+  }
   await processSyncRequests();
   await runScheduledSync(now);
   // X posts through Buffer: separate, so a Buffer problem never stops sync.

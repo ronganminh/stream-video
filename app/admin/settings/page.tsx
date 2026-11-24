@@ -10,9 +10,14 @@ import {
   getAgeGateCookieLifetimeDays,
 } from "@/lib/settings/ageGate";
 
+import { CAPTION_BUDGET, DEFAULT_CAPTION_TEMPLATE } from "@/lib/social/captionRules";
+import { socialConfig } from "@/lib/social/config";
+import { getXCaptionSettings } from "@/lib/social/settings";
+
 import {
   changePasswordAction,
   updateSettingsAction,
+  updateXCaptionSettingsAction,
 } from "./actions";
 import styles from "./page.module.css";
 
@@ -29,7 +34,7 @@ export default async function AdminSettingsPage({
 }) {
   await requireAdmin();
 
-  const [sync, ageGateCookieLifetimeDays, show2257Setting, params] =
+  const [sync, ageGateCookieLifetimeDays, show2257Setting, params, xCaption] =
     await Promise.all([
       getSyncSettings().catch(() => DEFAULT_SYNC_SETTINGS),
       getAgeGateCookieLifetimeDays(),
@@ -38,7 +43,9 @@ export default async function AdminSettingsPage({
         select: { value: true },
       }),
       searchParams,
+      getXCaptionSettings(),
     ]);
+  const social = socialConfig();
 
   const show2257 =
     typeof show2257Setting?.value === "boolean"
@@ -67,6 +74,8 @@ export default async function AdminSettingsPage({
             ? "Current password is incorrect."
             : error === "password"
               ? "Use a new password of at least 12 characters and confirm it."
+              : error === "x-caption"
+                ? "Mẫu caption X có từ cấm hoặc quá dài."
               : "Check the settings values and try again."}
         </p>
       ) : null}
@@ -149,6 +158,36 @@ export default async function AdminSettingsPage({
 
           <div className={styles.actions}>
             <button type="submit">Save settings</button>
+          </div>
+        </form>
+      </section>
+
+      <section className={styles.panel}>
+        <div className={styles.panelHeading}>
+          <h2>X captions</h2>
+          <span>Duyệt trong /admin/review</span>
+        </div>
+        <form className={styles.form} action={updateXCaptionSettingsAction}>
+          <label className={styles.field}>
+            <span>Mẫu caption mặc định ({"{title}"} = tiêu đề bỏ dấu)</span>
+            <input
+              name="xCaptionTemplate"
+              defaultValue={xCaption.template}
+              placeholder={DEFAULT_CAPTION_TEMPLATE}
+              maxLength={240}
+            />
+          </label>
+          <label className={styles.field}>
+            <span>Từ cấm thêm (cách nhau bằng dấu phẩy, ngoài danh sách có sẵn)</span>
+            <textarea name="xBannedExtra" defaultValue={xCaption.bannedExtra.join(", ")} rows={3} />
+          </label>
+          <p className={styles.intro}>
+            Caption tối đa {CAPTION_BUDGET} ký tự theo cách X đếm (link bài viết tự thêm sau). Video X tối đa{" "}
+            {social.maxVideoSeconds} giây (X_MAX_VIDEO_SECONDS), clip mặc định {social.clipSeconds} giây
+            (X_CLIP_SECONDS): đổi trong .env của server.
+          </p>
+          <div className={styles.actions}>
+            <button type="submit">Save X captions</button>
           </div>
         </form>
       </section>

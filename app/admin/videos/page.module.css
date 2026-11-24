@@ -257,3 +257,51 @@
     width: 100%;
   }
 }
+
+.xCell {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.xCell a {
+  color: var(--gv-violet-300);
+  font-size: 12px;
+}
+
+.xNone {
+  color: var(--gv-text-muted);
+}
+
+.xStatus {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 0 8px;
+  border: 1px solid var(--gv-border);
+  border-radius: var(--gv-radius-pill);
+  color: var(--gv-text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.xStatus[data-tone="busy"] {
+  border-color: var(--gv-violet);
+  color: var(--gv-violet-300);
+}
+
+.xStatus[data-tone="done"] {
+  border-color: var(--gv-violet-300);
+  color: var(--gv-text);
+}
+
+.xStatus[data-tone="error"] {
+  border-color: var(--gv-danger);
+  color: var(--gv-danger-300);
+}
+
+.xStatus[data-tone="muted"] {
+  color: var(--gv-text-muted);
+}

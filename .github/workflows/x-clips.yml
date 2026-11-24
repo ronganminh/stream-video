@@ -1,0 +1,55 @@
+name: X clips
+
+# Cuts the clips for X posts approved in /admin/review. Started by the
+# server through the GitHub API (lib/social/dispatch.ts) once approvals
+# settle, by "Chạy cắt clip ngay" in the admin, or by hand here. No schedule.
+# One run handles every pending post; runs never overlap.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: x-clips
+  cancel-in-progress: false
+
+jobs:
+  clips:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      GAYVIDEO_API_URL: ${{ vars.GAYVIDEO_API_URL || 'https://gayvideo.fun' }}
+      GAYVIDEO_API_TOKEN: ${{ secrets.GAYVIDEO_API_TOKEN }}
+      HOST_EARNVIDS_API_KEY: ${{ secrets.HOST_EARNVIDS_API_KEY }}
+      GDRIVE_SERVICE_ACCOUNT_JSON: ${{ secrets.GDRIVE_SERVICE_ACCOUNT_JSON }}
+      MIGRATION_DATA: migration-data
+    steps:
+      - name: Checkout app
+        uses: actions/checkout@v4
+
+      - name: Checkout private migration data
+        uses: actions/checkout@v4
+        with:
+          repository: ronganminh/stream-video-data
+          token: ${{ secrets.MIGRATION_DATA_PAT }}
+          path: migration-data
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install ffmpeg and Python packages
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends ffmpeg fonts-dejavu-core > /dev/null
+          python -m pip install --disable-pip-version-check -q requests google-auth
+          ffmpeg -version | head -1
+
+      - name: Make clips
+        run: python scripts/x-clips/make_clips.py
+
+      - name: Remove migration data
+        if: ${{ always() }}
+        run: rm -rf migration-data
