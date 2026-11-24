@@ -10,6 +10,10 @@ import { SLUG_PATTERN, slugFromInput } from "@/lib/slug";
 import { assertVideoSlugAvailable, recordVideoSlugChange } from "@/lib/videoSlugs";
 import { revalidatePublicPages } from "@/lib/revalidatePublic";
 import { applyThumbnailSelection } from "@/lib/sync/thumbnailSources";
+import { socialConfig } from "@/lib/social/config";
+import { X_NETWORK } from "@/lib/social/queue";
+import { applyXPlan, cancelUnsentXPost, planXPost, readXReviewInput } from "@/lib/social/reviewPost";
+import { getXCaptionSettings } from "@/lib/social/settings";
 
 import { reviewErrorMessage, type ReviewActionResult } from "./reviewState";
 import type { ThumbnailActionState } from "./thumbnailState";
@@ -112,17 +116,47 @@ export async function approveReviewAction(
 ): Promise<ReviewActionResult> {
   const admin = await requireAdmin();
 
+  let note: string | undefined;
   try {
     const data = readMetadata(formData);
+
+    // X first: a caption with a banned word stops the approval, so the
+    // admin can fix it on the card before anything is published.
+    const [video, existing, captionSettings] = await Promise.all([
+      db.video.findUnique({ where: { id: data.id }, select: { durationSeconds: true } }),
+      db.socialPost.findUnique({
+        where: { videoId_network: { videoId: data.id, network: X_NETWORK } },
+        select: { status: true, clipFile: true },
+      }),
+      getXCaptionSettings(),
+    ]);
+    const { plan, warnings, errors } = planXPost(
+      readXReviewInput(formData),
+      { durationSeconds: video?.durationSeconds ?? null },
+      existing,
+      socialConfig(),
+      captionSettings.bannedExtra,
+    );
+    if (errors.length) return { ok: false, error: errors.join(" ") };
+
     await applyMetadata(data, true);
-    await writeAdminAudit(admin.id, "VIDEO_APPROVE", data.id);
+    await applyXPlan(db, data.id, plan);
+    await writeAdminAudit(admin.id, "VIDEO_APPROVE", `${data.id}:x=${plan.action === "prepare" ? plan.mode : plan.action}`);
+    note = [
+      plan.action === "prepare"
+        ? `X: đang xử lý clip ${plan.mode === "full" ? "(giữ nguyên)" : `(từ ${plan.start}s)`}`
+        : plan.action === "keep"
+          ? "X: dùng clip đã có"
+          : "X: không đăng",
+      ...warnings,
+    ].join(" · ");
   } catch (error) {
     return { ok: false, error: reviewErrorMessage(error) };
   }
 
   revalidatePath("/admin/review");
   revalidatePublicPages();
-  return { ok: true };
+  return { ok: true, note };
 }
 
 export async function saveReviewAction(
@@ -156,6 +190,7 @@ export async function undoApproveReviewAction(
       where: { id },
       data: { isPublished: false, publishedAt: null },
     });
+    await cancelUnsentXPost(db, id);
     await writeAdminAudit(admin.id, "VIDEO_UNPUBLISH", id);
   } catch (error) {
     return { ok: false, error: reviewErrorMessage(error) };

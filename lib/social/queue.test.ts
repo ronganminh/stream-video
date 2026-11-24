@@ -44,6 +44,10 @@ describe.skipIf(!databaseUrl)("X queue (Buffer)", () => {
     rateReserve: 50,
     clipSeconds: 120,
     clipMaxBytes: 512 * 1024 * 1024,
+    maxVideoSeconds: 140,
+    clipThreads: 1,
+    clipPreset: "veryfast",
+    clipMinFreeBytes: 0,
   };
   let clipCounter = 0;
 

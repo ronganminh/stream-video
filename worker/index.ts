@@ -1,6 +1,7 @@
 import cron from "node-cron";
 
 import { prisma } from "../lib/db";
+import { runClipJobs } from "../lib/social/prepare";
 import { runSocialSyncIfDue } from "../lib/social/queue";
 import { runHealthCheck } from "../lib/sync/healthCheck";
 import { runNewVideos } from "../lib/sync/newVideos";
@@ -76,6 +77,9 @@ export async function runScheduledSync(now = new Date()): Promise<void> {
 }
 
 export async function workerTick(now = new Date()): Promise<void> {
+  // X clips approved in /admin/review: one ffmpeg at a time, in the
+  // background, so a long cut never delays sync (see lib/social/prepare.ts).
+  void runClipJobs();
   await processSyncRequests();
   await runScheduledSync(now);
   // X posts through Buffer: separate, so a Buffer problem never stops sync.

@@ -271,6 +271,7 @@ model AdminAction {
 }
 
 enum SocialPostStatus {
+  preparing // the worker is making the clip (approved from /admin/review)
   waiting // the video is still a draft
   queued // ready; waits for room in the Buffer queue
   pushing // a createPost call is in flight (or its outcome is unknown)
@@ -293,6 +294,13 @@ model SocialPost {
   /// File name of the uploaded clip under MEDIA_DIR/social; null once deleted.
   clipFile      String?
   clipSeconds   Int?
+  /// How the worker makes the clip for a post approved in /admin/review:
+  /// "clip" (cut from clipStart) or "full" (the whole video, up to
+  /// X_MAX_VIDEO_SECONDS). Null for clips uploaded through the API.
+  clipMode      String?
+  clipStart     Int?
+  /// Where the worker read the video from, e.g. "earnvids" or "drive".
+  clipSource    String?
   bufferPostId  String?          @unique
   attempts      Int              @default(0)
   lastError     String?
