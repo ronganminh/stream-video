@@ -3,9 +3,16 @@ import Link from "next/link";
 import { requireAdmin } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { loadThumbnailPreferences } from "@/lib/sync/thumbnailSources";
+import { defaultCaption } from "@/lib/social/captionRules";
+import { socialConfig } from "@/lib/social/config";
+import { readDispatchState } from "@/lib/social/dispatch";
+import { X_NETWORK } from "@/lib/social/queue";
+import { LOCKED_STATUSES, xStatusLabel } from "@/lib/social/reviewPost";
+import { getXCaptionSettings } from "@/lib/social/settings";
 
 import { bulkApproveReviewAction } from "./actions";
 import { BulkApproveButton } from "./BulkApproveButton";
+import { ClipPanel } from "./ClipPanel";
 import styles from "./page.module.css";
 import type { ReviewItem } from "./ReviewCard";
 import { ReviewQueue } from "./ReviewQueue";
@@ -61,6 +68,27 @@ export default async function AdminReviewPage({
   const thumbnailPreferences = await loadThumbnailPreferences(
     videos.map((video) => video.id),
   );
+  const config = socialConfig();
+  const [captionSettings, posts, dispatch, preparing, recent] = await Promise.all([
+    getXCaptionSettings(),
+    db.socialPost.findMany({
+      where: { network: X_NETWORK, videoId: { in: videos.map((video) => video.id) } },
+    }),
+    readDispatchState(),
+    db.socialPost.count({ where: { network: X_NETWORK, status: "preparing" } }),
+    db.socialPost.findMany({
+      where: { network: X_NETWORK, status: { not: "cancelled" } },
+      orderBy: { updatedAt: "desc" },
+      take: 8,
+      include: { video: { select: { title: true, slug: true } } },
+    }),
+  ]);
+  const postByVideo = new Map(posts.map((post) => [post.videoId, post]));
+  const xSettings = {
+    bannedExtra: captionSettings.bannedExtra,
+    clipSeconds: config.clipSeconds,
+    maxVideoSeconds: config.maxVideoSeconds,
+  };
 
   const items: ReviewItem[] = videos.map((video) => {
     const preference = thumbnailPreferences.get(video.id);
@@ -89,6 +117,24 @@ export default async function AdminReviewPage({
         ),
       ],
       selectedThumbnail: preference?.selected ?? null,
+      durationSeconds: video.durationSeconds,
+      x: {
+        defaultCaption: defaultCaption(captionSettings.template, video.title, captionSettings.bannedExtra),
+        existing: (() => {
+          const post = postByVideo.get(video.id);
+          if (!post || post.status === "cancelled") return null;
+          const status = xStatusLabel(post.status);
+          return {
+            statusLabel: status.label,
+            tone: status.tone,
+            caption: post.caption,
+            hasClip: Boolean(post.clipFile),
+            locked: LOCKED_STATUSES.includes(post.status),
+            lastError: post.lastError,
+          };
+        })(),
+      },
+      xSettings,
     };
   });
 
@@ -113,6 +159,25 @@ export default async function AdminReviewPage({
           </form>
         </div>
       </div>
+
+      <ClipPanel
+        dispatch={{ state: dispatch.state, message: dispatch.message, at: dispatch.dispatchedAt }}
+        preparing={preparing}
+        configured={Boolean(config.dispatch.token)}
+        recent={recent.map((post) => {
+          const status = xStatusLabel(post.status);
+          return {
+            id: post.id,
+            title: post.video.title,
+            slug: post.video.slug,
+            label: status.label,
+            tone: status.tone,
+            error: post.lastError,
+            link: post.externalLink,
+            updatedAt: post.updatedAt.toISOString(),
+          };
+        })}
+      />
 
       {items.length ? (
         <>

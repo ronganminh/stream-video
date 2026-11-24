@@ -45,9 +45,7 @@ describe.skipIf(!databaseUrl)("X queue (Buffer)", () => {
     clipSeconds: 120,
     clipMaxBytes: 512 * 1024 * 1024,
     maxVideoSeconds: 140,
-    clipThreads: 1,
-    clipPreset: "veryfast",
-    clipMinFreeBytes: 0,
+    dispatch: { token: "", repository: "o/r", workflow: "x-clips.yml", ref: "main", debounceSeconds: 90 },
   };
   let clipCounter = 0;
 

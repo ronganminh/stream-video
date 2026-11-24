@@ -8,6 +8,8 @@ import { z } from "zod";
 import { writeAdminAudit } from "@/lib/auth/audit";
 import { requireAdmin } from "@/lib/auth/session";
 import { db } from "@/lib/db";
+import { checkCaption } from "@/lib/social/captionRules";
+import { parseWordList, saveXCaptionSettings } from "@/lib/social/settings";
 
 const settingsSchema = z.object({
   syncNewIntervalMinutes: z.coerce.number().int().positive().max(1440),
@@ -152,4 +154,28 @@ export async function changePasswordAction(
   await writeAdminAudit(admin.id, "PASSWORD_CHANGE", admin.id);
 
   redirect("/admin/settings?saved=password");
+}
+
+const xCaptionSchema = z.object({
+  template: z.string().trim().max(240),
+  bannedExtra: z.string().max(4000),
+});
+
+/** X caption template ("{title}" = title without accents) and extra banned words. */
+export async function updateXCaptionSettingsAction(formData: FormData): Promise<void> {
+  const admin = await requireAdmin();
+  const parsed = xCaptionSchema.safeParse({
+    template: formData.get("xCaptionTemplate") ?? "",
+    bannedExtra: formData.get("xBannedExtra") ?? "",
+  });
+  if (!parsed.success) redirect("/admin/settings?error=x-caption");
+  const bannedExtra = parseWordList(parsed.data.bannedExtra);
+  // The template itself must not contain a banned word.
+  const { problems } = checkCaption(parsed.data.template.replaceAll("{title}", "Title"), bannedExtra);
+  if (parsed.data.template && problems.length) redirect("/admin/settings?error=x-caption");
+  await saveXCaptionSettings({ template: parsed.data.template, bannedExtra });
+  await writeAdminAudit(admin.id, "SETTINGS_X_CAPTION", "social.x");
+  revalidatePath("/admin/settings");
+  revalidatePath("/admin/review");
+  redirect("/admin/settings?saved=settings");
 }

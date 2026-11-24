@@ -1,7 +1,6 @@
 import { access, readFile } from "node:fs/promises";
 
 import { prisma } from "../db";
-import { firstDriveFileLink } from "../social/drive";
 import { legacySlugify, slugify } from "../slug";
 import { normalize } from "./normalize";
 
@@ -254,30 +253,4 @@ export async function tagConnectData(names: string[]) {
   }
 
   return tagIds.map((tagId) => ({ tagId }));
-}
-
-/**
- * Google Drive link of each migrated video's original, keyed by the primary
- * host's file code (videos.csv drive_links, joined through the log). Only
- * file links are kept; folders cannot be read without the Drive API.
- */
-export async function loadDriveLinksByHostCode(primaryHostId: string): Promise<Map<string, string>> {
-  const videosPath = await resolveCsvPath(process.env.MIGRATION_VIDEOS_CSV, DEFAULT_VIDEOS_CSV);
-  const logPath = await resolveCsvPath(process.env.MIGRATION_LOG_CSV, DEFAULT_LOG_CSV);
-  const links = new Map<string, string>();
-  if (!videosPath || !logPath) return links;
-
-  const [videosContent, logContent] = await Promise.all([readFile(videosPath, "utf8"), readFile(logPath, "utf8")]);
-  const sourceByPostId = new Map(
-    parseCsv(videosContent)
-      .filter((row) => row.post_id)
-      .map((row) => [row.post_id, row]),
-  );
-  const hostCodeField = `${primaryHostId}_file_code`;
-  for (const row of parseCsv(logContent)) {
-    const hostCode = row[hostCodeField]?.trim();
-    const link = firstDriveFileLink(sourceByPostId.get(row.post_id)?.drive_links);
-    if (hostCode && link) links.set(hostCode, link);
-  }
-  return links;
 }

@@ -8,8 +8,6 @@ function intEnv(name: string, fallback: number, min: number, max: number): numbe
   return Number.isInteger(value) && value >= min && value <= max ? value : fallback;
 }
 
-const PRESETS = new Set(["ultrafast", "superfast", "veryfast", "faster", "fast", "medium"]);
-
 export type SocialConfig = {
   /** Buffer is configured: without a key nothing is pushed (posts stay queued). */
   enabled: boolean;
@@ -34,12 +32,19 @@ export type SocialConfig = {
    * after upgrading to Premium). "Keep whole video" is cut to this length.
    */
   maxVideoSeconds: number;
-  /** ffmpeg threads for clips made on the VPS (the web shares the CPU). */
-  clipThreads: number;
-  /** libx264 preset for those clips: faster = less CPU, larger file. */
-  clipPreset: string;
-  /** Free disk the worker keeps; below it no clip is made. */
-  clipMinFreeBytes: number;
+  /**
+   * Clips for posts approved in /admin/review are cut by the GitHub Actions
+   * workflow .github/workflows/x-clips.yml, started through the GitHub API
+   * with a fine-grained token (Actions: write on this repository only).
+   */
+  dispatch: {
+    token: string;
+    repository: string;
+    workflow: string;
+    ref: string;
+    /** Wait this long after the last approval, so a burst starts one run. */
+    debounceSeconds: number;
+  };
 };
 
 export function socialConfig(): SocialConfig {
@@ -56,10 +61,12 @@ export function socialConfig(): SocialConfig {
     clipSeconds: intEnv("X_CLIP_SECONDS", 120, 0, 4 * 60 * 60),
     clipMaxBytes: intEnv("X_CLIP_MAX_MB", 512, 1, 512) * 1024 * 1024,
     maxVideoSeconds: intEnv("X_MAX_VIDEO_SECONDS", 140, 1, 4 * 60 * 60),
-    clipThreads: intEnv("X_CLIP_THREADS", 1, 1, 16),
-    clipPreset: PRESETS.has(process.env.X_CLIP_PRESET?.trim() ?? "")
-      ? process.env.X_CLIP_PRESET!.trim()
-      : "veryfast",
-    clipMinFreeBytes: intEnv("X_CLIP_MIN_FREE_MB", 1024, 0, 1024 * 1024) * 1024 * 1024,
+    dispatch: {
+      token: process.env.GAYVIDEO_CLIP_DISPATCH?.trim() ?? "",
+      repository: process.env.X_CLIPS_REPOSITORY?.trim() || "ronganminh/stream-video",
+      workflow: process.env.X_CLIPS_WORKFLOW?.trim() || "x-clips.yml",
+      ref: process.env.X_CLIPS_REF?.trim() || "main",
+      debounceSeconds: intEnv("X_CLIPS_DEBOUNCE_SECONDS", 90, 0, 3600),
+    },
   };
 }

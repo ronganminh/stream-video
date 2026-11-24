@@ -11,6 +11,7 @@ import { assertVideoSlugAvailable, recordVideoSlugChange } from "@/lib/videoSlug
 import { revalidatePublicPages } from "@/lib/revalidatePublic";
 import { applyThumbnailSelection } from "@/lib/sync/thumbnailSources";
 import { socialConfig } from "@/lib/social/config";
+import { requestClipRun, runClipDispatch } from "@/lib/social/dispatch";
 import { X_NETWORK } from "@/lib/social/queue";
 import { applyXPlan, cancelUnsentXPost, planXPost, readXReviewInput } from "@/lib/social/reviewPost";
 import { getXCaptionSettings } from "@/lib/social/settings";
@@ -141,6 +142,11 @@ export async function approveReviewAction(
 
     await applyMetadata(data, true);
     await applyXPlan(db, data.id, plan);
+    if (plan.action === "prepare") {
+      // The worker starts the clip workflow once approvals settle; a failure
+      // there shows in the admin and never undoes this publish.
+      await requestClipRun().catch((error) => console.error("requestClipRun failed", error));
+    }
     await writeAdminAudit(admin.id, "VIDEO_APPROVE", `${data.id}:x=${plan.action === "prepare" ? plan.mode : plan.action}`);
     note = [
       plan.action === "prepare"
@@ -323,4 +329,19 @@ export async function bulkApproveReviewAction(formData: FormData) {
   revalidatePath("/admin/review");
   revalidatePath("/admin/videos");
   revalidatePublicPages();
+}
+
+/** "Chạy cắt clip ngay": start the clip workflow without waiting for the debounce. */
+export async function runClipWorkflowNowAction(): Promise<{ ok: boolean; message: string }> {
+  const admin = await requireAdmin();
+  try {
+    const { outcome, state } = await runClipDispatch({ immediate: true });
+    await writeAdminAudit(admin.id, "X_CLIPS_DISPATCH", outcome);
+    revalidatePath("/admin/review");
+    if (outcome === "idle") return { ok: true, message: "Không có bài X nào đang chờ cắt clip." };
+    return { ok: outcome !== "error", message: state.message ?? outcome };
+  } catch (error) {
+    console.error("runClipWorkflowNowAction failed", error);
+    return { ok: false, message: "Không gọi được workflow cắt clip." };
+  }
 }

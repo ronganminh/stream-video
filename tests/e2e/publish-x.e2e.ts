@@ -115,9 +115,9 @@ test("clip upload accepts an MP4 and refuses anything else", async ({ request })
   expect(anonymous.status()).toBe(401);
 });
 
-test("a clip longer than X_CLIP_SECONDS is refused", async ({ request }) => {
+test("a clip longer than X_MAX_VIDEO_SECONDS is refused", async ({ request }) => {
   ffmpeg([
-    "-f", "lavfi", "-i", "color=size=64x64:rate=5:duration=125",
+    "-f", "lavfi", "-i", "color=size=64x64:rate=5:duration=145",
     "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p",
     "-movflags", "+faststart", path.join(dir, "long.mp4"),
   ]);

@@ -1,4 +1,4 @@
-import type { DirectVideo, HostFileDTO, HostProvider } from "./types";
+import type { HostFileDTO, HostProvider } from "./types";
 
 const API_BASE = "https://earnvidsapi.com/api";
 const DEFAULT_TIMEOUT_MS = 8_000;
@@ -44,38 +44,6 @@ type EarnVidsInfoFile = {
   file_title?: string;
   file_created?: string;
 };
-
-// GET /file/direct_link?key&file_code&ip (earnvidsapi.com/api.html):
-// result.hls_direct is an HLS manifest; XFileSharing-style "versions" (one
-// URL per quality, "o" = original) are accepted too.
-type EarnVidsDirectLinkResponse = {
-  status?: number;
-  msg?: string;
-  result?: {
-    hls_direct?: string;
-    file_length?: string | number;
-    versions?: { name?: string; url?: string; size?: string | number }[];
-  };
-};
-
-const VERSION_ORDER = ["o", "h", "n", "l"];
-
-export function directLinkToVideo(response: EarnVidsDirectLinkResponse): DirectVideo {
-  if (response.status !== 200 || !response.result) {
-    throw new Error(`EarnVids direct_link: ${response.msg ?? `status ${response.status ?? "?"}`}`);
-  }
-  const versions = (response.result.versions ?? []).filter((version) => version.url?.startsWith("https://"));
-  versions.sort((a, b) => rank(a.name) - rank(b.name));
-  if (versions[0]?.url) return { url: versions[0].url, kind: "file" };
-  const hls = response.result.hls_direct;
-  if (hls?.startsWith("https://")) return { url: hls, kind: "hls" };
-  throw new Error("EarnVids direct_link: no URL in the answer");
-}
-
-function rank(name: string | undefined): number {
-  const index = VERSION_ORDER.indexOf(name ?? "");
-  return index < 0 ? VERSION_ORDER.length : index;
-}
 
 type EarnVidsInfoResponse = {
   status?: number;
@@ -219,14 +187,6 @@ export function createEarnVidsProvider(
 
     embedUrl(code) {
       return `https://morencius.com/embed/${encodeURIComponent(code)}`;
-    },
-
-    async directVideoUrl(code, { ip } = {}) {
-      const response = await request<EarnVidsDirectLinkResponse>("/file/direct_link", {
-        file_code: code,
-        ...(ip ? { ip } : {}),
-      });
-      return directLinkToVideo(response);
     },
   };
 }

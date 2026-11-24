@@ -592,3 +592,205 @@
 .pagination a:last-child {
   justify-self: end;
 }
+
+/* X post on the review card */
+.xBox {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 12px 14px 14px;
+  border: 1px solid var(--gv-border);
+  border-radius: var(--gv-radius-md);
+  background: var(--gv-surface-1);
+  min-width: 0;
+}
+
+.xBox legend {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 6px;
+  color: var(--gv-text);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.xModes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  color: var(--gv-text-secondary);
+  font-size: 13px;
+}
+
+.xModes label,
+.xInline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.xInline {
+  color: var(--gv-text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.xInline input {
+  width: 90px;
+  min-height: 34px;
+  padding: 0 8px;
+  border: 1px solid var(--gv-border-input);
+  border-radius: var(--gv-radius-sm);
+  background: var(--gv-surface-2);
+  color: var(--gv-text);
+  font: 400 13px var(--gv-font);
+}
+
+.xBox textarea {
+  width: 100%;
+  padding: 9px 11px;
+  border: 1px solid var(--gv-border-input);
+  border-radius: var(--gv-radius-md);
+  background: var(--gv-surface-2);
+  color: var(--gv-text);
+  font: 400 13px/1.45 var(--gv-font);
+  box-sizing: border-box;
+  resize: vertical;
+}
+
+.xBox textarea[aria-invalid="true"] {
+  border-color: var(--gv-danger);
+}
+
+.xBox small,
+.xHint,
+.xWarning,
+.xError {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.xHint {
+  color: var(--gv-text-muted);
+}
+
+.xWarning {
+  color: var(--gv-pink-300);
+}
+
+.xError,
+.xOver {
+  color: var(--gv-danger-300);
+}
+
+.xStatus {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 0 8px;
+  border: 1px solid var(--gv-border);
+  border-radius: var(--gv-radius-pill);
+  color: var(--gv-text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.xStatus[data-tone="busy"] {
+  border-color: var(--gv-violet);
+  color: var(--gv-violet-300);
+}
+
+.xStatus[data-tone="done"] {
+  border-color: var(--gv-violet-300);
+  color: var(--gv-text);
+}
+
+.xStatus[data-tone="error"] {
+  border-color: var(--gv-danger);
+  color: var(--gv-danger-300);
+}
+
+.xStatus[data-tone="muted"] {
+  color: var(--gv-text-muted);
+}
+
+.doneNote {
+  flex: 1 1 100%;
+  color: var(--gv-text-muted);
+  font-size: 12px;
+}
+
+/* X clip workflow panel above the queue */
+.clipPanel {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 20px;
+  padding: 14px 16px;
+  border: 1px solid var(--gv-border);
+  border-radius: var(--gv-radius-lg);
+  background: var(--gv-surface-1);
+}
+
+.clipPanelHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.clipPanelHead > div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.clipPanelHead button {
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--gv-border-input);
+  border-radius: var(--gv-radius-md);
+  background: var(--gv-surface-2);
+  color: var(--gv-text);
+  font: 600 13px var(--gv-font);
+  cursor: pointer;
+}
+
+.clipPanelHead button:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.clipRecent {
+  display: grid;
+  gap: 6px;
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+}
+
+.clipRecent li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.clipRecentTitle {
+  min-width: 0;
+  flex: 1 1 160px;
+  overflow: hidden;
+  color: var(--gv-text-secondary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.clipRecent a {
+  color: var(--gv-violet-300);
+}

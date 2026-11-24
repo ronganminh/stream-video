@@ -7,6 +7,7 @@ import { LazyThumb } from "./LazyThumb";
 import { PreviewFacade } from "./PreviewFacade";
 import styles from "./page.module.css";
 import { ThumbnailChoiceForm } from "./ThumbnailChoiceForm";
+import { XPostFields, type XReviewState } from "./XPostFields";
 
 export type ReviewItem = {
   id: string;
@@ -20,6 +21,9 @@ export type ReviewItem = {
   mirrors: { id: string; hostLabel: string; embedUrl: string }[];
   thumbnailChoices: { id: string; label: string; url: string }[];
   selectedThumbnail: string | null;
+  durationSeconds: number | null;
+  x: XReviewState;
+  xSettings: { bannedExtra: string[]; clipSeconds: number; maxVideoSeconds: number };
 };
 
 export type ReviewIntent = "save" | "approve" | "reject";
@@ -175,6 +179,15 @@ export function ReviewCard({
             ))}
           </select>
         </label>
+
+        <XPostFields
+          videoId={item.id}
+          durationSeconds={item.durationSeconds}
+          state={item.x}
+          bannedExtra={item.xSettings.bannedExtra}
+          clipSeconds={item.xSettings.clipSeconds}
+          maxVideoSeconds={item.xSettings.maxVideoSeconds}
+        />
 
         <div className={styles.mirrorLine}>
           <span>

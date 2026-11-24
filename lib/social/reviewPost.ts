@@ -11,7 +11,8 @@ import { X_NETWORK } from "./queue";
 //   accounts take ~140 s; raise it after upgrading to Premium);
 // - "none": no X post;
 // - "keep": use the clip already uploaded (e.g. by the Colab notebook).
-// The worker then makes the clip on the VPS (lib/social/prepare.ts).
+// A GitHub Actions workflow then makes the clip (lib/social/dispatch.ts,
+// lib/social/clipJobs.ts, .github/workflows/x-clips.yml).
 
 export type XMode = "clip" | "full" | "none" | "keep";
 export const X_MODES: readonly XMode[] = ["clip", "full", "none", "keep"];
