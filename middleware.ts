@@ -52,31 +52,54 @@ async function watchStatusResponse(request: NextRequest) {
     return null;
   }
 
-  const destination = request.nextUrl.clone();
-  destination.pathname = "/watch/_gone";
-  destination.search = "";
-  destination.searchParams.set("slug", slug);
+  return goneResponse(request, slug);
+}
 
+/**
+ * The /watch/_gone page with a 410 status. Middleware cannot rewrite with a
+ * status, so the page is fetched from this same server. Not through
+ * request.nextUrl: behind Caddy it carries the public "https:" scheme with
+ * the container's own host, and a TLS request to that plain-HTTP port fails
+ * ("wrong version number"), which turned every removed video into a 500.
+ * The forwarded host/proto are passed on so the page builds public links.
+ * Whatever happens, the answer stays a 410.
+ */
+function goneFetchUrl(slug: string, port = process.env.PORT || "3000"): string {
+  return `http://127.0.0.1:${port}/watch/_gone?slug=${encodeURIComponent(slug)}`;
+}
+
+async function goneResponse(request: NextRequest, slug: string) {
   const headers = new Headers();
-  const cookie = request.headers.get("cookie");
-  if (cookie) headers.set("cookie", cookie);
+  for (const name of ["cookie", "x-forwarded-host", "x-forwarded-proto", "host"]) {
+    const value = request.headers.get(name);
+    if (value) headers.set(name === "host" ? "x-forwarded-host" : name, value);
+  }
+  if (!headers.has("x-forwarded-proto")) headers.set("x-forwarded-proto", request.nextUrl.protocol.replace(":", ""));
 
-  const rendered = await fetch(destination, {
-    method: "GET",
-    headers,
-  });
-  const contentType =
-    rendered.headers.get("content-type") ?? "text/html; charset=utf-8";
-  const body = request.method === "HEAD" ? null : await rendered.text();
-
-  return new NextResponse(body, {
-    status: 410,
-    headers: {
-      "content-type": contentType,
-      "cache-control":
-        rendered.headers.get("cache-control") ?? "private, no-cache",
-    },
-  });
+  try {
+    const rendered = await fetch(goneFetchUrl(slug), {
+      method: "GET",
+      headers,
+      signal: AbortSignal.timeout(10_000),
+    });
+    const contentType = rendered.headers.get("content-type") ?? "text/html; charset=utf-8";
+    const body = request.method === "HEAD" ? null : await rendered.text();
+    return new NextResponse(body, {
+      status: 410,
+      headers: {
+        "content-type": contentType,
+        "cache-control": rendered.headers.get("cache-control") ?? "private, no-cache",
+      },
+    });
+  } catch (error) {
+    console.error("watch 410 page could not be rendered", error);
+    return new NextResponse(
+      request.method === "HEAD"
+        ? null
+        : '<!doctype html><meta charset="utf-8"><title>Video removed</title><p>This video has been removed.</p><p><a href="/">GayVideo.fun</a></p>',
+      { status: 410, headers: { "content-type": "text/html; charset=utf-8", "cache-control": "private, no-cache" } },
+    );
+  }
 }
 
 // List pages are routed by next.config rewrites (lib/isr/listRoutes); this
@@ -97,7 +120,16 @@ function listRedirect(request: NextRequest) {
 }
 
 export async function middleware(request: NextRequest) {
-  const watchResponse = await watchStatusResponse(request);
+  // A middleware that throws makes Next render the not-found page into a
+  // response it has already started ("Cannot append headers after they are
+  // sent to the client", twice per failure in production). Never throw here:
+  // without a status answer the page itself decides (404 for unknown slugs).
+  let watchResponse: NextResponse | null = null;
+  try {
+    watchResponse = await watchStatusResponse(request);
+  } catch (error) {
+    console.error("watch status check failed", error);
+  }
   if (watchResponse) return watchResponse;
 
   const list = listRedirect(request);

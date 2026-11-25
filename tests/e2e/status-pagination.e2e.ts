@@ -1,3 +1,5 @@
+import { existsSync, readFileSync, statSync } from "node:fs";
+
 import { expect, test } from "@playwright/test";
 
 import { addAgeCookie } from "./helpers";
@@ -10,10 +12,48 @@ test("REMOVED/BLOCKED return 410 while draft/hidden return 404", async ({
     expect(response.status(), slug).toBe(410);
   }
 
+  // Behind Caddy the request says https; the 410 page must still render
+  // (it used to fetch itself over TLS on the plain-HTTP port: a 500).
+  const proxied = { "x-forwarded-proto": "https", "x-forwarded-host": "gayvideo.example" };
+  for (const slug of ["removed-example-video", "blocked-example-video"]) {
+    const response = await request.get("/watch/" + slug, { headers: proxied });
+    expect(response.status(), `${slug} behind the proxy`).toBe(410);
+    expect(await response.text()).toContain("<html");
+    const head = await request.head("/watch/" + slug, { headers: proxied });
+    expect(head.status(), `${slug} HEAD`).toBe(410);
+  }
+
   for (const slug of ["draft-status-seed-video", "hidden-seed-video"]) {
     const response = await request.get("/watch/" + slug);
     expect(response.status(), slug).toBe(404);
   }
+});
+
+test("removed videos behind the proxy log no server error", async ({ request }) => {
+  // Production: every removed video logged "fetch failed (wrong version
+  // number)" then twice "Cannot append headers after they are sent to the
+  // client" (ERR_HTTP_HEADERS_SENT) and answered 500.
+  const log = ".e2e-server.log";
+  test.skip(!existsSync(log), "the server was not started by Playwright (no log to read)");
+  const from = statSync(log).size;
+  const browser = {
+    "x-forwarded-proto": "https",
+    "x-forwarded-host": "gayvideo.example",
+    accept: "text/html,application/xhtml+xml",
+    "accept-encoding": "gzip, br",
+  };
+  for (const slug of ["removed-example-video", "blocked-example-video"]) {
+    for (let index = 0; index < 2; index += 1) {
+      expect((await request.get("/watch/" + slug, { headers: browser })).status()).toBe(410);
+    }
+    expect((await request.get(`/watch/${slug}?_rsc=e2e`, { headers: { ...browser, rsc: "1" } })).status()).toBe(410);
+  }
+  await new Promise((resolve) => setTimeout(resolve, 500));
+  const written = readFileSync(log, "utf8").slice(from);
+  expect(written).not.toContain("ERR_HTTP_HEADERS_SENT");
+  expect(written).not.toContain("Cannot append headers");
+  expect(written).not.toContain("wrong version number");
+  expect(written).not.toContain("fetch failed");
 });
 
 test("Load More enhances but crawlable page links remain the fallback", async ({
