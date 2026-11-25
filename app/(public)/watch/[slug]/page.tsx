@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Fragment } from "react";
+import { preload } from "react-dom";
 
 import { AdSlot } from "@/components/ads/AdSlot";
 import { VideoCard } from "@/components/cards/VideoCard";
@@ -133,6 +134,9 @@ export default async function WatchPage({ params }: { params: Params }) {
 
   const crumbs = watchBreadcrumbs(slug, video);
   const jsonLd = [videoObjectJsonLd(slug, video, mirrors), breadcrumbJsonLd(crumbs)];
+  // The player poster is the largest image on screen, set as a CSS
+  // background (invisible to the preload scanner): fetch it first.
+  if (video.thumbnailUrl) preload(video.thumbnailUrl, { as: "image", fetchPriority: "high" });
 
   return (
     <div className={styles.page}>
@@ -243,8 +247,9 @@ export default async function WatchPage({ params }: { params: Params }) {
                 <h2>Up Next</h2>
               </div>
               <div className={styles.sideList}>
-                {video.upNext.slice(0, 5).map((item) => (
-                  <VideoCard key={item.id} video={item} />
+                {video.upNext.slice(0, 5).map((item, index) => (
+                  // The first cards sit beside the player on desktop: fetch now.
+                  <VideoCard key={item.id} video={item} priority={index < 2} />
                 ))}
               </div>
             </section>
@@ -258,8 +263,8 @@ export default async function WatchPage({ params }: { params: Params }) {
                 <h2>Popular</h2>
               </div>
               <div className={styles.sideList}>
-                {video.popularNow.map((item) => (
-                  <VideoCard key={item.id} video={item} />
+                {video.popularNow.map((item, index) => (
+                  <VideoCard key={item.id} video={item} priority={index === 0} />
                 ))}
               </div>
             </section>

@@ -59,4 +59,19 @@ describe("generated Caddy CSP", () => {
       "font-src 'self' https://fonts.gstatic.com;",
     );
   });
+
+  it("allows any HTTPS player frame, reports frames outside the known list", async () => {
+    const template = await readFile(path.join(process.cwd(), "Caddyfile.template"), "utf8");
+    const rendered = renderCaddyfile(template);
+    const enforced = rendered.match(/Content-Security-Policy "([^"]+)"/)?.[1] ?? "";
+    const reportOnly = rendered.match(/Content-Security-Policy-Report-Only "([^"]+)"/)?.[1] ?? "";
+    // Enforced: hosts rotate player domains, a fixed list blocked playback.
+    expect(enforced).toMatch(/frame-src 'self' https:;/);
+    expect(enforced).toContain("frame-ancestors 'none'");
+    expect(enforced).toContain("report-to csp");
+    // Report-only: the known list, so new domains are reported, not blocked.
+    expect(reportOnly).toContain(`frame-src 'self' ${registryFrameSources().join(" ")};`);
+    expect(reportOnly).toContain("report-uri /api/csp-report");
+    expect(rendered).toContain('Reporting-Endpoints `csp="https://{$SITE_DOMAIN}/api/csp-report"`');
+  });
 });

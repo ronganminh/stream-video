@@ -34,17 +34,13 @@
   object-position: center;
 }
 
+/* Always visible: the skeleton below shows until the image paints over it.
+   Hiding it until React's onLoad left images that loaded before hydration
+   (cached, slow phones) invisible for good. */
 .image {
   z-index: 1;
-  opacity: 0;
   transform: scale(1);
-  transition:
-    opacity var(--gv-dur-fast) var(--gv-ease),
-    transform var(--gv-dur-fast) var(--gv-ease);
-}
-
-.imageLoaded {
-  opacity: 1;
+  transition: transform var(--gv-dur-fast) var(--gv-ease);
 }
 
 .previewVideo {

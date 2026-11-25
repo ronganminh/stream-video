@@ -319,3 +319,20 @@
     transition: none;
   }
 }
+
+.cspReports {
+  margin-top: 32px;
+}
+
+.cspReports table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.cspReports th,
+.cspReports td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--gv-border, rgba(127, 127, 127, 0.25));
+  text-align: left;
+}
