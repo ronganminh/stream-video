@@ -30,3 +30,10 @@
     reverse_proxy web:3000
   }
 }
+
+# Other sites served by this same Caddy are not part of this repository: one
+# file per site in caddy-sites/ on the server (gitignored), mounted at
+# /etc/caddy/sites. Add or change them there, never in this file (a deploy
+# overwrites it). A glob that matches nothing is only a warning, so an empty
+# folder is fine; files starting with "." are skipped.
+import /etc/caddy/sites/*.caddy

@@ -139,6 +139,8 @@ services:
       - "443:443/udp"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # Other sites on this server (gitignored; see Caddyfile.template).
+      - ./caddy-sites:/etc/caddy/sites:ro
       - media_data:/srv/media:ro
       - caddy_data:/data
       - caddy_config:/config
