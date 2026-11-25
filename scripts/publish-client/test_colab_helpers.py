@@ -341,7 +341,7 @@ class InputExampleTest(unittest.TestCase):
         links = cell[cell.index('LINKS = """') + 11:cell.index('"""', cell.index('LINKS = """') + 11)]
         self.assertIn("photos.app.goo.gl/XXXXXXXX", links)
         self.assertEqual(ch.parse_lines(links), [])
-        self.assertIn('X_CAPTION_TEMPLATE = "New video: {title} 🔥"', build_notebook.CONFIG)
+        self.assertIn('X_CAPTION_TEMPLATE = "{title}"', build_notebook.CONFIG)
 
 
 class FakeClock:

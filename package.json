@@ -22,6 +22,7 @@
     "sync:new": "tsx worker/cli.ts sync:new",
     "sync:health": "tsx worker/cli.ts sync:health",
     "videos:restore-health": "tsx worker/cli.ts videos:restore-health",
+    "social:caption-upgrade": "tsx worker/cli.ts social:caption-upgrade",
     "migration:backfill": "tsx worker/cli.ts backfill",
     "media:resize": "tsx worker/cli.ts media:resize",
     "slugs:lost-d": "tsx worker/cli.ts slugs:lost-d",

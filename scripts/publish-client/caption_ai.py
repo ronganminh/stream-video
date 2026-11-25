@@ -141,7 +141,7 @@ def ascii_title(value: str) -> str:
 
 
 def default_caption(template: str, title: str, extra_banned: Iterable[str] = ()) -> str:
-    """The template caption ("New video: {title} 🔥"); generic if the title
+    """The template caption (default "{title}": the title alone); generic if the title
     has a banned word or the template is broken."""
     try:
         caption = fit_caption((template or "").format(title=ascii_title(title)))

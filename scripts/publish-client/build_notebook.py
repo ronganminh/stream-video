@@ -86,8 +86,8 @@ API_URL = "https://gayvideo.fun"  #@param {type:"string"}
 PUBLISH = True  #@param {type:"boolean"}
 #@markdown Đăng thêm lên X @Gayvideofun qua Buffer (clip ngắn + link). Độ dài clip theo `X_CLIP_SECONDS` trên server.
 POST_TO_X = True  #@param {type:"boolean"}
-#@markdown Caption X mặc định (tiếng Anh) khi dòng không có caption riêng; `{title}` = tiêu đề bỏ dấu.
-X_CAPTION_TEMPLATE = "New video: {title} 🔥"  #@param {type:"string"}
+#@markdown Caption X mặc định khi dòng không có caption riêng; `{title}` = tiêu đề bỏ dấu (mặc định: chỉ tiêu đề).
+X_CAPTION_TEMPLATE = "{title}"  #@param {type:"string"}
 #@markdown Clip X bắt đầu từ giây thứ (khi dòng không ghi riêng).
 CLIP_START = 0  #@param {type:"number"}
 #@markdown Chữ in ở cạnh dưới clip X (logo đã có sẵn nhờ watermark); để trống = không in.

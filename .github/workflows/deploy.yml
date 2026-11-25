@@ -190,6 +190,9 @@ jobs:
           dc up -d postgres
           until dc exec -T postgres pg_isready -U gayvideo -d gayvideo; do sleep 2; done
           dc run --rm worker ./node_modules/.bin/prisma migrate deploy
+          # Default X caption = the title (no "New video: … 🔥"): moves the saved
+          # template and unedited pending captions; prints counts only.
+          dc run --rm worker npm run --silent social:caption-upgrade || echo "::warning::social:caption-upgrade failed"
 
           if [ "$BUILD_WEB" = "true" ]; then
             # Newer Compose builds via bake, which refuses build.network: host

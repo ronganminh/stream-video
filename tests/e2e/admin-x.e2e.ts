@@ -100,8 +100,8 @@ test("a card offers clip / keep whole / no X, with the template caption and live
   await expect(box.getByRole("radio", { name: "Giữ nguyên" })).toBeVisible();
   await expect(box.getByRole("radio", { name: "Không đăng X" })).toBeVisible();
   const caption = box.getByRole("textbox", { name: /Caption X/ });
-  await expect(caption).toHaveValue("New video: Tran Duc – Gym 🔥");
-  await expect(box).toContainText("28/255");
+  await expect(caption).toHaveValue("Tran Duc – Gym");
+  await expect(box).toContainText("14/255");
 
   await caption.fill("Hot nude guy at the gym");
   await expect(box.getByRole("alert")).toContainText("có từ cấm: nude");
