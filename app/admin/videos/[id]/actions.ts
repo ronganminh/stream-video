@@ -58,6 +58,17 @@ const editSchema = z.object({
   ageRestricted: z.boolean(),
 });
 
+/**
+ * An admin who sets REMOVED/BLOCKED owns that removal: the health check never
+ * undoes it. Leaving the status unchanged keeps whoever removed it.
+ */
+function removalFields(before: Availability, after: Availability) {
+  const gone = (status: Availability) => status === "REMOVED" || status === "BLOCKED";
+  if (!gone(after)) return { removedBy: null, removedAt: null };
+  if (after !== before) return { removedBy: "admin", removedAt: new Date() };
+  return {};
+}
+
 function checked(formData: FormData, key: string): boolean {
   return formData.get(key) === "on";
 }
@@ -84,7 +95,7 @@ export async function saveVideoAction(formData: FormData) {
   await assertVideoSlugAvailable(db, parsed.id, parsed.slug);
   const current = await db.video.findUnique({
     where: { id: parsed.id },
-    select: { publishedAt: true, slug: true },
+    select: { publishedAt: true, slug: true, status: true },
   });
   if (!current) throw new Error("Video not found.");
 
@@ -105,6 +116,7 @@ export async function saveVideoAction(formData: FormData) {
         durationSeconds: parsed.durationSeconds,
         quality: parsed.quality,
         status: parsed.status,
+        ...removalFields(current.status, parsed.status),
         categoryId: parsed.categoryId,
         isPublished: parsed.isPublished,
         isHidden: parsed.isHidden,

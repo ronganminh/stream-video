@@ -67,6 +67,11 @@ model Video {
   views           Int          @default(0)
   likes           Int          @default(0)
   publishedAt     DateTime?
+  /// Who set REMOVED/BLOCKED: "health" (the host health check, which also
+  /// restores the video when a mirror is OK again) or "admin". Null for
+  /// AVAILABLE videos and for removals recorded before this field existed.
+  removedBy       String?
+  removedAt       DateTime?
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
 
@@ -109,6 +114,8 @@ model Mirror {
   status           MirrorStatus
   matchedBy        MirrorMatchedBy
   lastCheckedAt    DateTime?
+  /// Health checks in a row that found the file missing (0 once found again).
+  missingStreak    Int             @default(0)
 
   video Video @relation(fields: [videoId], references: [id])
   host  Host  @relation(fields: [hostId], references: [id])

@@ -2,6 +2,7 @@ import type { SyncRun } from "@prisma/client";
 
 import { prisma } from "../db";
 import { getHostProvider } from "../hosts/registry";
+import type { HostProvider } from "../hosts/types";
 import { withSyncLock } from "./settings";
 
 export type HealthJobResult = {
@@ -13,11 +14,42 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-export function shouldMarkRemoved(okMirrorCount: number): boolean {
-  return okMirrorCount === 0;
+/** Health checks in a row that must find a file missing before it counts as gone. */
+export const MISSING_RUNS_TO_REMOVE = 2;
+
+type MirrorHealth = { status: string; missingStreak: number };
+
+/**
+ * A video is removed only when every mirror was found missing on the host
+ * MISSING_RUNS_TO_REMOVE times in a row. A failed API call (ERROR: rate
+ * limit, timeout, host outage) says nothing about the file and never counts;
+ * neither does a single 404 (Dood answers 404 while a new upload is still
+ * processing). Before this, one bad run removed videos for good: 212 videos
+ * stayed REMOVED with their Dood file OK (November 2026).
+ */
+export function shouldMarkRemoved(mirrors: MirrorHealth[]): boolean {
+  return (
+    mirrors.length > 0 &&
+    mirrors.every((mirror) => mirror.status === "MISSING" && mirror.missingStreak >= MISSING_RUNS_TO_REMOVE)
+  );
 }
 
-export async function runHealthCheck(): Promise<HealthJobResult> {
+/** A video this health check removed comes back as soon as a mirror is OK. */
+export function shouldRestore(
+  video: { status: string; removedBy: string | null },
+  mirrors: MirrorHealth[],
+): boolean {
+  return video.status === "REMOVED" && video.removedBy === "health" && mirrors.some((mirror) => mirror.status === "OK");
+}
+
+export async function runHealthCheck(
+  options: {
+    /** Tests: check only these videos' mirrors, with this provider lookup. */
+    videoIds?: string[];
+    provider?: (hostId: string) => HostProvider | undefined;
+  } = {},
+): Promise<HealthJobResult> {
+  const providerFor = options.provider ?? getHostProvider;
   const run = await prisma.syncRun.create({
     data: {
       kind: "HEALTH",
@@ -33,6 +65,7 @@ export async function runHealthCheck(): Promise<HealthJobResult> {
     let missing = 0;
 
     const mirrors = await prisma.mirror.findMany({
+      where: options.videoIds ? { videoId: { in: options.videoIds } } : undefined,
       include: {
         host: {
           select: {
@@ -46,7 +79,7 @@ export async function runHealthCheck(): Promise<HealthJobResult> {
     const affectedVideoIds = new Set<string>();
 
     for (const mirror of mirrors) {
-      const provider = getHostProvider(mirror.hostId);
+      const provider = providerFor(mirror.hostId);
       if (!provider) {
         errors.push(`No provider registered for host ${mirror.hostId}`);
         continue;
@@ -61,6 +94,7 @@ export async function runHealthCheck(): Promise<HealthJobResult> {
           where: { id: mirror.id },
           data: {
             status,
+            missingStreak: info ? 0 : mirror.missingStreak + 1,
             lastCheckedAt: new Date(),
             hostThumbnailUrl: info?.thumbnailUrl ?? mirror.hostThumbnailUrl,
             lengthSeconds: info?.lengthSeconds ?? mirror.lengthSeconds,
@@ -87,25 +121,33 @@ export async function runHealthCheck(): Promise<HealthJobResult> {
       }
     }
 
+    let removed = 0;
+    let restored = 0;
     for (const videoId of affectedVideoIds) {
-      const okMirrorCount = await prisma.mirror.count({
-        where: {
-          videoId,
-          status: "OK",
-        },
-      });
+      const [video, videoMirrors] = await Promise.all([
+        prisma.video.findUnique({ where: { id: videoId }, select: { status: true, removedBy: true } }),
+        prisma.mirror.findMany({ where: { videoId }, select: { status: true, missingStreak: true } }),
+      ]);
+      if (!video) continue;
 
-      if (shouldMarkRemoved(okMirrorCount)) {
-        await prisma.video.updateMany({
-          where: {
-            id: videoId,
-            status: "AVAILABLE",
-          },
-          data: {
-            status: "REMOVED",
-          },
+      if (video.status === "AVAILABLE" && shouldMarkRemoved(videoMirrors)) {
+        const result = await prisma.video.updateMany({
+          where: { id: videoId, status: "AVAILABLE" },
+          data: { status: "REMOVED", removedBy: "health", removedAt: new Date() },
         });
+        removed += result.count;
+      } else if (shouldRestore(video, videoMirrors)) {
+        // Only the health check's own removals: never an admin's or a
+        // takedown's (removedBy "admin" or unknown).
+        const result = await prisma.video.updateMany({
+          where: { id: videoId, status: "REMOVED", removedBy: "health" },
+          data: { status: "AVAILABLE", removedBy: null, removedAt: null },
+        });
+        restored += result.count;
       }
+    }
+    if (removed > 0 || restored > 0) {
+      console.info(`HEALTH: removed=${removed} restored=${restored} (removedBy=health)`);
     }
 
     const primary = await prisma.host.findFirst({

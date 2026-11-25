@@ -118,6 +118,8 @@ export default async function AdminReviewPage({
       ],
       selectedThumbnail: preference?.selected ?? null,
       durationSeconds: video.durationSeconds,
+      availability: video.status,
+      removedBy: video.removedBy,
       x: {
         defaultCaption: defaultCaption(captionSettings.template, video.title, captionSettings.bannedExtra),
         existing: (() => {

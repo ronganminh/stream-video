@@ -163,6 +163,19 @@ docker compose run --rm worker npm run sync:health
 
 If a configured key is missing or rejected, the command/SyncRun reports the provider error. Do not put API keys in the repository or shell history.
 
+### Health check: when a video is removed and restored
+
+- A mirror counts as gone only when the host answers "not found" on **2 health checks in a row** (`Mirror.missingStreak`). A failed API call (rate limit, timeout, outage) is `ERROR` and never counts.
+- A video becomes `REMOVED` only when every mirror is gone. It is then marked `removedBy = "health"`, and the next health check that finds a mirror OK makes it `AVAILABLE` again.
+- An admin who sets REMOVED/BLOCKED on the video page marks it `removedBy = "admin"`; the health check never undoes that.
+- `/admin/review` warns on a draft that is not AVAILABLE: approving it does not put it on the site (`/watch` answers 410).
+- Removals from before this (`removedBy` empty) are restored by hand. Dry run first; it checks every file on its host and skips videos with a report, a content-removal request naming them, or an admin edit (`VIDEO_UPDATE`):
+
+```bash
+docker compose exec -T worker npm run -s videos:restore-health            # dry run: lists restore/skip and why
+docker compose exec -T worker npm run -s videos:restore-health -- --apply # writes
+```
+
 ## 8. Post-deploy health checks
 
 Run all of these after deployment. Reload the environment first if this is a new shell:
