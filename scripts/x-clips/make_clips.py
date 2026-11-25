@@ -395,7 +395,9 @@ class Drive:
         def download(target: Path, timeout: float) -> Path:
             import gdown  # handles Drive's confirm pages, like the migration
 
-            result = gdown.download(url=link, output=str(target), quiet=True, fuzzy=True)
+            # Same call as the migration (seed_worker.gdown_download): gdown 5
+            # has no `fuzzy` argument any more.
+            result = gdown.download(id=file_id, output=str(target), quiet=True)
             if not result or not target.exists():
                 raise SourceError("gdown không tải được file (chưa chia sẻ công khai, hoặc vượt hạn mức tải)")
             return target
@@ -630,9 +632,12 @@ def process(client, posts: List[dict], index: MigrationIndex, drive: Optional[Dr
                 output.unlink(missing_ok=True)
         if not done:
             reason = " · ".join(reasons + skipped) or "không có nguồn nào"
+            # Drive's per-file download quota (recovers within 24 hours): the
+            # server waits hours and retries without counting an attempt.
+            quota = "downloadQuotaExceeded" in reason
             try:
                 client._request("POST", f"/api/v1/social/{post['postId']}/failure",
-                                {"reason": reason, "final": not sources})
+                                {"reason": reason, "final": not sources, "quota": quota})
             except Exception as error:
                 log(f"    could not report the failure: {clean(error)}")
             log(f"    no clip: {clean(reason)}")

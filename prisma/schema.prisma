@@ -303,6 +303,8 @@ model SocialPost {
   clipSource    String?
   bufferPostId  String?          @unique
   attempts      Int              @default(0)
+  /// Waits for Google Drive's per-file download quota (not attempts).
+  quotaWaits    Int              @default(0)
   lastError     String?
   nextAttemptAt DateTime?
   pushedAt      DateTime?

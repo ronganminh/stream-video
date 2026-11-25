@@ -9,7 +9,12 @@ import { ClipJobError, reportClipFailure } from "@/lib/social/clipJobs";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-const bodySchema = z.object({ reason: z.string().max(4000), final: z.boolean().default(false) });
+const bodySchema = z.object({
+  reason: z.string().max(4000),
+  final: z.boolean().default(false),
+  // Google Drive's per-file download quota: wait hours, not an attempt.
+  quota: z.boolean().default(false),
+});
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   return withApiToken(request, async () => {

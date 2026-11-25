@@ -6,6 +6,7 @@ import { PrismaClient } from "@prisma/client";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { attachClip, cleanReason, listPendingClips, recutClip, reportClipFailure } from "./clipJobs";
+import { xStatusLabel } from "./reviewPost";
 import { clipDir } from "./clips";
 import type { SocialConfig } from "./config";
 import { DISPATCH_SETTING, gitHubActions, readDispatchState, requestClipRun, runClipDispatch, type GitHubActions } from "./dispatch";
@@ -242,5 +243,37 @@ describe.skipIf(!databaseUrl)("clip workflow dispatch and API (database)", () =>
     await reportClipFailure({ postId, reason: "again" }, now, prisma);
     const last = await reportClipFailure({ postId, reason: "again" }, now, prisma);
     expect(last.status).toBe("failed");
+  });
+
+  it("a Drive quota refusal is no attempt: it waits 6 h, at most 8 times", async () => {
+    await prisma.socialPost.update({
+      where: { id: postId },
+      data: { status: "preparing", attempts: 1, quotaWaits: 0, lastError: null, nextAttemptAt: null },
+    });
+    const now = new Date("2026-11-25T08:00:00Z");
+    const reason = "Google Drive #1: tải cả file: HTTP 403 (downloadQuotaExceeded)";
+    const first = await reportClipFailure({ postId, reason, quota: true }, now, prisma);
+    expect(first).toMatchObject({ status: "preparing", quota: true });
+    expect(first.nextAttemptAt?.toISOString()).toBe("2026-11-25T14:00:00.000Z");
+    let row = await prisma.socialPost.findUniqueOrThrow({ where: { id: postId } });
+    expect(row).toMatchObject({ status: "preparing", attempts: 1, quotaWaits: 1 });
+    expect(row.lastError).toBe(
+      "Drive hết hạn mức tải (Google giới hạn lượt tải file này trong 24 giờ); tự thử lại lúc 2026-11-25 14:00 UTC (lần chờ 1/8).",
+    );
+    expect(xStatusLabel(row.status, row.lastError).label).toBe("Drive hết hạn mức tải, thử lại sau");
+    expect((await listPendingClips(now, prisma)).some((post) => post.postId === postId)).toBe(false);
+    expect((await listPendingClips(first.nextAttemptAt!, prisma)).some((post) => post.postId === postId)).toBe(true);
+    // An old workflow without the flag: the reason alone is enough.
+    await reportClipFailure({ postId, reason }, now, prisma);
+    expect((await prisma.socialPost.findUniqueOrThrow({ where: { id: postId } })).quotaWaits).toBe(2);
+    // After 8 waits (48 h) it counts as an attempt again.
+    await prisma.socialPost.update({ where: { id: postId }, data: { quotaWaits: 8 } });
+    await reportClipFailure({ postId, reason, quota: true }, now, prisma);
+    row = await prisma.socialPost.findUniqueOrThrow({ where: { id: postId } });
+    expect(row).toMatchObject({ attempts: 2, quotaWaits: 8 });
+    expect(row.lastError).toContain("Không tạo được clip");
+    // "Thử lại" starts over.
+    expect(await recutClip(postId, prisma, mediaDir, config())).toBe(true);
+    expect((await prisma.socialPost.findUniqueOrThrow({ where: { id: postId } })).quotaWaits).toBe(0);
   });
 });
