@@ -167,6 +167,13 @@ jobs:
           $GIT config --global --add safe.directory /opt/gayvideo/migration-data || true
 
           PREVIOUS=$($GIT rev-parse HEAD)
+          # Other sites belong in caddy-sites/*.caddy, not in the tracked
+          # Caddyfile: stop before git touches a hand-edited one (nothing on
+          # the server has changed yet at this point).
+          if ! $GIT diff --quiet -- Caddyfile Caddyfile.template; then
+            echo "::error::Caddyfile or Caddyfile.template has local edits on the server. Move other sites' blocks into caddy-sites/<name>.caddy (see Caddyfile.template), then restore the files with git checkout."
+            exit 1
+          fi
           $GIT fetch origin
           $GIT checkout main
           $GIT pull --ff-only origin main
@@ -201,16 +208,26 @@ jobs:
             COMPOSE_BAKE=false dc build web
           fi
 
-          dc up -d worker web caddy
+          dc up -d worker web
 
-          # Caddy mounts the Caddyfile read-only and reads it only at start, so
-          # a changed Caddyfile needs a validated recreate to take effect.
+          # Caddy serves this site and the other sites in caddy-sites/ (one
+          # .caddy file each, never committed). It reads its config only at
+          # start, so validate the whole config, other sites included, before
+          # Caddy is (re)created; if it is invalid the running Caddy keeps
+          # serving and the deploy stops here.
+          mkdir -p caddy-sites
+          echo "Validating Caddy config ($(find caddy-sites -maxdepth 1 -name '*.caddy' | wc -l) other site file(s))"
+          $SUDO docker run --rm -e SITE_DOMAIN="$SITE_DOMAIN" \
+            -v "$PWD/Caddyfile:/etc/caddy/Caddyfile:ro" \
+            -v "$PWD/caddy-sites:/etc/caddy/sites:ro" \
+            caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile </dev/null
+          # Compose recreates caddy itself when its definition changed (e.g.
+          # a new volume); a changed Caddyfile alone needs a forced recreate.
           if ! $GIT diff --quiet "$PREVIOUS" HEAD -- Caddyfile; then
-            echo "Caddyfile changed; validating and recreating caddy"
-            $SUDO docker run --rm -e SITE_DOMAIN="$SITE_DOMAIN" \
-              -v "$PWD/Caddyfile:/etc/caddy/Caddyfile:ro" \
-              caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile </dev/null
+            echo "Caddyfile changed; recreating caddy"
             dc up -d --force-recreate caddy
+          else
+            dc up -d caddy
           fi
 
           if [ "$RUN_BACKFILL" = "true" ]; then

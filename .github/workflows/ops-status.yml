@@ -1,0 +1,89 @@
+name: Ops status (read-only)
+
+# Production status without anyone logging in to the server: containers,
+# every site served by Caddy (other sites' names are never printed: they
+# come from the gitignored caddy-sites/), CSP reports and the admin alert,
+# the X queue and Buffer request counts, recent worker lines. Uses the deploy
+# SSH key; prints no secret. Changes nothing, except "selftest", which writes
+# a test CSP report and removes it again.
+on:
+  workflow_dispatch:
+    inputs:
+      worker_log_hours:
+        description: "Worker log lines (X queue, clips, CSP, health) from the last N hours"
+        type: choice
+        options: ["1", "3", "6", "12", "24"]
+        default: "6"
+      selftest:
+        description: "Also run csp:selftest (a test report raises the alert; test entries removed)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  status:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Configure SSH
+        env:
+          PROD_HOST: ${{ secrets.PROD_HOST }}
+          PROD_USER: ${{ secrets.PROD_USER }}
+          PROD_KNOWN_HOSTS: ${{ secrets.PROD_KNOWN_HOSTS }}
+          PROD_APP_DEPLOY_SSH_KEY: ${{ secrets.PROD_APP_DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          for name in PROD_HOST PROD_USER PROD_KNOWN_HOSTS PROD_APP_DEPLOY_SSH_KEY; do
+            if [ -z "${!name:-}" ]; then echo "::error::$name is not configured"; exit 1; fi
+          done
+          umask 077
+          mkdir -p "$HOME/.ssh"
+          printf '%s\n' "$PROD_APP_DEPLOY_SSH_KEY" > "$HOME/.ssh/deploy_key"
+          printf '%s\n' "$PROD_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+
+      - name: Status
+        env:
+          PROD_HOST: ${{ secrets.PROD_HOST }}
+          PROD_USER: ${{ secrets.PROD_USER }}
+          HOURS: ${{ inputs.worker_log_hours }}
+          SELFTEST: ${{ inputs.selftest }}
+        run: |
+          set -euo pipefail
+          case "$HOURS" in 1|3|6|12|24) ;; *) echo "::error::bad hours"; exit 1 ;; esac
+          ssh -i "$HOME/.ssh/deploy_key" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            "$PROD_USER@$PROD_HOST" "bash -s -- '$HOURS' '$SELFTEST'" <<'REMOTE'
+          set -uo pipefail
+          HOURS="$1"; SELFTEST="$2"
+          cd /opt/gayvideo
+          SUDO=""; docker info >/dev/null 2>&1 || SUDO="sudo -n"
+          dc() { $SUDO docker compose "$@" </dev/null; }
+          SITE_DOMAIN=$( (cat .env 2>/dev/null || sudo -n cat .env) | sed -n 's/^SITE_DOMAIN=//p' | tail -1 | tr -d "\"'")
+          echo "== $(date -u +%FT%TZ) · deployed $(git rev-parse --short HEAD 2>/dev/null || sudo -n git rev-parse --short HEAD)"
+          echo; echo "== Containers"
+          dc ps --format 'table {{.Service}}\t{{.Status}}'
+          echo; echo "== Sites"
+          echo "$SITE_DOMAIN: $(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "https://$SITE_DOMAIN/")"
+          i=0
+          for host in $(cat caddy-sites/*.caddy 2>/dev/null | awk '/^[^#[:space:]].*\{[[:space:]]*$/ { sub(/[[:space:]]*\{.*/, ""); gsub(/,/, " "); print }'); do
+            i=$((i + 1))
+            echo "other site #$i: $(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "https://${host#https://}/")"
+          done
+          [ "$i" -gt 0 ] || echo "other sites: none in caddy-sites/"
+          echo; echo "== CSP reports / admin alert"
+          dc exec -T worker npm run -s csp:status || echo "csp:status failed"
+          if [ "$SELFTEST" = "true" ]; then dc exec -T worker npm run -s csp:selftest || echo "csp:selftest FAILED"; fi
+          echo; echo "== X queue / Buffer"
+          dc exec -T worker npm run -s social:status || echo "social:status failed"
+          echo; echo "== Worker log (last ${HOURS}h): X queue, clips, CSP, health"
+          dc logs --no-color --since "${HOURS}h" worker 2>&1 | grep -E "X queue|X clips|X CAPTIONS|CSP|HEALTH|rror" | tail -40 || true
+          REMOTE
+
+      - name: Remove SSH key
+        if: always()
+        run: rm -f "$HOME/.ssh/deploy_key"
