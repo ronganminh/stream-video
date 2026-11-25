@@ -3,6 +3,7 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 
 import {
   acknowledgePlayerDomains,
+  cspSelfTest,
   CSP_ACK_SETTING,
   CSP_REPORTS_SETTING,
   CSP_SEEN_SETTING,
@@ -93,5 +94,13 @@ describe.skipIf(!databaseUrl)("recordCspReports (database)", () => {
     await recordCspReports([frame], new Date("2027-01-02T00:00:00Z"), prisma);
     expect(await newPlayerDomains(prisma)).toEqual([]);
     expect(await pruneCspReports(new Date("2027-01-03T00:00:00Z"), prisma)).toBe(0);
+  });
+
+  it("csp:selftest raises the alert for a test host and leaves no trace", async () => {
+    const real = { directive: "frame-src", blocked: "d000d.com", disposition: "report" as const, page: "/watch/a" };
+    await recordCspReports([real], new Date("2026-11-26T10:00:00Z"), prisma);
+    expect(await cspSelfTest(new Date("2026-11-26T11:00:00Z"), prisma)).toBe(true);
+    expect((await listCspReports(prisma)).map((entry) => entry.blocked)).toEqual(["d000d.com"]);
+    expect((await newPlayerDomains(prisma)).map((domain) => domain.host)).toEqual(["d000d.com"]);
   });
 });

@@ -162,6 +162,32 @@ export async function acknowledgePlayerDomains(now = new Date(), client: Pick<Pr
   });
 }
 
+/**
+ * Production self-test of report → alert (ops-status workflow): records a
+ * report for a reserved test host, checks it raises the alert, then removes
+ * every *.invalid test host again (reports and first sightings). The
+ * acknowledgement time is not touched, so real alerts are unaffected.
+ */
+export async function cspSelfTest(now = new Date(), client: Pick<PrismaClient, "setting"> = prisma): Promise<boolean> {
+  const host = `selftest-${now.getTime()}.invalid`;
+  await recordCspReports([{ directive: "frame-src", blocked: host, disposition: "report", page: "/selftest" }], now, client);
+  const alerted = (await newPlayerDomains(client)).some((domain) => domain.host === host);
+  const test = (value: string) => value.endsWith(".invalid");
+  const [reports, seen] = await Promise.all([
+    client.setting.findUnique({ where: { key: CSP_REPORTS_SETTING } }),
+    client.setting.findUnique({ where: { key: CSP_SEEN_SETTING } }),
+  ]);
+  if (reports) {
+    const kept = Object.fromEntries(Object.entries(reports.value as Record<string, CspEntry>).filter(([, entry]) => !test(entry.blocked)));
+    await client.setting.update({ where: { key: CSP_REPORTS_SETTING }, data: { value: kept } });
+  }
+  if (seen) {
+    const kept = Object.fromEntries(Object.entries(seen.value as Record<string, string>).filter(([name]) => !test(name)));
+    await client.setting.update({ where: { key: CSP_SEEN_SETTING }, data: { value: kept } });
+  }
+  return alerted;
+}
+
 /** Drops reports not seen for CSP_RETENTION_DAYS (run by the worker). Returns how many. */
 export async function pruneCspReports(now = new Date(), client: Pick<PrismaClient, "setting"> = prisma): Promise<number> {
   const saved = await client.setting.findUnique({ where: { key: CSP_REPORTS_SETTING } });
