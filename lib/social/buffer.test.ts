@@ -28,9 +28,13 @@ describe("remainingIn30Days", () => {
 
 describe("bufferClient", () => {
   it("creates a queued X video post with the key as a bearer token", async () => {
-    const { impl, requests } = fakeFetch([{ body: { data: { createPost: { post: { id: "p1" } } } } }]);
+    const { impl, requests } = fakeFetch([
+      { body: { data: { createPost: { post: { id: "p1", dueAt: "2026-11-26T11:03:00.000Z" } } } } },
+    ]);
     const result = await bufferClient(KEY, impl).createVideoPost("chan", "Hello\n\nhttps://x.test", "https://m.test/c.mp4");
-    expect(result).toEqual({ ok: true, postId: "p1" });
+    // dueAt: the queue slot, so the worker counts the queue without reading it.
+    expect(result).toEqual({ ok: true, postId: "p1", dueAt: "2026-11-26T11:03:00.000Z" });
+    expect(requests[0].body.query).toContain("post { id dueAt }");
     expect(requests[0].headers.get("authorization")).toBe(`Bearer ${KEY}`);
     expect(requests[0].body.variables.input).toEqual({
       channelId: "chan",
@@ -68,7 +72,7 @@ describe("bufferClient", () => {
   });
 
   it("reads post statuses whatever their case", async () => {
-    const { impl } = fakeFetch([
+    const { impl, requests } = fakeFetch([
       {
         body: {
           data: {
@@ -84,6 +88,10 @@ describe("bufferClient", () => {
     ]);
     const { posts } = await bufferClient(KEY, impl).channelPosts({ channelId: "c", organizationId: "o" }, new Date());
     expect(posts.map((post) => post.status)).toEqual(["sent", "scheduled"]);
+    // Sent posts must be asked for: without a status filter they were missing.
+    const input = requests[0].body.variables.input as { filter: { status: string[] }; sort: unknown };
+    expect(input.filter.status).toEqual(["draft", "needs_approval", "scheduled", "sending", "sent", "error"]);
+    expect(input.sort).toEqual([{ field: "dueAt", direction: "desc" }]);
   });
 
   it("finds the X channel by handle across organizations", async () => {

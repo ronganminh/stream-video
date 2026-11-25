@@ -19,8 +19,22 @@ export type SocialConfig = {
   xHandle: string;
   /** Buffer Free keeps at most 10 scheduled posts per channel. */
   queueLimit: number;
-  /** How often the worker talks to Buffer when there is work. */
+  /** How often the worker runs a queue cycle outside the peak window. */
   syncMinutes: number;
+  /**
+   * The evening window when Buffer posts (local hours [start, end), end may
+   * be 24): cycles run every peakMinutes so its 10-post queue never runs dry.
+   */
+  peakMinutes: number;
+  peakStartHour: number;
+  peakEndHour: number;
+  timeZone: string;
+  /**
+   * At most one Buffer read (to confirm posts went out, and to see the real
+   * queue) per this many minutes; between reads the queue room comes from
+   * the due times Buffer gave our posts (SocialPost.bufferDueAt).
+   */
+  confirmMinutes: number;
   /** Requests to keep in reserve in Buffer's 30-day window. */
   rateReserve: number;
   /** Longest clip, in seconds; 0 = no limit (X Premium: post the full video). */
@@ -47,6 +61,43 @@ export type SocialConfig = {
   };
 };
 
+/** "17-24" → 17:00 to midnight (local). Invalid → the default 17-24. */
+export function peakHours(raw: string | undefined): { peakStartHour: number; peakEndHour: number } {
+  const match = raw?.trim().match(/^(\d{1,2})\s*-\s*(\d{1,2})$/);
+  if (match) {
+    const start = Number(match[1]);
+    const end = Number(match[2]);
+    if (start >= 0 && start <= 23 && end >= 1 && end <= 24 && start !== end) return { peakStartHour: start, peakEndHour: end };
+  }
+  return { peakStartHour: 17, peakEndHour: 24 };
+}
+
+function validTimeZone(zone: string): string {
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: zone });
+    return zone;
+  } catch {
+    return "Asia/Ho_Chi_Minh";
+  }
+}
+
+/** The local hour (0-23) of `now` in `timeZone`. */
+export function localHour(now: Date, timeZone: string): number {
+  const hour = new Intl.DateTimeFormat("en-GB", { timeZone, hour: "2-digit", hourCycle: "h23" }).format(now);
+  return Number(hour) % 24;
+}
+
+/** Minutes between queue cycles at `now`: peakMinutes inside the window, else syncMinutes. */
+export function syncIntervalMinutes(
+  now: Date,
+  config: Pick<SocialConfig, "syncMinutes" | "peakMinutes" | "peakStartHour" | "peakEndHour" | "timeZone">,
+): number {
+  const hour = localHour(now, config.timeZone);
+  const { peakStartHour: start, peakEndHour: end } = config;
+  const inside = start < end ? hour >= start && hour < end : hour >= start || hour < end;
+  return inside ? config.peakMinutes : config.syncMinutes;
+}
+
 export function socialConfig(): SocialConfig {
   const apiKey = process.env.BUFFER_API_KEY?.trim() ?? "";
   return {
@@ -57,6 +108,10 @@ export function socialConfig(): SocialConfig {
     xHandle: (process.env.BUFFER_X_HANDLE?.trim() || "Gayvideofun").replace(/^@/, ""),
     queueLimit: intEnv("BUFFER_QUEUE_LIMIT", 10, 1, 2000),
     syncMinutes: intEnv("BUFFER_SYNC_MINUTES", 120, 5, 24 * 60),
+    peakMinutes: intEnv("BUFFER_SYNC_PEAK_MINUTES", 30, 5, 24 * 60),
+    ...peakHours(process.env.BUFFER_PEAK_HOURS),
+    timeZone: validTimeZone(process.env.BUFFER_TIMEZONE?.trim() || "Asia/Ho_Chi_Minh"),
+    confirmMinutes: intEnv("BUFFER_CONFIRM_MINUTES", 180, 15, 24 * 60),
     rateReserve: intEnv("BUFFER_RATE_RESERVE", 50, 0, 100_000),
     clipSeconds: intEnv("X_CLIP_SECONDS", 120, 0, 4 * 60 * 60),
     clipMaxBytes: intEnv("X_CLIP_MAX_MB", 512, 1, 512) * 1024 * 1024,

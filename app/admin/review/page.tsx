@@ -122,6 +122,7 @@ export default async function AdminReviewPage({
       removedBy: video.removedBy,
       x: {
         defaultCaption: defaultCaption(captionSettings.template, video.title, captionSettings.bannedExtra),
+        postByDefault: captionSettings.postByDefault,
         existing: (() => {
           const post = postByVideo.get(video.id);
           if (!post || post.status === "cancelled") return null;

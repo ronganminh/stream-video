@@ -19,7 +19,7 @@ export type BufferPost = {
 export type BufferChannel = { channelId: string; organizationId: string };
 
 export type CreateResult =
-  | { ok: true; postId: string }
+  | { ok: true; postId: string; dueAt: string | null }
   // Buffer refused the post (a typed MutationError): the message says why.
   | { ok: false; message: string };
 
@@ -136,6 +136,9 @@ export function bufferClient(apiKey: string, fetchImpl: typeof fetch = fetch): B
       const { data, headers } = await request<{
         posts: { edges: { node: BufferPost }[] | null };
       }>(
+        // Every status, explicitly: without a status filter the list did not
+        // include sent posts, so posts that went out looked deleted
+        // ("No longer in Buffer") and were never marked sent. Newest first.
         `query ChannelPosts($input: PostsInput!, $first: Int) {
           posts(input: $input, first: $first) {
             edges { node { id status text dueAt sentAt externalLink error { message } } }
@@ -145,7 +148,12 @@ export function bufferClient(apiKey: string, fetchImpl: typeof fetch = fetch): B
           first: 100,
           input: {
             organizationId: channel.organizationId,
-            filter: { channelIds: [channel.channelId], startDate: since.toISOString() },
+            filter: {
+              channelIds: [channel.channelId],
+              startDate: since.toISOString(),
+              status: ["draft", "needs_approval", "scheduled", "sending", "sent", "error"],
+            },
+            sort: [{ field: "dueAt", direction: "desc" }],
           },
         },
       );
@@ -162,11 +170,11 @@ export function bufferClient(apiKey: string, fetchImpl: typeof fetch = fetch): B
 
     async createVideoPost(channelId, text, videoUrl) {
       const { data } = await request<{
-        createPost: { post?: { id: string }; message?: string };
+        createPost: { post?: { id: string; dueAt?: string | null }; message?: string };
       }>(
         `mutation CreatePost($input: CreatePostInput!) {
           createPost(input: $input) {
-            ... on PostActionSuccess { post { id } }
+            ... on PostActionSuccess { post { id dueAt } }
             ... on MutationError { message }
           }
         }`,
@@ -181,7 +189,9 @@ export function bufferClient(apiKey: string, fetchImpl: typeof fetch = fetch): B
         },
         true,
       );
-      if (data.createPost.post?.id) return { ok: true, postId: data.createPost.post.id };
+      if (data.createPost.post?.id) {
+        return { ok: true, postId: data.createPost.post.id, dueAt: data.createPost.post.dueAt ?? null };
+      }
       return { ok: false, message: (data.createPost.message ?? "Buffer refused the post").slice(0, 500) };
     },
   };

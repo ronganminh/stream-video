@@ -173,7 +173,11 @@ export async function updateXCaptionSettingsAction(formData: FormData): Promise<
   // The template itself must not contain a banned word.
   const { problems } = checkCaption(parsed.data.template.replaceAll("{title}", "Title"), bannedExtra);
   if (parsed.data.template && problems.length) redirect("/admin/settings?error=x-caption");
-  await saveXCaptionSettings({ template: parsed.data.template, bannedExtra });
+  await saveXCaptionSettings({
+    template: parsed.data.template,
+    bannedExtra,
+    postByDefault: formData.get("xPostByDefault") === "on",
+  });
   await writeAdminAudit(admin.id, "SETTINGS_X_CAPTION", "social.x");
   revalidatePath("/admin/settings");
   revalidatePath("/admin/review");

@@ -17,9 +17,11 @@ describe.skipIf(!databaseUrl)("upgradeLegacyCaptions (database)", () => {
     await prisma.video.deleteMany({ where: { slug: { startsWith: PREFIX } } });
   }
 
-  async function post(slug: string, title: string, caption: string, status: "waiting" | "queued" | "preparing" | "pushed") {
+  async function post(slug: string, title: string, caption: string, status: "waiting" | "queued" | "preparing" | "sent") {
     const video = await prisma.video.create({
-      data: { slug: `${PREFIX}${slug}`, title, status: "AVAILABLE", isPublished: true },
+      // Drafts, and never-due posts: queue.test.ts and dispatch.test.ts run in
+      // parallel and must not pick these up.
+      data: { slug: `${PREFIX}${slug}`, title, status: "AVAILABLE", isPublished: false },
     });
     return prisma.socialPost.create({
       // Never due: dispatch.test.ts (run in parallel) must not see work.
@@ -52,7 +54,7 @@ describe.skipIf(!databaseUrl)("upgradeLegacyCaptions (database)", () => {
     const waiting = await post("waiting", "Bèo – Baker", "New video: Beo – Baker 🔥", "waiting");
     const preparing = await post("preparing", "Seachan x Theresome", "New video: Seachan x Theresome 🔥", "preparing");
     const edited = await post("edited", "Gym day", "New video: Gym day 🔥🔥 part 2", "queued");
-    const pushed = await post("pushed", "In Buffer", "New video: In Buffer 🔥", "pushed");
+    const pushed = await post("pushed", "In Buffer", "New video: In Buffer 🔥", "sent");
     const banned = await post("banned", "Nude beach", GENERIC_CAPTION, "waiting");
 
     const dry = await upgradeLegacyCaptions({ apply: false, client: prisma });

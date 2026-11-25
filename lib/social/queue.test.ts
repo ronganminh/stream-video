@@ -41,6 +41,11 @@ describe.skipIf(!databaseUrl)("X queue (Buffer)", () => {
     xHandle: "Gayvideofun",
     queueLimit: 10,
     syncMinutes: 120,
+    peakMinutes: 30,
+    peakStartHour: 17,
+    peakEndHour: 24,
+    timeZone: "Asia/Ho_Chi_Minh",
+    confirmMinutes: 180,
     rateReserve: 50,
     clipSeconds: 120,
     clipMaxBytes: 512 * 1024 * 1024,
@@ -57,8 +62,18 @@ describe.skipIf(!databaseUrl)("X queue (Buffer)", () => {
   }
   const clipExists = (file: string | null) => Boolean(file) && existsSync(path.join(clipDir(mediaDir), file!));
 
-  /** A fake Buffer: a list of channel posts and a record of calls. */
-  function fakeBuffer(options: { posts?: BufferPost[]; remaining?: number | null; create?: BufferApi["createVideoPost"] } = {}) {
+  /**
+   * A fake Buffer: a list of channel posts and a record of calls. `dueAt(n)`
+   * is the slot the n-th created post gets (null: Buffer did not say).
+   */
+  function fakeBuffer(
+    options: {
+      posts?: BufferPost[];
+      remaining?: number | null;
+      create?: BufferApi["createVideoPost"];
+      dueAt?: (n: number) => string | null;
+    } = {},
+  ) {
     const calls = { list: 0, create: [] as { text: string; url: string }[] };
     let next = 0;
     const api: BufferApi = {
@@ -72,7 +87,7 @@ describe.skipIf(!databaseUrl)("X queue (Buffer)", () => {
         (async (_channel, text, url) => {
           calls.create.push({ text, url });
           next += 1;
-          return { ok: true, postId: `bp-${next}` };
+          return { ok: true, postId: `bp-${next}`, dueAt: options.dueAt?.(next) ?? null };
         }),
     };
     return { api, calls };
@@ -103,7 +118,11 @@ describe.skipIf(!databaseUrl)("X queue (Buffer)", () => {
   async function cleanUp() {
     await prisma.socialPost.deleteMany({ where: { videoId: { startsWith: PREFIX } } });
     await prisma.video.deleteMany({ where: { id: { startsWith: PREFIX } } });
+    // The last Buffer read spaces reads out: each test starts without one.
+    await prisma.setting.deleteMany({ where: { key: { in: ["social.x.lastBufferRead", "social.x.lastSyncAt"] } } });
   }
+  const T0 = new Date("2026-11-26T11:00:00Z"); // 18:00 in Hanoi
+  const later = (minutes: number) => new Date(T0.getTime() + minutes * 60_000);
 
   beforeAll(async () => {
     rmSync(clipDir(mediaDir), { recursive: true, force: true });
@@ -153,15 +172,21 @@ describe.skipIf(!databaseUrl)("X queue (Buffer)", () => {
   it("marks sent posts, records the X link and deletes the clip", async () => {
     const videoId = await video(5, true);
     await enqueueXPost({ videoId, clipId: makeClip(), caption: "x" }, prisma, mediaDir);
-    await sync(fakeBuffer().api);
+    await sync(fakeBuffer({ dueAt: () => later(3).toISOString() }).api, {}, T0);
     const pushed = await row(videoId);
     expect(clipExists(pushed.clipFile)).toBe(true);
+    expect(pushed.bufferDueAt?.toISOString()).toBe(later(3).toISOString());
 
     const sent = post(pushed.bufferPostId!, "sent", {
       sentAt: "2026-11-07T10:00:00.000Z",
       externalLink: "https://x.com/Gayvideofun/status/1",
     });
-    expect((await sync(fakeBuffer({ posts: [sent] }).api)).sent).toBe(1);
+    // Past due, but the last read was 30 minutes ago: no read yet.
+    const early = fakeBuffer({ posts: [sent] });
+    expect(await sync(early.api, {}, later(30))).toMatchObject({ skipped: "idle", requests: 0 });
+    expect(early.calls.list).toBe(0);
+    // confirmMinutes after the last read: one read confirms it.
+    expect((await sync(fakeBuffer({ posts: [sent] }).api, {}, later(180))).sent).toBe(1);
     const done = await row(videoId);
     expect(done).toMatchObject({ status: "sent", externalLink: "https://x.com/Gayvideofun/status/1", clipFile: null });
     expect(clipExists(pushed.clipFile)).toBe(false);
@@ -228,16 +253,83 @@ describe.skipIf(!databaseUrl)("X queue (Buffer)", () => {
   it("records a Buffer publishing error and keeps the API budget in reserve", async () => {
     const a = await video(10, true);
     await enqueueXPost({ videoId: a, clipId: makeClip(), caption: "x" }, prisma, mediaDir);
-    await sync(fakeBuffer().api);
+    await sync(fakeBuffer().api, {}, T0);
     const failedPost = post((await row(a)).bufferPostId!, "error", { error: { message: "Media too long" } });
-    await sync(fakeBuffer({ posts: [failedPost] }).api);
+    await sync(fakeBuffer({ posts: [failedPost] }).api, {}, later(180));
     expect(await row(a)).toMatchObject({ status: "failed", lastError: "Buffer: Media too long" });
 
     const b = await video(11, true);
     await enqueueXPost({ videoId: b, clipId: makeClip(), caption: "x" }, prisma, mediaDir);
     const low = fakeBuffer({ remaining: 20 });
-    expect((await sync(low.api)).skipped).toBe("rate-limit");
+    expect((await sync(low.api, {}, later(360))).skipped).toBe("rate-limit");
+    // The low budget is remembered: no push before the next read either.
+    expect((await sync(fakeBuffer().api, {}, later(390))).skipped).toBe("rate-limit");
     expect(low.calls.create).toHaveLength(0);
+  });
+
+  it("between reads, frees queue slots as their due time passes (no Buffer read)", async () => {
+    const ids: string[] = [];
+    for (let n = 20; n < 32; n += 1) {
+      ids.push(await video(n, true));
+      await enqueueXPost({ videoId: ids[ids.length - 1], clipId: makeClip(), caption: `post ${n}` }, prisma, mediaDir);
+    }
+    // Buffer's slots: 18:03 + 18 min each (Hanoi), as in the schedule.
+    const slot = (n: number) => new Date(T0.getTime() + (3 + 18 * (n - 1)) * 60_000).toISOString();
+    const buffer = fakeBuffer({ dueAt: slot });
+
+    // 18:00: one read, 10 pushed (the queue limit), 2 left queued.
+    const first = await sync(buffer.api, {}, T0);
+    expect(first).toMatchObject({ pushed: 10, requests: 11 });
+    expect(buffer.calls.list).toBe(1);
+
+    // 18:02: nothing went out yet; the queue is full: not a single request.
+    expect(await sync(buffer.api, {}, later(2))).toMatchObject({ skipped: "idle", requests: 0, room: 0 });
+
+    // 18:45: slots 18:03, 18:21 and 18:39 have passed; read not due (last
+    // 18:00): the room comes from the due times; the 2 left are pushed, no read.
+    const third = await sync(buffer.api, {}, later(45));
+    expect(third).toMatchObject({ pushed: 2, requests: 2, room: 3 });
+    expect(buffer.calls.list).toBe(1);
+    expect((await row(ids[11])).bufferDueAt).not.toBeNull();
+  });
+
+  it("makes no request at all when nothing waits and nothing is due", async () => {
+    const videoId = await video(40, true);
+    await enqueueXPost({ videoId, clipId: makeClip(), caption: "x" }, prisma, mediaDir);
+    const buffer = fakeBuffer({ dueAt: () => later(24 * 60).toISOString() });
+    await sync(buffer.api, {}, T0);
+    for (const minutes of [30, 60, 240, 600]) {
+      expect(await sync(buffer.api, {}, later(minutes))).toMatchObject({ skipped: "idle", requests: 0 });
+    }
+    expect(buffer.calls.list).toBe(1);
+  });
+
+  it("sets right posts once taken for deleted (the read used to leave out sent posts)", async () => {
+    const sentId = await video(50, true);
+    const waitingId = await video(51, true);
+    for (const videoId of [sentId, waitingId]) {
+      await enqueueXPost({ videoId, clipId: makeClip(), caption: "x" }, prisma, mediaDir);
+    }
+    await sync(fakeBuffer().api, {}, T0);
+    const [a, b] = [await row(sentId), await row(waitingId)];
+    // What the old read did to them:
+    await prisma.socialPost.updateMany({
+      where: { id: { in: [a.id, b.id] } },
+      data: { status: "cancelled", lastError: "No longer in Buffer (deleted there?)", clipFile: null },
+    });
+    // The next read lists every status: one went out, one is still queued.
+    const posts = [
+      post(a.bufferPostId!, "sent", { sentAt: "2026-11-26T11:03:00.000Z", externalLink: "https://x.com/Gayvideofun/status/9" }),
+      post(b.bufferPostId!, "scheduled", { dueAt: "2026-11-27T11:03:00.000Z" }),
+    ];
+    const queuedId = await video(52, true);
+    await enqueueXPost({ videoId: queuedId, clipId: makeClip(), caption: "x" }, prisma, mediaDir);
+    const create: BufferApi["createVideoPost"] = async () => ({ ok: true, postId: "bp-new-52", dueAt: null });
+    const summary = await sync(fakeBuffer({ posts, create }).api, {}, later(180));
+    expect(summary.sent).toBe(1);
+    expect(await row(sentId)).toMatchObject({ status: "sent", externalLink: "https://x.com/Gayvideofun/status/9", lastError: null });
+    expect(await row(waitingId)).toMatchObject({ status: "pushed", lastError: null });
+    expect((await row(waitingId)).bufferDueAt?.toISOString()).toBe("2026-11-27T11:03:00.000Z");
   });
 
   it("does nothing with Buffer when it is not configured", async () => {

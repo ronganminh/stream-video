@@ -10,6 +10,8 @@ import styles from "./page.module.css";
 export type XReviewState = {
   /** Default caption from the template in /admin/settings. */
   defaultCaption: string;
+  /** Settings → "Mặc định đăng lên X": start on "Cắt clip", else "Không đăng X". */
+  postByDefault: boolean;
   /** Existing post (e.g. from the Colab notebook), if any. */
   existing: {
     statusLabel: string;
@@ -41,7 +43,9 @@ function clock(seconds: number): string {
  */
 export function XPostFields({ videoId, durationSeconds, state, bannedExtra, clipSeconds, maxVideoSeconds }: Props) {
   const existing = state.existing;
-  const [mode, setMode] = useState(existing?.hasClip && !existing.locked ? "keep" : "clip");
+  const [mode, setMode] = useState(
+    existing?.hasClip && !existing.locked ? "keep" : existing || state.postByDefault ? "clip" : "none",
+  );
   const [caption, setCaption] = useState(existing?.caption || state.defaultCaption);
   const { problems } = checkCaption(caption, bannedExtra);
   const weight = xWeight(caption.trim());

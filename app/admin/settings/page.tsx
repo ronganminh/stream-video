@@ -177,6 +177,16 @@ export default async function AdminSettingsPage({
               maxLength={240}
             />
           </label>
+          <label className={styles.toggle}>
+            <input type="checkbox" name="xPostByDefault" defaultChecked={xCaption.postByDefault} />
+            <span>
+              <strong>Mặc định đăng lên X khi duyệt</strong>
+              <small>
+                Thẻ duyệt chọn sẵn &quot;Cắt clip&quot;, và &quot;Approve selected&quot; cũng tạo bài X (cắt clip
+                từ đầu, caption theo mẫu). Bỏ chọn: thẻ chọn sẵn &quot;Không đăng X&quot;.
+              </small>
+            </span>
+          </label>
           <label className={styles.field}>
             <span>Từ cấm thêm (cách nhau bằng dấu phẩy, ngoài danh sách có sẵn)</span>
             <textarea name="xBannedExtra" defaultValue={xCaption.bannedExtra.join(", ")} rows={3} />

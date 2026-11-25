@@ -309,6 +309,9 @@ model SocialPost {
   /// Where the worker read the video from, e.g. "earnvids" or "drive".
   clipSource    String?
   bufferPostId  String?          @unique
+  /// When Buffer will post it (its queue slot), from createPost or a read.
+  /// The queue room is counted from these between Buffer reads.
+  bufferDueAt  DateTime?
   attempts      Int              @default(0)
   /// Waits for Google Drive's per-file download quota (not attempts).
   quotaWaits    Int              @default(0)

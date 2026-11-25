@@ -135,11 +135,11 @@ curl -sS https://gayvideo.fun/api/v1/videos \
 3. Client gọi `POST /api/v1/videos` kèm `x: {caption, clipId}`. Bài web được xử lý **y như trước**. Ngoài ra server ghi một **bài X vào hàng đợi trong DB**:
    - `waiting` nếu video còn là bản nháp; bài tự chuyển sang `queued` khi video được duyệt trong admin;
    - `queued` nếu đăng kèm `publish: true`.
-4. **Worker** chạy mỗi `BUFFER_SYNC_MINUTES` (mặc định 120 phút), và chỉ khi có việc:
-   - đọc danh sách bài của kênh X trên Buffer (**1 request**);
-   - đếm số chỗ còn trống trong hàng chờ (gói Free giữ tối đa **10 bài** mỗi kênh);
-   - đẩy vừa đủ số bài còn chỗ, với chế độ `addToQueue` của Buffer: Buffer tự đăng vào khung giờ kế tiếp của lịch đăng.
-5. Ở chu kỳ sau, khi Buffer báo bài đã đăng (`sent`), worker lưu link bài trên X và **xoá clip** khỏi server.
+4. **Worker** chạy một chu kỳ mỗi `BUFFER_SYNC_PEAK_MINUTES` (mặc định 30 phút) trong khung `BUFFER_PEAK_HOURS` (mặc định 17–24 giờ Việt Nam, khi Buffer đăng bài), ngoài khung thì mỗi `BUFFER_SYNC_MINUTES` (120 phút). Chu kỳ không có việc thì **không gọi Buffer**. Khi có việc:
+   - **chỗ trống** trong hàng chờ (gói Free giữ tối đa **10 bài** mỗi kênh) tính từ DB: Buffer trả giờ đăng (`dueAt`) khi tạo bài, bài đã qua giờ đăng coi như đã rời hàng chờ;
+   - đẩy vừa đủ số bài còn chỗ, với chế độ `addToQueue`: Buffer tự xếp vào khung giờ kế tiếp của lịch đăng (1 request mỗi bài);
+   - **đọc Buffer** (1 request) chỉ khi có bài đã quá giờ đăng cần xác nhận, hoặc có chỗ trống và bài chờ, và tối đa mỗi `BUFFER_CONFIRM_MINUTES` (180 phút) một lần. Lần đọc cập nhật trạng thái đã đăng, giờ đăng, và số chỗ thật (tính cả bài thêm tay trên Buffer).
+5. Khi lần đọc thấy bài đã đăng (`sent`), worker lưu link bài trên X và **xoá clip** khỏi server.
 
 Nội dung bài X gồm caption tiếng Anh, một dòng trống và link `https://gayvideo.fun/watch/<slug>`. Caption tự cắt bớt (thêm "…") để cả bài vừa 280 ký tự, đếm theo cách X đếm: link tính 23; chữ có dấu tiếng Việt như "ầ", "ứ", dấu "…" và emoji tính 2.
 
@@ -150,7 +150,7 @@ Nội dung bài X gồm caption tiếng Anh, một dòng trống và link `https
   - Buffer từ chối một bài thì thử lại với thời gian chờ tăng dần, tối đa 5 lần, rồi đánh dấu `failed`.
   - Hàng chờ Buffer đầy thì chỉ chờ, không tính là lỗi.
   - Mạng đứt giữa chừng thì lần sau worker tìm bài trên Buffer theo link video, nên không tạo bài thứ hai.
-- **Tiết kiệm request:** gói Free của Buffer cho khoảng 1000 request mỗi tháng. Mỗi chu kỳ dùng 1 lần đọc cộng 1 request cho mỗi bài được đẩy, và tạm dừng đẩy khi quota 30 ngày còn ≤ 50.
+- **Tiết kiệm request:** gói Free của Buffer cho khoảng 1000 request mỗi 30 ngày mỗi kênh. Với 20 bài/ngày: 20 request tạo bài cộng khoảng 3 lần đọc (khoảng 18:30, 21:30 và 00:30 giờ Việt Nam), tức khoảng 23 request/ngày, khoảng 700/30 ngày. Worker tạm dừng đẩy khi quota 30 ngày còn ≤ 50 (`BUFFER_RATE_RESERVE`; số còn lại lấy từ lần đọc gần nhất). `npm run social:status` in số request mỗi ngày (giờ Việt Nam) của 7 ngày gần nhất.
 - **Dọn clip:**
   - xoá ngay khi bài đã đăng;
   - xoá sau 7 ngày nếu bài `failed` hoặc `cancelled`;
