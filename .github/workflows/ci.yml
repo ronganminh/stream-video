@@ -41,6 +41,7 @@ jobs:
           docker run --rm \
             -e SITE_DOMAIN="$SITE_DOMAIN" \
             -v "$PWD/Caddyfile:/etc/caddy/Caddyfile:ro" \
+            -v "$PWD/caddy-sites:/etc/caddy/sites:ro" \
             caddy:2-alpine \
             caddy validate --config /etc/caddy/Caddyfile
 
