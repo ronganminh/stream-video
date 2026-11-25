@@ -7,6 +7,7 @@ import { writeAdminAudit } from "@/lib/auth/audit";
 import { requireAdmin } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { revalidatePublicPages } from "@/lib/revalidatePublic";
+import { acknowledgePlayerDomains } from "@/lib/security/cspReports";
 
 const hostFormSchema = z.object({
   primaryHostId: z.string().min(1),
@@ -85,4 +86,13 @@ export async function saveHostsAction(
   revalidatePath("/admin/hosts");
   revalidatePublicPages();
   return { success: "Hosts saved." };
+}
+
+/** "Đã xem" on the new player domain alert (dashboard and /admin/hosts). */
+export async function acknowledgePlayerDomainsAction() {
+  const admin = await requireAdmin();
+  await acknowledgePlayerDomains();
+  await writeAdminAudit(admin.id, "CSP_DOMAINS_ACK", "frame-src");
+  revalidatePath("/admin");
+  revalidatePath("/admin/hosts");
 }

@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 
 import { requireAdmin } from "@/lib/auth/session";
 import { db } from "@/lib/db";
-import { listCspReports } from "@/lib/security/cspReports";
+import { NewPlayerDomainsAlert } from "@/components/admin/NewPlayerDomainsAlert";
+import { listCspReports, newPlayerDomains } from "@/lib/security/cspReports";
 
 import { HostsForm } from "./HostsForm";
 import styles from "./page.module.css";
@@ -14,7 +15,9 @@ export const metadata: Metadata = {
 export default async function AdminHostsPage() {
   await requireAdmin();
 
-  const frameReports = (await listCspReports()).filter((entry) => entry.directive === "frame-src").slice(0, 50);
+  const [allReports, newDomains] = await Promise.all([listCspReports(), newPlayerDomains()]);
+  const frameReports = allReports.filter((entry) => entry.directive === "frame-src").slice(0, 50);
+  const isNew = new Set(newDomains.map((domain) => domain.host));
   const hosts = await db.host.findMany({
     orderBy: { sortOrder: "asc" },
     select: {
@@ -34,6 +37,7 @@ export default async function AdminHostsPage() {
         Choose which hosts are enabled, select the source for new videos, and
         set the independent server order shown to viewers.
       </p>
+      <NewPlayerDomainsAlert domains={newDomains} />
       <HostsForm hosts={hosts} />
 
       <section className={styles.cspReports} aria-labelledby="csp-reports-heading">
@@ -59,6 +63,7 @@ export default async function AdminHostsPage() {
                 <tr key={`${entry.disposition} ${entry.blocked}`}>
                   <td>
                     <code>{entry.blocked}</code>
+                    {isNew.has(entry.blocked) ? <strong className={styles.newBadge}> mới</strong> : null}
                   </td>
                   <td>{entry.disposition === "enforce" ? "Blocked" : "Report"}</td>
                   <td>{entry.count}</td>
