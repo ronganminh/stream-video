@@ -63,7 +63,7 @@ describe("bufferClient", () => {
     for (const { response, retryable } of cases) {
       const { impl } = fakeFetch([response]);
       const error = await bufferClient(KEY, impl)
-        .channelPosts({ channelId: "c", organizationId: "o" }, new Date())
+        .channelPosts({ channelId: "c", organizationId: "o" })
         .catch((e: unknown) => e);
       expect(error).toBeInstanceOf(BufferError);
       expect((error as BufferError).retryable).toBe(retryable);
@@ -86,19 +86,35 @@ describe("bufferClient", () => {
         },
       },
     ]);
-    const { posts } = await bufferClient(KEY, impl).channelPosts({ channelId: "c", organizationId: "o" }, new Date());
+    const { posts } = await bufferClient(KEY, impl).channelPosts({ channelId: "c", organizationId: "o" });
     expect(posts.map((post) => post.status)).toEqual(["sent", "scheduled"]);
-    // Sent posts must be asked for: without a status filter they were missing.
-    const input = requests[0].body.variables.input as { filter: { status: string[] }; sort: unknown };
-    expect(input.filter.status).toEqual(["draft", "needs_approval", "scheduled", "sending", "sent", "error"]);
-    expect(input.sort).toEqual([{ field: "dueAt", direction: "desc" }]);
+    // Channel and every status; no startDate or sort (with them Buffer
+    // returned nothing, so every post looked deleted).
+    const input = requests[0].body.variables.input as { filter: Record<string, unknown>; sort?: unknown };
+    expect(input.filter).toEqual({
+      channelIds: ["c"],
+      status: ["draft", "needs_approval", "scheduled", "sending", "sent", "error"],
+    });
+    expect(input.sort).toBeUndefined();
   });
 
   it("reads posts when the API returns them as a list of result pages", async () => {
     const node = (id: string, status: string) => ({ node: { id, status, text: "t", dueAt: null, sentAt: null, externalLink: null, error: null } });
     const { impl } = fakeFetch([{ body: { data: { posts: [{ edges: [node("p1", "sent"), node("p2", "scheduled")] }] } } }]);
-    const { posts } = await bufferClient(KEY, impl).channelPosts({ channelId: "c", organizationId: "o" }, new Date());
+    const { posts } = await bufferClient(KEY, impl).channelPosts({ channelId: "c", organizationId: "o" });
     expect(posts.map((post) => [post.id, post.status])).toEqual([["p1", "sent"], ["p2", "scheduled"]]);
+  });
+
+  it("follows pages until Buffer has no more", async () => {
+    const node = (id: string) => ({ node: { id, status: "sent", text: "t", dueAt: null, sentAt: null, externalLink: null, error: null } });
+    const { impl, requests } = fakeFetch([
+      { body: { data: { posts: { edges: [node("p1")], pageInfo: { hasNextPage: true, endCursor: "c1" } } } } },
+      { body: { data: { posts: { edges: [node("p2")], pageInfo: { hasNextPage: false, endCursor: "c2" } } } } },
+    ]);
+    const listed = await bufferClient(KEY, impl).channelPosts({ channelId: "c", organizationId: "o" });
+    expect(listed.posts.map((post) => post.id)).toEqual(["p1", "p2"]);
+    expect(listed).toMatchObject({ complete: true, requests: 2 });
+    expect(requests[1].body.variables.after).toBe("c1");
   });
 
   it("finds the X channel by handle across organizations", async () => {
