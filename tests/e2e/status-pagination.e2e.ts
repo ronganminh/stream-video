@@ -10,6 +10,17 @@ test("REMOVED/BLOCKED return 410 while draft/hidden return 404", async ({
     expect(response.status(), slug).toBe(410);
   }
 
+  // Behind Caddy the request says https; the 410 page must still render
+  // (it used to fetch itself over TLS on the plain-HTTP port: a 500).
+  const proxied = { "x-forwarded-proto": "https", "x-forwarded-host": "gayvideo.example" };
+  for (const slug of ["removed-example-video", "blocked-example-video"]) {
+    const response = await request.get("/watch/" + slug, { headers: proxied });
+    expect(response.status(), `${slug} behind the proxy`).toBe(410);
+    expect(await response.text()).toContain("<html");
+    const head = await request.head("/watch/" + slug, { headers: proxied });
+    expect(head.status(), `${slug} HEAD`).toBe(410);
+  }
+
   for (const slug of ["draft-status-seed-video", "hidden-seed-video"]) {
     const response = await request.get("/watch/" + slug);
     expect(response.status(), slug).toBe(404);
