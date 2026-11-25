@@ -98,6 +98,8 @@ export type SyncSummary = {
   sent: number;
   failed: number;
   room: number | null;
+  /** Posts the Buffer read returned (null: no read this cycle). */
+  read: number | null;
   errors: string[];
 };
 
@@ -177,7 +179,7 @@ export async function runSocialSync(
   const now = options.now ?? new Date();
   const config = options.config ?? socialConfig();
   const client = options.client ?? prisma;
-  const summary: SyncSummary = { requests: 0, promoted: 0, pushed: 0, sent: 0, failed: 0, room: null, errors: [] };
+  const summary: SyncSummary = { requests: 0, promoted: 0, pushed: 0, sent: 0, failed: 0, room: null, read: null, errors: [] };
 
   // Housekeeping that needs no Buffer call.
   const promoted = await client.socialPost.updateMany({
@@ -261,7 +263,13 @@ export async function runSocialSync(
     remaining30d = listed.remaining30d ?? remaining30d;
     await saveReadState(client, now, remaining30d);
     const byId = new Map(posts.map((post) => [post.id, post]));
-    const listComplete = posts.length < 100;
+    summary.read = posts.length;
+    // An empty answer while posts of ours sit in Buffer is not believable
+    // (that is how a misread once cancelled every post): nothing is taken
+    // for deleted on it.
+    const emptyRead = posts.length === 0 && inBuffer.some((row) => row.bufferPostId);
+    if (emptyRead) summary.errors.push("Buffer read returned no posts; nothing marked deleted this cycle.");
+    const listComplete = posts.length < 100 && !emptyRead;
 
     for (const row of inBuffer) {
       if (row.status === "pushing") {

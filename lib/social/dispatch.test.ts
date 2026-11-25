@@ -11,6 +11,9 @@ import { clipDir } from "./clips";
 import type { SocialConfig } from "./config";
 import { DISPATCH_SETTING, gitHubActions, readDispatchState, requestClipRun, runClipDispatch, type GitHubActions } from "./dispatch";
 
+// Queued rows here are never due: queue.test.ts (run in parallel) pushes due ones.
+const NEVER = new Date("2099-01-01T00:00:00Z");
+
 const databaseUrl = process.env.DATABASE_URL;
 const PREFIX = "e2e-dispatch-";
 
@@ -197,7 +200,7 @@ describe.skipIf(!databaseUrl)("clip workflow dispatch and API (database)", () =>
     const github = fakeGitHub();
     const now = new Date("2026-11-24T13:00:00Z");
     expect((await runClipDispatch({ now, client: prisma, config: config(), github, immediate: true })).outcome).toBe("dispatched");
-    await prisma.socialPost.update({ where: { id: postId }, data: { status: "queued" } });
+    await prisma.socialPost.update({ where: { id: postId }, data: { status: "queued", nextAttemptAt: NEVER } });
     expect((await runClipDispatch({ now, client: prisma, config: config(), github, immediate: true })).outcome).toBe("idle");
     expect((await readDispatchState(prisma)).requestedAt).toBeNull();
   });
@@ -228,10 +231,10 @@ describe.skipIf(!databaseUrl)("clip workflow dispatch and API (database)", () =>
     });
     // A queued post whose clip was cut off at 2 s gets its 120 s plan back
     // (the stored length was the bad clip's; x-clips run #8 cut 2 s again).
-    await prisma.socialPost.update({ where: { id: postId }, data: { status: "queued", clipSeconds: 2 } });
+    await prisma.socialPost.update({ where: { id: postId }, data: { status: "queued", clipSeconds: 2, nextAttemptAt: NEVER } });
     expect(await recutClip(postId, prisma, mediaDir, config())).toBe(true);
     expect((await prisma.socialPost.findUniqueOrThrow({ where: { id: postId } })).clipSeconds).toBe(120);
-    await prisma.socialPost.update({ where: { id: postId }, data: { status: "pushed" } });
+    await prisma.socialPost.update({ where: { id: postId }, data: { status: "sent" } }); // not "pushed": queue.test.ts (parallel) syncs those
     expect(await recutClip(postId, prisma, mediaDir)).toBe(false);
   });
 
