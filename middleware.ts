@@ -120,7 +120,16 @@ function listRedirect(request: NextRequest) {
 }
 
 export async function middleware(request: NextRequest) {
-  const watchResponse = await watchStatusResponse(request);
+  // A middleware that throws makes Next render the not-found page into a
+  // response it has already started ("Cannot append headers after they are
+  // sent to the client", twice per failure in production). Never throw here:
+  // without a status answer the page itself decides (404 for unknown slugs).
+  let watchResponse: NextResponse | null = null;
+  try {
+    watchResponse = await watchStatusResponse(request);
+  } catch (error) {
+    console.error("watch status check failed", error);
+  }
   if (watchResponse) return watchResponse;
 
   const list = listRedirect(request);

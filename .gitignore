@@ -31,3 +31,4 @@ __pycache__/
 
 # Local MEDIA_DIR default (thumbnails written in dev/E2E)
 /public/media/
+.e2e-server.log

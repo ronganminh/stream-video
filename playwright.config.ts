@@ -29,7 +29,9 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "npm run start -- --hostname localhost --port 3000",
+    // The server's output also goes to .e2e-server.log, so tests can check
+    // that a request logged no server error (e.g. ERR_HTTP_HEADERS_SENT).
+    command: "sh -c 'npm run start -- --hostname localhost --port 3000 2>&1 | tee .e2e-server.log'",
     url: "http://localhost:3000",
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
