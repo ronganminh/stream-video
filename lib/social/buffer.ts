@@ -150,7 +150,12 @@ export function bufferClient(apiKey: string, fetchImpl: typeof fetch = fetch): B
         },
       );
       return {
-        posts: (data.posts.edges ?? []).map((edge) => edge.node),
+        // GraphQL enums may come back upper case ("SENT"); the queue compares
+        // lower case, so a sent post would otherwise never be marked sent.
+        posts: (data.posts.edges ?? []).map((edge) => ({
+          ...edge.node,
+          status: String(edge.node.status ?? "").toLowerCase() as BufferPost["status"],
+        })),
         remaining30d: remainingIn30Days(headers),
       };
     },

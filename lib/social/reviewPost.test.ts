@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { planXPost, readXReviewInput, xStatusLabel } from "./reviewPost";
+import { planXPost, plannedClipSeconds, readXReviewInput, xStatusLabel } from "./reviewPost";
 
 const config = { clipSeconds: 120, maxVideoSeconds: 140 };
 const input = (overrides: Partial<{ mode: string; start: number; caption: string }> = {}) => ({
@@ -64,6 +64,16 @@ describe("planXPost", () => {
     const sent = planXPost(input(), { durationSeconds: 60 }, { status: "sent", clipFile: null }, config);
     expect(sent.plan).toEqual({ action: "none" });
     expect(sent.warnings[0]).toContain("không đổi");
+  });
+});
+
+describe("plannedClipSeconds", () => {
+  it("is the clip length, cut by the end of the video or the X limit", () => {
+    expect(plannedClipSeconds("clip", 600, 3031, config)).toBe(120);
+    expect(plannedClipSeconds("clip", 0, 91, config)).toBe(91);
+    expect(plannedClipSeconds("clip", 0, null, config)).toBe(120);
+    expect(plannedClipSeconds("full", 0, 1731, config)).toBe(140);
+    expect(plannedClipSeconds("full", 0, 95, config)).toBe(95);
   });
 });
 
