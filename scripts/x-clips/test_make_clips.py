@@ -12,6 +12,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import types
 import unittest
 from contextlib import redirect_stdout
 from pathlib import Path
@@ -186,6 +187,28 @@ class DriveTest(unittest.TestCase):
         self.assertEqual(opened.url, f"https://drive.usercontent.google.com/download?id={FILE_ID}"
                                      "&export=download&confirm=t&resourcekey=0-AbC")
         self.assertIsNotNone(opened.download)
+
+    def test_public_download_calls_gdown_like_the_migration(self):
+        calls = []
+
+        def download(id=None, output=None, quiet=False):  # gdown 5: no url/fuzzy needed
+            calls.append({"id": id, "quiet": quiet})
+            Path(output).write_bytes(b"video")
+            return output
+
+        fake = types.SimpleNamespace(download=download)
+        opened = mc.Drive("").open(f"https://drive.google.com/file/d/{FILE_ID}/view")
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.dict(sys.modules, {"gdown": fake}):
+            path = opened.download(Path(tmp) / "f", 600)
+            self.assertEqual(path.read_bytes(), b"video")
+        self.assertEqual(calls, [{"id": FILE_ID, "quiet": True}])
+        try:
+            import inspect
+
+            import gdown  # the real one, when installed: the call must fit its signature
+        except ImportError:
+            return
+        inspect.signature(gdown.download).bind(id=FILE_ID, output="f", quiet=True)
 
     def test_folder_needs_service_account(self):
         with self.assertRaises(mc.SourceError) as caught:
@@ -438,6 +461,16 @@ class ProcessTest(unittest.TestCase):
         for text in [body["reason"], *logs]:
             self.assertNotIn("https://", text)
             self.assertNotIn(FILE_ID, text)
+
+    def test_drive_quota_failure_says_when_to_retry(self):
+        client = FakeClient()
+
+        def cutter(source, p, output, deadline=None, log=None):
+            raise mc.SourceError("tải cả file: HTTP 403 (downloadQuotaExceeded)")
+
+        with mock.patch.dict(os.environ, {"HOST_EARNVIDS_API_KEY": ""}):
+            mc.process(client, [post()], self.index, mc.Drive(""), self.root, cutter=cutter, log=lambda *_: None)
+        self.assertIn("Thử lại sau 24 giờ", client.calls[-1][2]["reason"])
 
     def test_no_source_is_final(self):
         client = FakeClient()
