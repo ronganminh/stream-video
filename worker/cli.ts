@@ -2,7 +2,8 @@ import { runBackfill } from "../lib/sync/backfill";
 import { prisma } from "../lib/db";
 import { bufferClient } from "../lib/social/buffer";
 import { upgradeLegacyCaptions } from "../lib/social/captionUpgrade";
-import { socialConfig } from "../lib/social/config";
+import { localHour, socialConfig, syncIntervalMinutes } from "../lib/social/config";
+import { getXCaptionSettings } from "../lib/social/settings";
 import { REQUEST_COUNT_SETTING, runSocialSync, X_NETWORK } from "../lib/social/queue";
 import { runHealthCheck } from "../lib/sync/healthCheck";
 import {
@@ -127,6 +128,21 @@ export async function runCli(args = process.argv.slice(2)): Promise<number> {
     }
     const counts = await prisma.socialPost.groupBy({ by: ["status"], _count: true });
     console.info(`X queue: ${counts.map((c) => `${c.status}=${c._count}`).join(" ") || "empty"}; Buffer ${socialConfig().enabled ? "configured" : "NOT configured (BUFFER_API_KEY)"}`);
+    const config = socialConfig();
+    const now = new Date();
+    const [lastSync, lastRead, captions] = await Promise.all([
+      prisma.setting.findUnique({ where: { key: "social.x.lastSyncAt" } }),
+      prisma.setting.findUnique({ where: { key: "social.x.lastBufferRead" } }),
+      getXCaptionSettings(),
+    ]);
+    const read = lastRead?.value as { at?: string; remaining30d?: number | null } | undefined;
+    console.info(
+      `Cadence: every ${syncIntervalMinutes(now, config)} min now (local hour ${localHour(now, config.timeZone)}, ${config.timeZone}; ` +
+        `${config.peakMinutes} min in ${config.peakStartHour}-${config.peakEndHour}, else ${config.syncMinutes}); ` +
+        `last cycle ${typeof lastSync?.value === "string" ? lastSync.value.slice(0, 16) + "Z" : "never"}; ` +
+        `last Buffer read ${read?.at ? read.at.slice(0, 16) + "Z" : "never"} (30-day requests left: ${read?.remaining30d ?? "unknown"}, reads at most every ${config.confirmMinutes} min)`,
+    );
+    console.info(`Review default: ${captions.postByDefault ? "Cắt clip (post to X)" : "Không đăng X"}`);
     const perDay = await prisma.setting.findUnique({ where: { key: REQUEST_COUNT_SETTING } });
     const days = Object.entries((perDay?.value as Record<string, number> | undefined) ?? {}).slice(-7);
     console.info(`Buffer requests per day (local): ${days.map(([day, n]) => `${day}=${n}`).join(" ") || "none yet"}`);

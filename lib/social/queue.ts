@@ -26,6 +26,9 @@ const LAST_SYNC_SETTING = "social.x.lastSyncAt";
 const LAST_READ_SETTING = "social.x.lastBufferRead";
 /** A post this long past its due time is looked up (Buffer may run late). */
 const DUE_GRACE_MS = 10 * 60 * 1000;
+/** lastError of a post the Buffer read no longer listed. */
+const MISSING_NOTE = "No longer in Buffer (deleted there?)";
+const MISREAD_DAYS = 30;
 const MAX_ATTEMPTS = 5;
 const PUSHING_TIMEOUT_MS = 15 * 60 * 1000;
 const UNUSED_CLIP_MS = 24 * 60 * 60 * 1000;
@@ -232,10 +235,22 @@ export async function runSocialSync(
   let scheduled: number | null = null;
 
   if (read) {
+    // Posts once taken for deleted because the read left out sent posts
+    // (before it asked for every status): looked up again, and set right.
+    const misread = await client.socialPost.findMany({
+      where: {
+        network: X_NETWORK,
+        status: "cancelled",
+        lastError: MISSING_NOTE,
+        bufferPostId: { not: null },
+        updatedAt: { gte: new Date(now.getTime() - MISREAD_DAYS * 24 * 3600_000) },
+      },
+    });
+
     // One read: every post of the channel since our oldest one in Buffer.
     // It shows which of ours went out, and how full the queue really is
     // (posts added by hand in Buffer count too).
-    const oldest = inBuffer.reduce(
+    const oldest = [...inBuffer, ...misread].reduce(
       (min, row) => Math.min(min, (row.pushedAt ?? now).getTime()),
       now.getTime(),
     );
@@ -298,7 +313,7 @@ export async function runSocialSync(
       } else if (!post && listComplete) {
         await client.socialPost.update({
           where: { id: row.id },
-          data: { status: "cancelled", lastError: "No longer in Buffer (deleted there?)", clipFile: null },
+          data: { status: "cancelled", lastError: MISSING_NOTE, clipFile: null },
         });
         await deleteClip(row.clipFile, options.mediaDir);
         row.status = "cancelled";
@@ -309,6 +324,26 @@ export async function runSocialSync(
           await client.socialPost.update({ where: { id: row.id }, data: { bufferDueAt: dueAt } });
           row.bufferDueAt = dueAt;
         }
+      }
+    }
+    for (const row of misread) {
+      const post = byId.get(row.bufferPostId!);
+      if (post?.status === "sent") {
+        await client.socialPost.update({
+          where: { id: row.id },
+          data: { status: "sent", sentAt: post.sentAt ? new Date(post.sentAt) : now, externalLink: post.externalLink, lastError: null },
+        });
+        summary.sent += 1;
+      } else if (post?.status === "scheduled" || post?.status === "sending") {
+        await client.socialPost.update({
+          where: { id: row.id },
+          data: { status: "pushed", bufferDueAt: post.dueAt ? new Date(post.dueAt) : null, lastError: null },
+        });
+      } else if (post?.status === "error") {
+        await client.socialPost.update({
+          where: { id: row.id },
+          data: { status: "failed", lastError: `Buffer: ${post.error?.message ?? "publishing failed"}`.slice(0, 500) },
+        });
       }
     }
     scheduled = posts.filter((post) => post.status === "scheduled" || post.status === "sending").length;

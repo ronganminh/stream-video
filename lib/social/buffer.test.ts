@@ -72,7 +72,7 @@ describe("bufferClient", () => {
   });
 
   it("reads post statuses whatever their case", async () => {
-    const { impl } = fakeFetch([
+    const { impl, requests } = fakeFetch([
       {
         body: {
           data: {
@@ -88,6 +88,10 @@ describe("bufferClient", () => {
     ]);
     const { posts } = await bufferClient(KEY, impl).channelPosts({ channelId: "c", organizationId: "o" }, new Date());
     expect(posts.map((post) => post.status)).toEqual(["sent", "scheduled"]);
+    // Sent posts must be asked for: without a status filter they were missing.
+    const input = requests[0].body.variables.input as { filter: { status: string[] }; sort: unknown };
+    expect(input.filter.status).toEqual(["draft", "needs_approval", "scheduled", "sending", "sent", "error"]);
+    expect(input.sort).toEqual([{ field: "dueAt", direction: "desc" }]);
   });
 
   it("finds the X channel by handle across organizations", async () => {

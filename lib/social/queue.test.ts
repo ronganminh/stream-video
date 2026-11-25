@@ -304,6 +304,34 @@ describe.skipIf(!databaseUrl)("X queue (Buffer)", () => {
     expect(buffer.calls.list).toBe(1);
   });
 
+  it("sets right posts once taken for deleted (the read used to leave out sent posts)", async () => {
+    const sentId = await video(50, true);
+    const waitingId = await video(51, true);
+    for (const videoId of [sentId, waitingId]) {
+      await enqueueXPost({ videoId, clipId: makeClip(), caption: "x" }, prisma, mediaDir);
+    }
+    await sync(fakeBuffer().api, {}, T0);
+    const [a, b] = [await row(sentId), await row(waitingId)];
+    // What the old read did to them:
+    await prisma.socialPost.updateMany({
+      where: { id: { in: [a.id, b.id] } },
+      data: { status: "cancelled", lastError: "No longer in Buffer (deleted there?)", clipFile: null },
+    });
+    // The next read lists every status: one went out, one is still queued.
+    const posts = [
+      post(a.bufferPostId!, "sent", { sentAt: "2026-11-26T11:03:00.000Z", externalLink: "https://x.com/Gayvideofun/status/9" }),
+      post(b.bufferPostId!, "scheduled", { dueAt: "2026-11-27T11:03:00.000Z" }),
+    ];
+    const queuedId = await video(52, true);
+    await enqueueXPost({ videoId: queuedId, clipId: makeClip(), caption: "x" }, prisma, mediaDir);
+    const create: BufferApi["createVideoPost"] = async () => ({ ok: true, postId: "bp-new-52", dueAt: null });
+    const summary = await sync(fakeBuffer({ posts, create }).api, {}, later(180));
+    expect(summary.sent).toBe(1);
+    expect(await row(sentId)).toMatchObject({ status: "sent", externalLink: "https://x.com/Gayvideofun/status/9", lastError: null });
+    expect(await row(waitingId)).toMatchObject({ status: "pushed", lastError: null });
+    expect((await row(waitingId)).bufferDueAt?.toISOString()).toBe("2026-11-27T11:03:00.000Z");
+  });
+
   it("does nothing with Buffer when it is not configured", async () => {
     const videoId = await video(12, true);
     await enqueueXPost({ videoId, clipId: makeClip(), caption: "x" }, prisma, mediaDir);
