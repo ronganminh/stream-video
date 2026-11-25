@@ -3,7 +3,7 @@ import { prisma } from "../lib/db";
 import { bufferClient } from "../lib/social/buffer";
 import { upgradeLegacyCaptions } from "../lib/social/captionUpgrade";
 import { socialConfig } from "../lib/social/config";
-import { runSocialSync, X_NETWORK } from "../lib/social/queue";
+import { REQUEST_COUNT_SETTING, runSocialSync, X_NETWORK } from "../lib/social/queue";
 import { runHealthCheck } from "../lib/sync/healthCheck";
 import {
   applyLostDSlugFixes,
@@ -126,6 +126,9 @@ export async function runCli(args = process.argv.slice(2)): Promise<number> {
     }
     const counts = await prisma.socialPost.groupBy({ by: ["status"], _count: true });
     console.info(`X queue: ${counts.map((c) => `${c.status}=${c._count}`).join(" ") || "empty"}; Buffer ${socialConfig().enabled ? "configured" : "NOT configured (BUFFER_API_KEY)"}`);
+    const perDay = await prisma.setting.findUnique({ where: { key: REQUEST_COUNT_SETTING } });
+    const days = Object.entries((perDay?.value as Record<string, number> | undefined) ?? {}).slice(-7);
+    console.info(`Buffer requests per day (local): ${days.map(([day, n]) => `${day}=${n}`).join(" ") || "none yet"}`);
     return 0;
   }
 

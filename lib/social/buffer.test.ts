@@ -28,9 +28,13 @@ describe("remainingIn30Days", () => {
 
 describe("bufferClient", () => {
   it("creates a queued X video post with the key as a bearer token", async () => {
-    const { impl, requests } = fakeFetch([{ body: { data: { createPost: { post: { id: "p1" } } } } }]);
+    const { impl, requests } = fakeFetch([
+      { body: { data: { createPost: { post: { id: "p1", dueAt: "2026-11-26T11:03:00.000Z" } } } } },
+    ]);
     const result = await bufferClient(KEY, impl).createVideoPost("chan", "Hello\n\nhttps://x.test", "https://m.test/c.mp4");
-    expect(result).toEqual({ ok: true, postId: "p1" });
+    // dueAt: the queue slot, so the worker counts the queue without reading it.
+    expect(result).toEqual({ ok: true, postId: "p1", dueAt: "2026-11-26T11:03:00.000Z" });
+    expect(requests[0].body.query).toContain("post { id dueAt }");
     expect(requests[0].headers.get("authorization")).toBe(`Bearer ${KEY}`);
     expect(requests[0].body.variables.input).toEqual({
       channelId: "chan",

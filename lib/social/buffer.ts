@@ -19,7 +19,7 @@ export type BufferPost = {
 export type BufferChannel = { channelId: string; organizationId: string };
 
 export type CreateResult =
-  | { ok: true; postId: string }
+  | { ok: true; postId: string; dueAt: string | null }
   // Buffer refused the post (a typed MutationError): the message says why.
   | { ok: false; message: string };
 
@@ -162,11 +162,11 @@ export function bufferClient(apiKey: string, fetchImpl: typeof fetch = fetch): B
 
     async createVideoPost(channelId, text, videoUrl) {
       const { data } = await request<{
-        createPost: { post?: { id: string }; message?: string };
+        createPost: { post?: { id: string; dueAt?: string | null }; message?: string };
       }>(
         `mutation CreatePost($input: CreatePostInput!) {
           createPost(input: $input) {
-            ... on PostActionSuccess { post { id } }
+            ... on PostActionSuccess { post { id dueAt } }
             ... on MutationError { message }
           }
         }`,
@@ -181,7 +181,9 @@ export function bufferClient(apiKey: string, fetchImpl: typeof fetch = fetch): B
         },
         true,
       );
-      if (data.createPost.post?.id) return { ok: true, postId: data.createPost.post.id };
+      if (data.createPost.post?.id) {
+        return { ok: true, postId: data.createPost.post.id, dueAt: data.createPost.post.dueAt ?? null };
+      }
       return { ok: false, message: (data.createPost.message ?? "Buffer refused the post").slice(0, 500) };
     },
   };

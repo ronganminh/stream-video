@@ -92,7 +92,7 @@ export async function workerTick(now = new Date()): Promise<void> {
     const summary = await runSocialSyncIfDue(now);
     if (summary && !summary.skipped) {
       console.info(
-        `X queue: promoted=${summary.promoted} pushed=${summary.pushed} sent=${summary.sent} failed=${summary.failed} room=${summary.room}`,
+        `X queue: promoted=${summary.promoted} pushed=${summary.pushed} sent=${summary.sent} failed=${summary.failed} room=${summary.room} bufferRequests=${summary.requests}`,
       );
     }
     for (const message of summary?.errors ?? []) console.warn(`X queue: ${message}`);
