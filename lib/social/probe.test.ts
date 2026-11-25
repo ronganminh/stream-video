@@ -34,7 +34,8 @@ describe("social:probe", () => {
     expect(await runBufferProbe({ client: fakeClient(), log: (line) => lines.push(line), fetchImpl })).toBe(0);
     const out = lines.join("\n");
     expect(out).toContain("channel=true org=true");
-    expect(out).toContain("A worker's query: shape=object posts=1 ours=1 [scheduled=1]");
+    expect(out).toContain("A old filter (startDate+sort): shape=object posts=1 ours=1 [scheduled=1]");
+    expect(out).toContain("W worker's read: posts=1 ours=1 complete=true pages=1");
     expect(out).toContain("F newest of ours by id: status=scheduled sameChannel=true");
     expect(out).not.toContain("SECRET TEXT");
     expect(out).not.toContain(KEY);

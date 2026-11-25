@@ -249,16 +249,11 @@ export async function runSocialSync(
       },
     });
 
-    // One read: every post of the channel since our oldest one in Buffer.
-    // It shows which of ours went out, and how full the queue really is
-    // (posts added by hand in Buffer count too).
-    const oldest = [...inBuffer, ...misread].reduce(
-      (min, row) => Math.min(min, (row.pushedAt ?? now).getTime()),
-      now.getTime(),
-    );
-    const since = new Date(oldest - 24 * 60 * 60 * 1000);
-    const listed = await api.channelPosts(channel, since);
-    summary.requests += 1;
+    // One read: every post of the channel (a page per 100). It shows which
+    // of ours went out, and how full the queue really is (posts added by
+    // hand in Buffer count too).
+    const listed = await api.channelPosts(channel);
+    summary.requests += listed.requests ?? 1;
     const posts = listed.posts;
     remaining30d = listed.remaining30d ?? remaining30d;
     await saveReadState(client, now, remaining30d);
@@ -269,7 +264,7 @@ export async function runSocialSync(
     // for deleted on it.
     const emptyRead = posts.length === 0 && inBuffer.some((row) => row.bufferPostId);
     if (emptyRead) summary.errors.push("Buffer read returned no posts; nothing marked deleted this cycle.");
-    const listComplete = posts.length < 100 && !emptyRead;
+    const listComplete = (listed.complete ?? posts.length < 100) && !emptyRead;
 
     for (const row of inBuffer) {
       if (row.status === "pushing") {

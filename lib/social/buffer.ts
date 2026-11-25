@@ -5,6 +5,9 @@
 
 const ENDPOINT = "https://api.buffer.com";
 const THIRTY_DAYS = 2_592_000;
+const PAGE_SIZE = 100;
+/** Pages per read: 500 posts, far more than a 10-post queue needs. */
+const MAX_PAGES = 5;
 
 export type BufferPost = {
   id: string;
@@ -27,11 +30,13 @@ export interface BufferApi {
   /** Read-only GraphQL query, for diagnostics (social:probe). */
   query?<T>(query: string, variables?: Record<string, unknown>): Promise<T>;
   findXChannel(handle: string): Promise<BufferChannel>;
-  /** Posts of the channel created or due after `since`, newest Buffer allows (≤ 100). */
+  /**
+   * Every post of the channel (any status), following pages up to MAX_PAGES.
+   * `complete`: the list holds them all; `requests`: pages read.
+   */
   channelPosts(
     channel: BufferChannel,
-    since: Date,
-  ): Promise<{ posts: BufferPost[]; remaining30d: number | null }>;
+  ): Promise<{ posts: BufferPost[]; remaining30d: number | null; complete?: boolean; requests?: number }>;
   createVideoPost(channelId: string, text: string, videoUrl: string): Promise<CreateResult>;
 }
 
@@ -66,7 +71,10 @@ export function remainingIn30Days(headers: Headers): number | null {
   return null;
 }
 
-type PostsResults = { edges: { node: BufferPost }[] | null };
+type PostsResults = {
+  edges: { node: BufferPost }[] | null;
+  pageInfo?: { hasNextPage: boolean; endCursor: string | null } | null;
+};
 
 type GraphQLResponse<T> = { data?: T; errors?: { message?: string; extensions?: { code?: string } }[] };
 
@@ -140,45 +148,56 @@ export function bufferClient(apiKey: string, fetchImpl: typeof fetch = fetch): B
       throw new BufferError(`No X channel @${handle} in this Buffer account`, "NOT_FOUND", false);
     },
 
-    async channelPosts(channel, since) {
-      const { data, headers } = await request<{
-        posts: PostsResults | PostsResults[] | null;
-      }>(
-        // Every status, explicitly: without a status filter the list did not
-        // include sent posts, so posts that went out looked deleted
-        // ("No longer in Buffer") and were never marked sent. Newest first.
-        `query ChannelPosts($input: PostsInput!, $first: Int) {
-          posts(input: $input, first: $first) {
-            edges { node { id status text dueAt sentAt externalLink error { message } } }
-          }
-        }`,
-        {
-          first: 100,
-          input: {
-            organizationId: channel.organizationId,
-            filter: {
-              channelIds: [channel.channelId],
-              startDate: since.toISOString(),
-              status: ["draft", "needs_approval", "scheduled", "sending", "sent", "error"],
+    async channelPosts(channel) {
+      // Channel and status only. With a startDate (and dueAt sort) Buffer
+      // returned no posts at all, so every post looked deleted ("No longer
+      // in Buffer"); social:probe showed the channel-only query lists them
+      // all. Pages are followed (each one a request) up to MAX_PAGES.
+      const posts: BufferPost[] = [];
+      let remaining30d: number | null = null;
+      let after: string | null = null;
+      let requests = 0;
+      let complete = false;
+      while (requests < MAX_PAGES) {
+        const response: { data: { posts: PostsResults | PostsResults[] | null }; headers: Headers } = await request<{
+          posts: PostsResults | PostsResults[] | null;
+        }>(
+          `query ChannelPosts($input: PostsInput!, $first: Int, $after: String) {
+            posts(input: $input, first: $first, after: $after) {
+              edges { node { id status text dueAt sentAt externalLink error { message } } }
+              pageInfo { hasNextPage endCursor }
+            }
+          }`,
+          {
+            first: PAGE_SIZE,
+            ...(after ? { after } : {}),
+            input: {
+              organizationId: channel.organizationId,
+              filter: {
+                channelIds: [channel.channelId],
+                status: ["draft", "needs_approval", "scheduled", "sending", "sent", "error"],
+              },
             },
-            sort: [{ field: "dueAt", direction: "desc" }],
           },
-        },
-      );
-      return {
-        // GraphQL enums may come back upper case ("SENT"); the queue compares
-        // lower case, so a sent post would otherwise never be marked sent.
-        // The schema types `posts` as a list of result pages ([PostsResults]);
-        // reading `.edges` off the list gave nothing, so every post looked
-        // deleted. Both shapes are read.
-        posts: (Array.isArray(data.posts) ? data.posts : data.posts ? [data.posts] : [])
-          .flatMap((page) => page?.edges ?? [])
-          .map((edge) => ({
-          ...edge.node,
-          status: String(edge.node.status ?? "").toLowerCase() as BufferPost["status"],
-        })),
-        remaining30d: remainingIn30Days(headers),
-      };
+        );
+        requests += 1;
+        const { data, headers } = response;
+        remaining30d = remainingIn30Days(headers) ?? remaining30d;
+        const pages: PostsResults[] = Array.isArray(data.posts) ? data.posts : data.posts ? [data.posts] : [];
+        for (const edge of pages.flatMap((page) => page?.edges ?? [])) {
+          // GraphQL enums may come back upper case ("SENT"); the queue
+          // compares lower case.
+          posts.push({ ...edge.node, status: String(edge.node.status ?? "").toLowerCase() as BufferPost["status"] });
+        }
+        const info: PostsResults["pageInfo"] = pages[pages.length - 1]?.pageInfo;
+        if (!info?.hasNextPage || !info.endCursor) {
+          // No pageInfo at all: complete only if the page was not full.
+          complete = info ? true : posts.length < PAGE_SIZE * requests;
+          break;
+        }
+        after = info.endCursor;
+      }
+      return { posts, remaining30d, complete, requests };
     },
 
     async createVideoPost(channelId, text, videoUrl) {

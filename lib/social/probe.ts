@@ -66,7 +66,7 @@ export async function runBufferProbe(
 
   const all = ["draft", "needs_approval", "scheduled", "sending", "sent", "error"];
   const variants: Variant[] = [
-    { name: "A worker's query", filter: { channelIds: [channel.channelId], startDate: since, status: all }, sort: [{ field: "dueAt", direction: "desc" }] },
+    { name: "A old filter (startDate+sort)", filter: { channelIds: [channel.channelId], startDate: since, status: all }, sort: [{ field: "dueAt", direction: "desc" }] },
     { name: "B channel only", filter: { channelIds: [channel.channelId] } },
     { name: "C channel + scheduled", filter: { channelIds: [channel.channelId], status: ["scheduled"] } },
     { name: "D channel + sent", filter: { channelIds: [channel.channelId], status: ["sent"] } },
@@ -89,6 +89,14 @@ export async function runBufferProbe(
     } catch (error) {
       log(`${variant.name}: ERROR ${error instanceof BufferError ? error.message : "request failed"}`);
     }
+  }
+
+  try {
+    const listed = await api.channelPosts(channel);
+    const mine = listed.posts.filter((post) => ourIds.has(post.id)).length;
+    log(`W worker's read: posts=${listed.posts.length} ours=${mine} complete=${listed.complete} pages=${listed.requests}`);
+  } catch (error) {
+    log(`W worker's read: ERROR ${error instanceof BufferError ? error.message : "request failed"}`);
   }
 
   // One of our posts, looked up by id.
