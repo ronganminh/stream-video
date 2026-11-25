@@ -1,0 +1,67 @@
+name: Diag fetch (encrypted)
+
+# Fetches ~/removed-diag.log from the VPS for one investigation. Runs only from
+# the diag/removed-videos branch (on push). The file is never printed: it is
+# encrypted on the runner with the age public key below (the private key never
+# leaves the investigator's machine) and kept as an artifact for 1 day.
+# A commit message containing [cleanup] deletes this workflow's artifacts instead.
+on:
+  push:
+    branches: [diag/removed-videos]
+
+permissions:
+  contents: read
+  actions: write
+
+env:
+  AGE_RECIPIENT: age10fr7uvzhkx478skte5kuj04quhlj2r64qlzxg200993nmlna3evsq6uege
+
+jobs:
+  fetch:
+    if: ${{ !contains(github.event.head_commit.message, '[cleanup]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Fetch and encrypt
+        env:
+          PROD_HOST: ${{ secrets.PROD_HOST }}
+          PROD_USER: ${{ secrets.PROD_USER }}
+          PROD_KNOWN_HOSTS: ${{ secrets.PROD_KNOWN_HOSTS }}
+          PROD_APP_DEPLOY_SSH_KEY: ${{ secrets.PROD_APP_DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          sudo apt-get install -y -qq age >/dev/null
+          umask 077
+          mkdir -p "$HOME/.ssh" "$RUNNER_TEMP/out"
+          printf '%s\n' "$PROD_APP_DEPLOY_SSH_KEY" > "$HOME/.ssh/deploy_key"
+          printf '%s\n' "$PROD_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          plain="$RUNNER_TEMP/plain.log"
+          ssh -i "$HOME/.ssh/deploy_key" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            "$PROD_USER@$PROD_HOST" \
+            'for f in "$HOME/removed-diag.log" /home/ubuntu/removed-diag.log; do [ -r "$f" ] && exec cat "$f"; done; exec sudo -n cat /home/ubuntu/removed-diag.log' \
+            < /dev/null > "$plain"
+          rm -f "$HOME/.ssh/deploy_key"
+          echo "fetched $(wc -c < "$plain") bytes"
+          age -r "$AGE_RECIPIENT" -o "$RUNNER_TEMP/out/removed-diag.log.age" "$plain"
+          shred -u "$plain"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: removed-diag
+          path: ${{ runner.temp }}/out/removed-diag.log.age
+          retention-days: 1
+          if-no-files-found: error
+
+  cleanup:
+    if: ${{ contains(github.event.head_commit.message, '[cleanup]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Delete diag artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          ids=$(gh api "repos/${{ github.repository }}/actions/artifacts?name=removed-diag&per_page=100" --jq '.artifacts[].id')
+          for id in $ids; do gh api -X DELETE "repos/${{ github.repository }}/actions/artifacts/$id"; echo "deleted artifact $id"; done
+          echo "remaining: $(gh api "repos/${{ github.repository }}/actions/artifacts?name=removed-diag" --jq '.total_count')"
