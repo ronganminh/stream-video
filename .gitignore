@@ -29,6 +29,10 @@ __pycache__/
 .DS_Store
 *.log
 
+# Other sites served by the same Caddy (server-only, see Caddyfile.template)
+/caddy-sites/*
+!/caddy-sites/.gitkeep
+
 # Local MEDIA_DIR default (thumbnails written in dev/E2E)
 /public/media/
 .e2e-server.log

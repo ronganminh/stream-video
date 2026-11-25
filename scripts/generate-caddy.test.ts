@@ -60,6 +60,17 @@ describe("generated Caddy CSP", () => {
     );
   });
 
+  it("imports other sites from the mounted, gitignored caddy-sites folder", async () => {
+    const root = process.cwd();
+    const [template, compose, ignore] = await Promise.all(
+      ["Caddyfile.template", "docker-compose.yml", ".gitignore"].map((file) => readFile(path.join(root, file), "utf8")),
+    );
+    // Top level (outside this site's block) and a glob: an empty folder is fine.
+    expect(template).toMatch(/^import \/etc\/caddy\/sites\/\*\.caddy$/m);
+    expect(compose).toContain("- ./caddy-sites:/etc/caddy/sites:ro");
+    expect(ignore).toContain("/caddy-sites/*");
+  });
+
   it("allows any HTTPS player frame, reports frames outside the known list", async () => {
     const template = await readFile(path.join(process.cwd(), "Caddyfile.template"), "utf8");
     const rendered = renderCaddyfile(template);
