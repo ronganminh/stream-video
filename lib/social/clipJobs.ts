@@ -114,6 +114,17 @@ export async function attachClip(
     await deleteClip(clip.file, mediaDir);
     throw new ClipJobError(409, "not_preparing", `The post is ${post.status}; clip dropped.`);
   }
+  // clipSeconds holds the planned length until the clip exists (already cut
+  // short by the end of the video when its duration is known). A clip well
+  // under it was cut off by a dropped read: never queue it for X.
+  if (post.clipSeconds && clip.seconds < post.clipSeconds - 2) {
+    await deleteClip(clip.file, mediaDir);
+    throw new ClipJobError(
+      422,
+      "clip_too_short",
+      `The clip is ${Math.round(clip.seconds)} s; ${post.clipSeconds} s were planned (cut off?).`,
+    );
+  }
   const ready = post.video.isPublished && !post.video.isHidden && post.video.status === "AVAILABLE";
   const status = ready ? "queued" : "waiting";
   await client.socialPost.update({
