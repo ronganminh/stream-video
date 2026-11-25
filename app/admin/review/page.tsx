@@ -123,7 +123,7 @@ export default async function AdminReviewPage({
         existing: (() => {
           const post = postByVideo.get(video.id);
           if (!post || post.status === "cancelled") return null;
-          const status = xStatusLabel(post.status);
+          const status = xStatusLabel(post.status, post.lastError);
           return {
             statusLabel: status.label,
             tone: status.tone,
@@ -165,7 +165,7 @@ export default async function AdminReviewPage({
         preparing={preparing}
         configured={Boolean(config.dispatch.token)}
         recent={recent.map((post) => {
-          const status = xStatusLabel(post.status);
+          const status = xStatusLabel(post.status, post.lastError);
           return {
             id: post.id,
             title: post.video.title,

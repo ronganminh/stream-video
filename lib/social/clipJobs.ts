@@ -4,7 +4,7 @@ import { prisma } from "../db";
 import { deleteClip, findClip } from "./clips";
 import { socialConfig, type SocialConfig } from "./config";
 import { X_NETWORK } from "./queue";
-import { plannedClipSeconds } from "./reviewPost";
+import { DRIVE_QUOTA_NOTE, plannedClipSeconds } from "./reviewPost";
 
 // The server side of the GitHub Actions clip workflow
 // (.github/workflows/x-clips.yml, scripts/x-clips/make_clips.py):
@@ -16,6 +16,10 @@ import { plannedClipSeconds } from "./reviewPost";
 
 const MAX_ATTEMPTS = 3;
 const RETRY_MINUTES = [15, 60];
+// Google Drive limits downloads per file over 24 hours (downloadQuotaExceeded).
+// Such a failure is not an attempt: wait and try again, up to 48 hours.
+const QUOTA_RETRY_HOURS = 6;
+const MAX_QUOTA_WAITS = 8;
 
 type Db = Pick<PrismaClient, "socialPost">;
 
@@ -137,6 +141,7 @@ export async function attachClip(
       clipSeconds: Math.round(clip.seconds),
       clipSource: input.source.replace(/[^a-z0-9_-]/gi, "").slice(0, 20) || null,
       attempts: 0,
+      quotaWaits: 0,
       lastError: null,
       nextAttemptAt: null,
     },
@@ -144,15 +149,35 @@ export async function attachClip(
   return { status };
 }
 
-/** Records a failed attempt: retried later, failed after three tries (or `final`). */
+/**
+ * Records a failed attempt: retried later, failed after three tries (or
+ * `final`). A Google Drive quota refusal is not an attempt: the post waits
+ * QUOTA_RETRY_HOURS and tries again, failing only after MAX_QUOTA_WAITS.
+ */
 export async function reportClipFailure(
-  input: { postId: string; reason: string; final?: boolean },
+  input: { postId: string; reason: string; final?: boolean; quota?: boolean },
   now = new Date(),
   client: Db = prisma,
-): Promise<{ status: "preparing" | "failed"; nextAttemptAt: Date | null }> {
+): Promise<{ status: "preparing" | "failed"; nextAttemptAt: Date | null; quota?: boolean }> {
   const post = await client.socialPost.findUnique({ where: { id: input.postId } });
   if (!post) throw new ClipJobError(404, "not_found", "No such X post.");
   if (post.status !== "preparing") throw new ClipJobError(409, "not_preparing", `The post is ${post.status}.`);
+  const quota = input.quota === true || /downloadQuotaExceeded/.test(input.reason);
+  if (quota && !input.final && post.quotaWaits < MAX_QUOTA_WAITS) {
+    const nextAttemptAt = new Date(now.getTime() + QUOTA_RETRY_HOURS * 3600_000);
+    await client.socialPost.update({
+      where: { id: post.id },
+      data: {
+        quotaWaits: post.quotaWaits + 1,
+        nextAttemptAt,
+        lastError:
+          `${DRIVE_QUOTA_NOTE} (Google giới hạn lượt tải file này trong 24 giờ); ` +
+          `tự thử lại lúc ${nextAttemptAt.toISOString().slice(0, 16).replace("T", " ")} UTC ` +
+          `(lần chờ ${post.quotaWaits + 1}/${MAX_QUOTA_WAITS}).`,
+      },
+    });
+    return { status: "preparing", nextAttemptAt, quota: true };
+  }
   const attempts = post.attempts + 1;
   const giveUp = input.final === true || attempts >= MAX_ATTEMPTS;
   const nextAttemptAt = giveUp ? null : new Date(now.getTime() + RETRY_MINUTES[attempts - 1] * 60_000);
@@ -196,6 +221,7 @@ export async function recutClip(
       status: "preparing",
       clipSeconds,
       attempts: 0,
+      quotaWaits: 0,
       lastError: null,
       nextAttemptAt: null,
       clipFile: null,

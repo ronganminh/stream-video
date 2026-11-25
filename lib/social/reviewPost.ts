@@ -210,10 +210,14 @@ export async function cancelUnsentXPost(client: Db, videoId: string, mediaDir?: 
 
 export type XStatusTone = "busy" | "queued" | "done" | "error" | "muted";
 
-/** What the admin sees for a post's status. */
-export function xStatusLabel(status: SocialPostStatus): { label: string; tone: XStatusTone } {
+/** Starts the lastError of a post waiting for Google Drive's download quota. */
+export const DRIVE_QUOTA_NOTE = "Drive hết hạn mức tải";
+
+/** What the admin sees for a post's status (lastError tells a quota wait apart). */
+export function xStatusLabel(status: SocialPostStatus, lastError?: string | null): { label: string; tone: XStatusTone } {
   switch (status) {
     case "preparing":
+      if (lastError?.startsWith(DRIVE_QUOTA_NOTE)) return { label: "Drive hết hạn mức tải, thử lại sau", tone: "queued" };
       return { label: "Đang xử lý clip", tone: "busy" };
     case "pushing":
       return { label: "Đang gửi Buffer", tone: "busy" };

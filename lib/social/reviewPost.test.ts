@@ -92,5 +92,10 @@ describe("xStatusLabel", () => {
     expect(xStatusLabel("pushed").label).toBe("Trong hàng đợi Buffer");
     expect(xStatusLabel("sent")).toEqual({ label: "Đã đăng", tone: "done" });
     expect(xStatusLabel("failed")).toEqual({ label: "Lỗi", tone: "error" });
+    expect(xStatusLabel("preparing", "Drive hết hạn mức tải (Google …); tự thử lại lúc …")).toEqual({
+      label: "Drive hết hạn mức tải, thử lại sau",
+      tone: "queued",
+    });
+    expect(xStatusLabel("preparing", "Không tạo được clip: x").label).toBe("Đang xử lý clip");
   });
 });

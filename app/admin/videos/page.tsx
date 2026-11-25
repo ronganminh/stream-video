@@ -300,7 +300,7 @@ function XStatusCell({
   post: { status: Parameters<typeof xStatusLabel>[0]; lastError: string | null; externalLink: string | null } | null;
 }) {
   if (!post) return <span className={styles.xNone}>—</span>;
-  const { label, tone } = xStatusLabel(post.status);
+  const { label, tone } = xStatusLabel(post.status, post.lastError);
   return (
     <span className={styles.xCell}>
       <span className={styles.xStatus} data-tone={tone} title={post.lastError ?? undefined}>

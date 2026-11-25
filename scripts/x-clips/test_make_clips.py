@@ -202,13 +202,48 @@ class DriveTest(unittest.TestCase):
             path = opened.download(Path(tmp) / "f", 600)
             self.assertEqual(path.read_bytes(), b"video")
         self.assertEqual(calls, [{"id": FILE_ID, "quiet": True}])
-        try:
-            import inspect
 
-            import gdown  # the real one, when installed: the call must fit its signature
+    def test_public_download_runs_the_real_gdown(self):
+        """The installed gdown (pinned in x-clips.yml) runs for real; only HTTP is faked."""
+        try:
+            import gdown
+            import requests
         except ImportError:
-            return
-        inspect.signature(gdown.download).bind(id=FILE_ID, output="f", quiet=True)
+            self.skipTest("gdown not installed (pip install gdown==6.5.2)")
+        seen = []
+
+        class Resp:
+            def __init__(self, url):
+                self.url = url
+                self.status_code = 200
+                self.ok = True
+                self.headers = {"Content-Type": "video/mp4", "Content-Length": "5",
+                                "Content-Disposition": 'attachment; filename="v.mp4"'}
+
+            def iter_content(self, chunk_size=1):
+                yield b"video"
+
+            def raise_for_status(self):
+                pass
+
+            def close(self):
+                pass
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                return False
+
+        def fake_get(session, url, *args, **kwargs):
+            seen.append(url)
+            return Resp(url)
+
+        opened = mc.Drive("").open(f"https://drive.google.com/file/d/{FILE_ID}/view")
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(requests.Session, "get", fake_get):
+            path = opened.download(Path(tmp) / "f", 600)
+            self.assertEqual(path.read_bytes(), b"video")
+        self.assertTrue(seen and FILE_ID in seen[0], gdown.__version__)
 
     def test_folder_needs_service_account(self):
         with self.assertRaises(mc.SourceError) as caught:
@@ -462,7 +497,7 @@ class ProcessTest(unittest.TestCase):
             self.assertNotIn("https://", text)
             self.assertNotIn(FILE_ID, text)
 
-    def test_drive_quota_failure_says_when_to_retry(self):
+    def test_drive_quota_failure_is_flagged_for_the_server(self):
         client = FakeClient()
 
         def cutter(source, p, output, deadline=None, log=None):
@@ -470,7 +505,10 @@ class ProcessTest(unittest.TestCase):
 
         with mock.patch.dict(os.environ, {"HOST_EARNVIDS_API_KEY": ""}):
             mc.process(client, [post()], self.index, mc.Drive(""), self.root, cutter=cutter, log=lambda *_: None)
-        self.assertIn("Thử lại sau 24 giờ", client.calls[-1][2]["reason"])
+        body = client.calls[-1][2]
+        self.assertTrue(body["quota"])  # the server waits hours; not an attempt
+        self.assertFalse(body["final"])
+        self.assertIn("downloadQuotaExceeded", body["reason"])
 
     def test_no_source_is_final(self):
         client = FakeClient()

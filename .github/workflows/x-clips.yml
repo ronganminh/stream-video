@@ -54,7 +54,7 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq --no-install-recommends ffmpeg fonts-dejavu-core > /dev/null
-          python -m pip install --disable-pip-version-check -q requests google-auth gdown
+          python -m pip install --disable-pip-version-check -q requests google-auth gdown==6.5.2
           ffmpeg -version | head -1
 
       - name: Make clips

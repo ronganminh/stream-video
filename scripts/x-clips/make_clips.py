@@ -632,12 +632,12 @@ def process(client, posts: List[dict], index: MigrationIndex, drive: Optional[Dr
                 output.unlink(missing_ok=True)
         if not done:
             reason = " · ".join(reasons + skipped) or "không có nguồn nào"
-            if "downloadQuotaExceeded" in reason:
-                reason = ("Google Drive đã chặn tải file này vì vượt hạn mức trong 24 giờ: bấm Thử lại sau 24 giờ. · "
-                          + reason)
+            # Drive's per-file download quota (recovers within 24 hours): the
+            # server waits hours and retries without counting an attempt.
+            quota = "downloadQuotaExceeded" in reason
             try:
                 client._request("POST", f"/api/v1/social/{post['postId']}/failure",
-                                {"reason": reason, "final": not sources})
+                                {"reason": reason, "final": not sources, "quota": quota})
             except Exception as error:
                 log(f"    could not report the failure: {clean(error)}")
             log(f"    no clip: {clean(reason)}")
