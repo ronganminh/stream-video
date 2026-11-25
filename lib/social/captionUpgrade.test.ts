@@ -22,7 +22,8 @@ describe.skipIf(!databaseUrl)("upgradeLegacyCaptions (database)", () => {
       data: { slug: `${PREFIX}${slug}`, title, status: "AVAILABLE", isPublished: true },
     });
     return prisma.socialPost.create({
-      data: { videoId: video.id, network: "x", status, caption, clipMode: "clip", clipStart: 0, clipSeconds: 120 },
+      // Never due: dispatch.test.ts (run in parallel) must not see work.
+      data: { videoId: video.id, network: "x", status, caption, clipMode: "clip", clipStart: 0, clipSeconds: 120, nextAttemptAt: new Date("2099-01-01T00:00:00Z") },
     });
   }
 

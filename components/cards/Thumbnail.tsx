@@ -43,6 +43,7 @@ export function Thumbnail({
 }: ThumbnailProps) {
   const instanceId = useId();
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const imageRef = useRef<HTMLImageElement | null>(null);
   const [failed, setFailed] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [previewActive, setPreviewActive] = useState(false);
@@ -65,8 +66,16 @@ export function Thumbnail({
 
   useEffect(() => {
     setFailed(false);
-    setLoaded(false);
     setPreviewActive(false);
+    // The image may have loaded (or failed) before hydration, when React's
+    // onLoad/onError could not run yet.
+    const image = imageRef.current;
+    if (image?.complete) {
+      setLoaded(image.naturalWidth > 0);
+      setFailed(image.naturalWidth === 0 && Boolean(image.currentSrc));
+    } else {
+      setLoaded(false);
+    }
   }, [src, previewUrl, forceFallback]);
 
   useEffect(() => {
@@ -131,6 +140,7 @@ export function Thumbnail({
       {!showFallback && src ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
+          ref={imageRef}
           src={src}
           alt={alt}
           width={width}
@@ -139,10 +149,7 @@ export function Thumbnail({
           fetchPriority={priority ? "high" : "auto"}
           decoding="async"
           draggable={false}
-          className={joinClasses(
-            styles.image,
-            loaded && styles.imageLoaded,
-          )}
+          className={styles.image}
           data-gv-motion="zoom"
           onLoad={() => setLoaded(true)}
           onError={() => {
