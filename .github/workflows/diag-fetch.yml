@@ -1,6 +1,6 @@
 name: Diag fetch (encrypted)
 
-# Runs the videos:restore-health DRY RUN on the VPS (no --apply) and fetches its output. Runs only from
+# Restores the health-removed videos on the VPS (approved by the owner) behind an X clip guard, and fetches the log. Runs only from
 # the diag/removed-videos branch (on push). The file is never printed: it is
 # encrypted on the runner with the age public key below (the private key never
 # leaves the investigator's machine) and kept as an artifact for 1 day.
@@ -22,6 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      - uses: actions/checkout@v4
       - name: Fetch and encrypt
         env:
           PROD_HOST: ${{ secrets.PROD_HOST }}
@@ -36,27 +37,43 @@ jobs:
           printf '%s\n' "$PROD_APP_DEPLOY_SSH_KEY" > "$HOME/.ssh/deploy_key"
           printf '%s\n' "$PROD_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
           plain="$RUNNER_TEMP/plain.log"
-          # Dry run of videos:restore-health (never --apply), saved to
-          # ~/restore-dryrun.log on the VPS and fetched here.
+          # The owner approved the restore: guard the X posts, then
+          # videos:restore-health --apply; all output to ~/restore-apply.log
+          # on the VPS, fetched here encrypted.
           ssh -i "$HOME/.ssh/deploy_key" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
-            "$PROD_USER@$PROD_HOST" 'bash -s' > "$plain" <<'REMOTE'
+            "$PROD_USER@$PROD_HOST" "bash -s -- $(base64 -w0 scripts/diag/x-guard.ts)" > "$plain" <<'REMOTE'
           set -uo pipefail
           cd /opt/gayvideo
           SUDO=""
           docker info >/dev/null 2>&1 || SUDO="sudo -n"
-          $SUDO docker compose exec -T worker npm run -s videos:restore-health > "$HOME/restore-dryrun.log" 2>&1 < /dev/null
-          echo "exit=$?" >> "$HOME/restore-dryrun.log"
-          cat "$HOME/restore-dryrun.log"
+          printf '%s' "$1" | base64 -d > /tmp/x-guard.ts
+          xg() { $SUDO docker compose exec -T worker sh -c 'cat > /tmp/x-guard.ts && ./node_modules/.bin/tsx /tmp/x-guard.ts "$@"' x-guard "$@" < /tmp/x-guard.ts; }
+          SLUGS="seachan-x-theresome-special-40-dancer-tung-duong-41 baker-longtongueboyvn-40-caubeluoidai-41-2 binkycum-straight-gym-x-fusu084"
+          LOG="$HOME/restore-apply.log"
+          {
+            echo "### before"; xg report $SLUGS
+            echo "### guard"; xg guard; guard=$?
+            if [ "$guard" -ne 0 ]; then
+              echo "### GUARD FAILED (exit $guard): restore NOT applied"
+            else
+              echo "### apply"
+              $SUDO docker compose exec -T worker npm run -s videos:restore-health -- --apply < /dev/null
+              echo "apply exit=$?"
+            fi
+            echo "### after"; xg report $SLUGS
+          } > "$LOG" 2>&1
+          cat "$LOG"
+          rm -f /tmp/x-guard.ts
           REMOTE
           rm -f "$HOME/.ssh/deploy_key"
           echo "fetched $(wc -c < "$plain") bytes"
-          age -r "$AGE_RECIPIENT" -o "$RUNNER_TEMP/out/restore-dryrun.log.age" "$plain"
+          age -r "$AGE_RECIPIENT" -o "$RUNNER_TEMP/out/restore-apply.log.age" "$plain"
           shred -u "$plain"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: restore-dryrun
-          path: ${{ runner.temp }}/out/restore-dryrun.log.age
+          name: restore-apply
+          path: ${{ runner.temp }}/out/restore-apply.log.age
           retention-days: 1
           if-no-files-found: error
 
@@ -70,7 +87,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          query='.artifacts[] | select(.name=="removed-diag" or .name=="restore-dryrun") | .id'
+          query='.artifacts[] | select(.name=="removed-diag" or .name=="restore-dryrun" or .name=="restore-apply") | .id'
           for id in $(gh api "repos/${{ github.repository }}/actions/artifacts?per_page=100" --jq "$query"); do
             gh api -X DELETE "repos/${{ github.repository }}/actions/artifacts/$id"
             echo "deleted artifact $id"
