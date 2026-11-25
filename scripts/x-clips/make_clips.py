@@ -361,13 +361,26 @@ class Drive:
         probe = self.session.get(url, headers={**headers, "Range": "bytes=0-0"}, timeout=60)
         if probe.status_code >= 400:
             raise SourceError(f"Drive API HTTP {probe.status_code}{drive_reason(probe)} khi tải")
-        # Measured: Range reads of a Drive file make ffmpeg's seeks crawl (22
-        # minutes for one clip) while a plain download runs at ~14 MB/s, so
-        # the direct read only gets a short try.
-        return Opened(url, headers, "file",
-                      lambda target, timeout: download_to(url, self.api_headers(file_id, resource_key), target, timeout,
-                                                          self.session),
-                      direct_timeout=DRIVE_DIRECT_TIMEOUT)
+        # Drive files are never read by ffmpeg directly: its Range seeks crawl
+        # (22 minutes for one clip), its reads drop (2 s and 91 s clips), and
+        # Google refused ffmpeg's requests (403) while requests read the same
+        # file. A plain download runs at 14-23 MB/s, so: download, then cut.
+        # gdown on the public link is the fallback, as in the migration.
+        public = self.public_open(link) if drive_file_id(link) else None
+
+        def download(target: Path, timeout: float) -> Path:
+            started = time.monotonic()
+            try:
+                return download_to(url, self.api_headers(file_id, resource_key), target, timeout, self.session)
+            except Exception as error:
+                target.unlink(missing_ok=True)
+                left = timeout - (time.monotonic() - started)
+                if public is None or left < 60:
+                    raise
+                print(f"    Drive API download failed ({clean(error)}); trying gdown")
+                return public.download(target, left)
+
+        return Opened(url, headers, "download-only", download)
 
     def public_open(self, link: str) -> Opened:
         file_id = drive_file_id(link)
@@ -443,7 +456,6 @@ def plan_sources(post: dict, index: MigrationIndex, drive: Optional[Drive]) -> T
 # Drive can serve ranges very slowly (22 min for one clip). Past it, the whole
 # file is downloaded to the runner and cut there.
 DIRECT_TIMEOUT = int(os.environ.get("X_CLIPS_DIRECT_TIMEOUT", "240"))
-DRIVE_DIRECT_TIMEOUT = int(os.environ.get("X_CLIPS_DRIVE_DIRECT_TIMEOUT", "60"))
 # Everything for one video (all sources) must finish within this.
 VIDEO_TIMEOUT = int(os.environ.get("X_CLIPS_VIDEO_TIMEOUT", "1200"))
 # A clip more than this much shorter than expected was cut off (a dropped read).

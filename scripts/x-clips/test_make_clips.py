@@ -201,7 +201,7 @@ class DriveTest(unittest.TestCase):
         meta = FakeResponse(200, {"id": FILE_ID, "resourceKey": "0-KEY", "capabilities": {"canDownload": True}})
         drive = self.drive([meta, FakeResponse(206, content=b"x")])
         opened = drive.open(f"https://drive.google.com/file/d/{FILE_ID}/view")
-        self.assertEqual(opened.direct_timeout, mc.DRIVE_DIRECT_TIMEOUT)
+        self.assertEqual(opened.kind, "download-only")  # Drive: always the whole file first
         self.assertTrue(opened.url.startswith(f"https://www.googleapis.com/drive/v3/files/{FILE_ID}?alt=media"))
         self.assertEqual(opened.headers, {"Authorization": "Bearer ya29.TOKEN",
                                           "X-Goog-Drive-Resource-Keys": f"{FILE_ID}/0-KEY"})
@@ -213,6 +213,27 @@ class DriveTest(unittest.TestCase):
         self.assertEqual(opened.kind, "download-only")
         self.assertIn("HTTP 403 (downloadQuotaExceeded)", opened.api_error)
         self.assertTrue(opened.url.startswith("https://drive.usercontent.google.com/"))
+
+    def test_api_download_failure_falls_back_to_gdown(self):
+        meta = FakeResponse(200, {"id": FILE_ID})
+        drive = self.drive([meta, FakeResponse(206, content=b"x")])
+        opened = drive.open(f"https://drive.google.com/file/d/{FILE_ID}/view")
+        used = []
+
+        def fake_gdown(target, timeout):
+            used.append("gdown")
+            target.write_bytes(b"video")
+            return target
+
+        with tempfile.TemporaryDirectory() as tmp, \
+                mock.patch.object(mc, "download_to", side_effect=mc.SourceError("tải cả file: HTTP 403")), \
+                mock.patch.object(mc.Drive, "public_open", return_value=mc.Opened("u", {}, "file", fake_gdown)):
+            drive2 = self.drive([meta, FakeResponse(206, content=b"x")])
+            opened = drive2.open(f"https://drive.google.com/file/d/{FILE_ID}/view")
+            with redirect_stdout(io.StringIO()):
+                path = opened.download(Path(tmp) / "f", 600)
+            self.assertEqual(path.read_bytes(), b"video")
+        self.assertEqual(used, ["gdown"])
 
     def test_folder_with_service_account(self):
         listing = FakeResponse(200, {"files": [{"id": "small", "mimeType": "video/mp4", "size": "10"},
