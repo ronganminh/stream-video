@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 
-import { runClipWorkflowNowAction } from "./actions";
+import { recutXPostAction, runClipWorkflowNowAction } from "./actions";
 import styles from "./page.module.css";
 
 type Recent = {
@@ -14,6 +14,8 @@ type Recent = {
   error: string | null;
   link: string | null;
   updatedAt: string;
+  /** "retry" for failed posts, "recut" for clips not in Buffer yet. */
+  recut: "retry" | "recut" | null;
 };
 
 const STATE_LABELS: Record<string, string> = {
@@ -84,7 +86,23 @@ export function ClipPanel({
                   Xem trên X
                 </a>
               ) : null}
-              {post.error && post.tone === "error" ? <small className={styles.xError}>{post.error}</small> : null}
+              {post.recut ? (
+                <button
+                  type="button"
+                  className={styles.clipRecut}
+                  disabled={pending}
+                  onClick={() =>
+                    startTransition(async () => {
+                      setResult(await recutXPostAction(post.id));
+                    })
+                  }
+                >
+                  {post.recut === "retry" ? "Thử lại" : "Cắt lại"}
+                </button>
+              ) : null}
+              {post.error && (post.tone === "error" || post.tone === "busy") ? (
+                <small className={styles.xError}>{post.error}</small>
+              ) : null}
             </li>
           ))}
         </ul>

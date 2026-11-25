@@ -794,3 +794,14 @@
 .clipRecent a {
   color: var(--gv-violet-300);
 }
+
+.clipRecut {
+  min-height: 26px;
+  padding: 0 10px;
+  border: 1px solid var(--gv-border-input);
+  border-radius: var(--gv-radius-sm);
+  background: var(--gv-surface-2);
+  color: var(--gv-text);
+  font: 600 12px var(--gv-font);
+  cursor: pointer;
+}

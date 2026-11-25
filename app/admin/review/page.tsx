@@ -175,6 +175,13 @@ export default async function AdminReviewPage({
             error: post.lastError,
             link: post.externalLink,
             updatedAt: post.updatedAt.toISOString(),
+            recut: !post.clipMode
+              ? null
+              : post.status === "failed"
+                ? ("retry" as const)
+                : post.status === "queued" || post.status === "waiting"
+                  ? ("recut" as const)
+                  : null,
           };
         })}
       />

@@ -154,3 +154,21 @@ export async function reportClipFailure(
   });
   return { status: giveUp ? "failed" : "preparing", nextAttemptAt };
 }
+
+/** Statuses an admin can send back to the clip workflow (not yet in Buffer). */
+export const RECUTTABLE: readonly string[] = ["failed", "queued", "waiting", "preparing"];
+
+/**
+ * "Thử lại" / "Cắt lại" in the admin: the post goes back to "preparing" with
+ * a fresh attempt count; its current clip (if any) is deleted.
+ */
+export async function recutClip(postId: string, client: Db = prisma, mediaDir?: string): Promise<boolean> {
+  const post = await client.socialPost.findUnique({ where: { id: postId } });
+  if (!post || !RECUTTABLE.includes(post.status) || !post.clipMode) return false;
+  await client.socialPost.update({
+    where: { id: post.id },
+    data: { status: "preparing", attempts: 0, lastError: null, nextAttemptAt: null, clipFile: null, clipSource: null },
+  });
+  await deleteClip(post.clipFile, mediaDir);
+  return true;
+}

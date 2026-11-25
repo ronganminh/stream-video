@@ -5,7 +5,7 @@ import path from "node:path";
 import { PrismaClient } from "@prisma/client";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { attachClip, cleanReason, listPendingClips, reportClipFailure } from "./clipJobs";
+import { attachClip, cleanReason, listPendingClips, recutClip, reportClipFailure } from "./clipJobs";
 import { clipDir } from "./clips";
 import type { SocialConfig } from "./config";
 import { DISPATCH_SETTING, gitHubActions, readDispatchState, requestClipRun, runClipDispatch, type GitHubActions } from "./dispatch";
@@ -208,6 +208,19 @@ describe.skipIf(!databaseUrl)("clip workflow dispatch and API (database)", () =>
     // Not an MP4: findClip refuses it.
     writeFileSync(path.join(directory, `clip-${clipId}.mp4`), "nope");
     await expect(attachClip({ postId, clipId, source: "drive" }, prisma, mediaDir)).rejects.toMatchObject({ code: "unknown_clip" });
+  });
+
+  it("'Thử lại' / 'Cắt lại' sends a failed or not-yet-pushed post back, never one in Buffer", async () => {
+    await prisma.socialPost.update({ where: { id: postId }, data: { status: "failed", attempts: 3, lastError: "x" } });
+    expect(await recutClip(postId, prisma, mediaDir)).toBe(true);
+    expect(await prisma.socialPost.findUniqueOrThrow({ where: { id: postId } })).toMatchObject({
+      status: "preparing",
+      attempts: 0,
+      lastError: null,
+      clipFile: null,
+    });
+    await prisma.socialPost.update({ where: { id: postId }, data: { status: "pushed" } });
+    expect(await recutClip(postId, prisma, mediaDir)).toBe(false);
   });
 
   it("retries failures twice, then marks the post failed", async () => {
