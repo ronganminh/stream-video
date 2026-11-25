@@ -8,12 +8,16 @@ import { DEFAULT_CAPTION_TEMPLATE } from "./captionRules";
 
 export const CAPTION_TEMPLATE_SETTING = "social.x.captionTemplate";
 export const BANNED_EXTRA_SETTING = "social.x.bannedExtra";
+/** Approving in /admin/review posts to X ("Cắt clip") unless turned off. */
+export const POST_BY_DEFAULT_SETTING = "social.x.postByDefault";
 
 export type XCaptionSettings = {
   /** "{title}" is replaced by the video title without accents. */
   template: string;
   /** Extra banned words, on top of BANNED_WORDS. */
   bannedExtra: string[];
+  /** Review cards start on "Cắt clip" (and bulk approval posts); false: "Không đăng X". */
+  postByDefault: boolean;
 };
 
 export function parseWordList(value: unknown): string[] {
@@ -32,13 +36,14 @@ export function parseWordList(value: unknown): string[] {
 
 export async function getXCaptionSettings(client: PrismaClient = prisma): Promise<XCaptionSettings> {
   const rows = await client.setting.findMany({
-    where: { key: { in: [CAPTION_TEMPLATE_SETTING, BANNED_EXTRA_SETTING] } },
+    where: { key: { in: [CAPTION_TEMPLATE_SETTING, BANNED_EXTRA_SETTING, POST_BY_DEFAULT_SETTING] } },
   });
   const byKey = new Map(rows.map((row) => [row.key, row.value]));
   const template = byKey.get(CAPTION_TEMPLATE_SETTING);
   return {
     template: typeof template === "string" && template.trim() ? template : DEFAULT_CAPTION_TEMPLATE,
     bannedExtra: parseWordList(byKey.get(BANNED_EXTRA_SETTING)),
+    postByDefault: byKey.get(POST_BY_DEFAULT_SETTING) !== false,
   };
 }
 
@@ -57,6 +62,11 @@ export async function saveXCaptionSettings(
       where: { key: BANNED_EXTRA_SETTING },
       create: { key: BANNED_EXTRA_SETTING, value: settings.bannedExtra },
       update: { value: settings.bannedExtra },
+    }),
+    client.setting.upsert({
+      where: { key: POST_BY_DEFAULT_SETTING },
+      create: { key: POST_BY_DEFAULT_SETTING, value: settings.postByDefault },
+      update: { value: settings.postByDefault },
     }),
   ]);
 }

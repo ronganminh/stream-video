@@ -16,6 +16,7 @@ import { recutClip } from "@/lib/social/clipJobs";
 import { X_NETWORK } from "@/lib/social/queue";
 import { applyXPlan, cancelUnsentXPost, planXPost, readXReviewInput } from "@/lib/social/reviewPost";
 import { getXCaptionSettings } from "@/lib/social/settings";
+import { defaultCaption } from "@/lib/social/captionRules";
 
 import { reviewErrorMessage, type ReviewActionResult } from "./reviewState";
 import type { ThumbnailActionState } from "./thumbnailState";
@@ -310,9 +311,13 @@ export async function bulkApproveReviewAction(formData: FormData) {
     });
 
   const ids = [...new Set(parsed.ids)];
+  const drafts = await db.video.findMany({
+    where: { id: { in: ids }, isPublished: false, isHidden: false },
+    select: { id: true, title: true, durationSeconds: true },
+  });
   await db.video.updateMany({
     where: {
-      id: { in: ids },
+      id: { in: drafts.map((video) => video.id) },
       isPublished: false,
       isHidden: false,
     },
@@ -321,10 +326,43 @@ export async function bulkApproveReviewAction(formData: FormData) {
       publishedAt: new Date(),
     },
   });
+
+  // Settings → "Mặc định đăng lên X": bulk approval posts too ("Cắt clip"
+  // from the start, the template caption). A video that already has an X
+  // post (from Colab, or cancelled on purpose) keeps it as it is.
+  const captionSettings = await getXCaptionSettings();
+  let prepared = 0;
+  if (captionSettings.postByDefault && drafts.length) {
+    const config = socialConfig();
+    const existing = new Set(
+      (
+        await db.socialPost.findMany({
+          where: { network: X_NETWORK, videoId: { in: drafts.map((video) => video.id) } },
+          select: { videoId: true },
+        })
+      ).map((post) => post.videoId),
+    );
+    for (const video of drafts) {
+      if (existing.has(video.id)) continue;
+      const caption = defaultCaption(captionSettings.template, video.title, captionSettings.bannedExtra);
+      const { plan, errors } = planXPost(
+        { mode: "clip", start: 0, caption },
+        { durationSeconds: video.durationSeconds },
+        null,
+        config,
+        captionSettings.bannedExtra,
+      );
+      if (errors.length || plan.action !== "prepare") continue;
+      await applyXPlan(db, video.id, plan);
+      prepared += 1;
+    }
+    if (prepared) await requestClipRun().catch((error) => console.error("requestClipRun failed", error));
+  }
+
   await writeAdminAudit(
     admin.id,
     "VIDEO_BULK_APPROVE",
-    ids.join(","),
+    `${ids.join(",")}:x=${prepared}`.slice(0, 4000),
   );
 
   revalidatePath("/admin/review");

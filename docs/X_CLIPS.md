@@ -7,6 +7,8 @@ Khi duyệt một video trong **/admin/review**, khối **Đăng X** trên thẻ
 | **Cắt clip** (mặc định) | Clip dài `X_CLIP_SECONDS` (120 s), bắt đầu từ giây bạn nhập |
 | **Giữ nguyên** | Cả video. Nếu dài hơn `X_MAX_VIDEO_SECONDS` (140 s) thì ô duyệt cảnh báo và tự cắt phần đầu |
 | **Không đăng X** | Video vẫn lên web; không có bài X |
+
+Mặc định thẻ chọn sẵn **Cắt clip**, và nút **Approve selected** (duyệt hàng loạt) cũng tạo bài X cho video chưa có bài: cắt clip từ đầu, caption theo mẫu. Tắt ở **/admin/settings → X captions → Mặc định đăng lên X khi duyệt**: thẻ khi đó chọn sẵn "Không đăng X" và duyệt hàng loạt không tạo bài X.
 | **Dùng clip đã có** | Chỉ hiện khi video đã có clip (ví dụ từ notebook Colab) |
 
 - **Caption:** lấy theo mẫu trong **/admin/settings → X captions** (mặc định `{title}`: chỉ tiêu đề bỏ dấu; trước 11/2026 là `New video: {title} 🔥`, mỗi lần deploy lệnh `social:caption-upgrade` chuyển mẫu cũ đã lưu và caption chưa sửa của bài chưa sang Buffer sang mẫu mới) và sửa được ngay trên thẻ.

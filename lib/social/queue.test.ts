@@ -267,6 +267,43 @@ describe.skipIf(!databaseUrl)("X queue (Buffer)", () => {
     expect(low.calls.create).toHaveLength(0);
   });
 
+  it("between reads, frees queue slots as their due time passes (no Buffer read)", async () => {
+    const ids: string[] = [];
+    for (let n = 20; n < 32; n += 1) {
+      ids.push(await video(n, true));
+      await enqueueXPost({ videoId: ids[ids.length - 1], clipId: makeClip(), caption: `post ${n}` }, prisma, mediaDir);
+    }
+    // Buffer's slots: 18:03 + 18 min each (Hanoi), as in the schedule.
+    const slot = (n: number) => new Date(T0.getTime() + (3 + 18 * (n - 1)) * 60_000).toISOString();
+    const buffer = fakeBuffer({ dueAt: slot });
+
+    // 18:00: one read, 10 pushed (the queue limit), 2 left queued.
+    const first = await sync(buffer.api, {}, T0);
+    expect(first).toMatchObject({ pushed: 10, requests: 11 });
+    expect(buffer.calls.list).toBe(1);
+
+    // 18:02: nothing went out yet; the queue is full: not a single request.
+    expect(await sync(buffer.api, {}, later(2))).toMatchObject({ skipped: "idle", requests: 0, room: 0 });
+
+    // 18:45: slots 18:03, 18:21 and 18:39 have passed; read not due (last
+    // 18:00): the room comes from the due times; the 2 left are pushed, no read.
+    const third = await sync(buffer.api, {}, later(45));
+    expect(third).toMatchObject({ pushed: 2, requests: 2, room: 3 });
+    expect(buffer.calls.list).toBe(1);
+    expect((await row(ids[11])).bufferDueAt).not.toBeNull();
+  });
+
+  it("makes no request at all when nothing waits and nothing is due", async () => {
+    const videoId = await video(40, true);
+    await enqueueXPost({ videoId, clipId: makeClip(), caption: "x" }, prisma, mediaDir);
+    const buffer = fakeBuffer({ dueAt: () => later(24 * 60).toISOString() });
+    await sync(buffer.api, {}, T0);
+    for (const minutes of [30, 60, 240, 600]) {
+      expect(await sync(buffer.api, {}, later(minutes))).toMatchObject({ skipped: "idle", requests: 0 });
+    }
+    expect(buffer.calls.list).toBe(1);
+  });
+
   it("does nothing with Buffer when it is not configured", async () => {
     const videoId = await video(12, true);
     await enqueueXPost({ videoId, clipId: makeClip(), caption: "x" }, prisma, mediaDir);
