@@ -24,6 +24,8 @@ export type CreateResult =
   | { ok: false; message: string };
 
 export interface BufferApi {
+  /** Read-only GraphQL query, for diagnostics (social:probe). */
+  query?<T>(query: string, variables?: Record<string, unknown>): Promise<T>;
   findXChannel(handle: string): Promise<BufferChannel>;
   /** Posts of the channel created or due after `since`, newest Buffer allows (≤ 100). */
   channelPosts(
@@ -114,6 +116,10 @@ export function bufferClient(apiKey: string, fetchImpl: typeof fetch = fetch): B
   }
 
   return {
+    async query<T>(query: string, variables: Record<string, unknown> = {}) {
+      return (await request<T>(query, variables)).data;
+    },
+
     async findXChannel(handle) {
       const wanted = handle.replace(/^@/, "").toLowerCase();
       const { data } = await request<{ account: { organizations: { id: string }[] } }>(

@@ -3,6 +3,7 @@ import { prisma } from "../lib/db";
 import { bufferClient } from "../lib/social/buffer";
 import { upgradeLegacyCaptions } from "../lib/social/captionUpgrade";
 import { localHour, socialConfig, syncIntervalMinutes } from "../lib/social/config";
+import { runBufferProbe } from "../lib/social/probe";
 import { getXCaptionSettings } from "../lib/social/settings";
 import { REQUEST_COUNT_SETTING, runSocialSync, X_NETWORK } from "../lib/social/queue";
 import { runHealthCheck } from "../lib/sync/healthCheck";
@@ -156,6 +157,11 @@ export async function runCli(args = process.argv.slice(2)): Promise<number> {
     return 0;
   }
 
+  if (command === "social:probe") {
+    // Read-only Buffer diagnostics: counts and statuses, no text or key.
+    return runBufferProbe();
+  }
+
   if (command === "social:channels") {
     // Which X channel of the Buffer account the queue posts to.
     const config = socialConfig();
@@ -252,7 +258,7 @@ export async function runCli(args = process.argv.slice(2)): Promise<number> {
   }
 
   console.error(
-    "Usage: tsx worker/cli.ts <sync:new|sync:health|backfill|media:resize [--dry-run]|slugs:lost-d|slugs:fix-d [--scope=drafts|published|all] [--ids=a,b] [--apply]|social:status|social:sync|social:channels|social:retry <slug>|social:cancel <slug>|videos:restore-health [--apply] [--no-host-check]|social:caption-upgrade [--dry-run]>",
+    "Usage: tsx worker/cli.ts <sync:new|sync:health|backfill|media:resize [--dry-run]|slugs:lost-d|slugs:fix-d [--scope=drafts|published|all] [--ids=a,b] [--apply]|social:status|social:sync|social:channels|social:probe|social:retry <slug>|social:cancel <slug>|videos:restore-health [--apply] [--no-host-check]|social:caption-upgrade [--dry-run]>",
   );
   return 1;
 }

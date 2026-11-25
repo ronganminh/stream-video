@@ -31,7 +31,8 @@
     "slugs:fix-d": "tsx worker/cli.ts slugs:fix-d",
     "caddy:generate": "tsx scripts/generate-caddy.ts",
     "caddy:check": "tsx scripts/generate-caddy.ts --check",
-    "migration:thumbnails": "tsx scripts/apply-migration-thumbnails.ts"
+    "migration:thumbnails": "tsx scripts/apply-migration-thumbnails.ts",
+    "social:probe": "tsx worker/cli.ts social:probe"
   },
   "dependencies": {
     "@prisma/client": "^6.15.0",
