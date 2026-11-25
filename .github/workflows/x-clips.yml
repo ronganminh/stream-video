@@ -33,6 +33,7 @@ jobs:
       DIAGNOSE_SLUGS: ${{ inputs.diagnose_slugs }}
       # Direct (HTTP Range) read limit before downloading the whole file.
       X_CLIPS_DIRECT_TIMEOUT: "240"
+      X_CLIPS_DRIVE_DIRECT_TIMEOUT: "60"
       X_CLIPS_VIDEO_TIMEOUT: "1200"
     steps:
       - name: Checkout app

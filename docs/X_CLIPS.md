@@ -25,15 +25,19 @@ Clip được cắt trên **GitHub Actions** (`.github/workflows/x-clips.yml`), 
 4. **Workflow làm gì:**
    - lấy danh sách bài chờ: `GET /api/v1/social/pending`;
    - tìm nguồn cho từng video:
-     - EarnVids `file/direct_link`, bản đã có watermark. DoodStream và VOE không có API trả link file;
+     - EarnVids `file/direct_link`, bản đã có watermark. Gọi thật ngày 25/11/2026, EarnVids trả `status 403: Please buy premium views`: tính năng này cần gói premium. Khi chưa có premium, nguồn này báo lỗi ngay và workflow chuyển sang Drive. DoodStream và VOE không có API trả link file;
      - nếu không được thì dùng bản gốc trên Google Drive, lấy từ CSV migration trong repo riêng `stream-video-data`, khớp theo mã file trên host như sync vẫn làm, và gắn watermark;
-   - ffmpeg đọc thẳng URL và tua bằng HTTP Range, nên chỉ tải đúng đoạn cần cắt;
+   - ffmpeg đọc thẳng URL và tua bằng HTTP Range, nên chỉ tải đúng đoạn cần cắt. Việc đọc thẳng bị giới hạn thời gian: 240 s (`X_CLIPS_DIRECT_TIMEOUT`), riêng Drive 60 s (`X_CLIPS_DRIVE_DIRECT_TIMEOUT`). Lý do: với Drive, ffmpeg tua rất chậm (từng mất 22 phút cho một clip), trong khi tải thường được khoảng 14 MB/s. Quá giới hạn, gặp lỗi, hoặc clip ngắn hơn dự kiến quá 2 s (dấu hiệu bị ngắt giữa chừng) thì workflow tải cả file về runner rồi cắt;
+   - với Drive, trước khi đọc, workflow gọi metadata và thử đọc 1 byte để biết đúng lý do nếu Google từ chối (ví dụ `downloadQuotaExceeded`), và gửi kèm resource key nếu link có. Nếu Drive API từ chối, workflow tải qua link công khai bằng gdown, giống migration;
+   - mỗi video có tối đa 20 phút (`X_CLIPS_VIDEO_TIMEOUT`) cho mọi nguồn; cả job tối đa 75 phút;
    - upload clip (`/api/v1/clips`), gắn clip vào bài (`/api/v1/social/<id>/clip`), hoặc báo lỗi (`/api/v1/social/<id>/failure`).
 
    Bài lỗi được thử lại sau 15 phút, rồi sau 60 phút; lần thứ 3 vẫn lỗi thì chuyển sang **Lỗi**.
 5. Bài có clip vào hàng đợi Buffer như bình thường.
 
 **Giao diện admin:**
+- **Thử lại / Cắt lại:** trong bảng **Bài X**, bài **Lỗi** có nút **Thử lại**; bài đã có clip nhưng chưa lên Buffer có nút **Cắt lại**. Bấm thì bài về lại hàng cắt clip, với số lần thử tính lại từ đầu.
+- **Chẩn đoán:** chạy tay *Actions → X clips → Run workflow*, ô `diagnose_slugs` nhập slug hoặc `host:mã` (ví dụ `dood:abc123`). Workflow gọi thật EarnVids và Drive cho các video đó và chỉ in trạng thái, lý do và tốc độ, không in link hay key.
 - **Nút gọi tay:** **Chạy cắt clip ngay** trong /admin/review gọi workflow ngay, không chờ gộp lượt. Cũng có thể chạy tay trên GitHub: *Actions → X clips → Run workflow*.
 - **Trạng thái bài X** (Đang xử lý clip / Trong hàng đợi / Đã đăng / Lỗi) hiện trên thẻ duyệt, trong bảng **Bài X** của /admin/review, và ở cột **X** của /admin/videos.
 - **Lỗi gọi GitHub** (token sai, thiếu quyền…) hiện trong bảng đó; worker tự thử lại sau 5 phút.

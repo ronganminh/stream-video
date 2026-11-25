@@ -169,6 +169,17 @@ class EarnVidsTest(unittest.TestCase):
         self.assertEqual(session.calls[1]["params"], {"key": "k", "file_code": "ev111", "ip": "203.0.113.7"})
 
 
+class EarnVidsPremiumTest(unittest.TestCase):
+    def test_premium_answer_stops_at_once(self):
+        session = FakeSession([FakeResponse(200, {"status": 403, "msg": "Please buy premium views"})])
+        with mock.patch.object(mc, "public_ip", return_value=None), \
+                mock.patch.dict(os.environ, {"HOST_EARNVIDS_API_KEY": "k"}):
+            with self.assertRaises(mc.SourceError) as caught:
+                mc.earnvids_open("ev1", session)
+        self.assertEqual(len(session.calls), 1)
+        self.assertIn("Please buy premium views", str(caught.exception))
+
+
 class DriveTest(unittest.TestCase):
     def test_public_file_link(self):
         opened = mc.Drive("").open(f"https://drive.google.com/file/d/{FILE_ID}/view?resourcekey=0-AbC")
@@ -190,6 +201,7 @@ class DriveTest(unittest.TestCase):
         meta = FakeResponse(200, {"id": FILE_ID, "resourceKey": "0-KEY", "capabilities": {"canDownload": True}})
         drive = self.drive([meta, FakeResponse(206, content=b"x")])
         opened = drive.open(f"https://drive.google.com/file/d/{FILE_ID}/view")
+        self.assertEqual(opened.direct_timeout, mc.DRIVE_DIRECT_TIMEOUT)
         self.assertTrue(opened.url.startswith(f"https://www.googleapis.com/drive/v3/files/{FILE_ID}?alt=media"))
         self.assertEqual(opened.headers, {"Authorization": "Bearer ya29.TOKEN",
                                           "X-Goog-Drive-Resource-Keys": f"{FILE_ID}/0-KEY"})

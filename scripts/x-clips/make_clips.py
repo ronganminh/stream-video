@@ -135,6 +135,8 @@ class Opened:
     download: Optional[Callable[[Path, float], Path]] = None
     # Why the preferred way (the Drive API) refused, when falling back.
     api_error: Optional[str] = None
+    # Seconds allowed for the direct (HTTP Range) read; None = DIRECT_TIMEOUT.
+    direct_timeout: Optional[float] = None
 
 
 @dataclass
@@ -251,6 +253,8 @@ def earnvids_open(code: str, session=None) -> Opened:
             url, kind = parse_direct_link(earnvids_call(code, params, session))
         except SourceError as error:
             errors.append(str(error))
+            if "premium" in str(error).lower():
+                break  # the account has no direct links at all (EarnVids premium)
             continue
         mask(url)
         download = None if kind == "hls" else (lambda target, timeout, url=url: download_to(url, {}, target, timeout))
@@ -357,9 +361,13 @@ class Drive:
         probe = self.session.get(url, headers={**headers, "Range": "bytes=0-0"}, timeout=60)
         if probe.status_code >= 400:
             raise SourceError(f"Drive API HTTP {probe.status_code}{drive_reason(probe)} khi tải")
+        # Measured: Range reads of a Drive file make ffmpeg's seeks crawl (22
+        # minutes for one clip) while a plain download runs at ~14 MB/s, so
+        # the direct read only gets a short try.
         return Opened(url, headers, "file",
                       lambda target, timeout: download_to(url, self.api_headers(file_id, resource_key), target, timeout,
-                                                          self.session))
+                                                          self.session),
+                      direct_timeout=DRIVE_DIRECT_TIMEOUT)
 
     def public_open(self, link: str) -> Opened:
         file_id = drive_file_id(link)
@@ -435,6 +443,7 @@ def plan_sources(post: dict, index: MigrationIndex, drive: Optional[Drive]) -> T
 # Drive can serve ranges very slowly (22 min for one clip). Past it, the whole
 # file is downloaded to the runner and cut there.
 DIRECT_TIMEOUT = int(os.environ.get("X_CLIPS_DIRECT_TIMEOUT", "240"))
+DRIVE_DIRECT_TIMEOUT = int(os.environ.get("X_CLIPS_DRIVE_DIRECT_TIMEOUT", "60"))
 # Everything for one video (all sources) must finish within this.
 VIDEO_TIMEOUT = int(os.environ.get("X_CLIPS_VIDEO_TIMEOUT", "1200"))
 # A clip more than this much shorter than expected was cut off (a dropped read).
@@ -537,7 +546,8 @@ def cut(source: Source, post: dict, output: Path, run=subprocess.run, deadline: 
     opened = source.open()
     errors: List[str] = []
     if opened.kind in ("file", "hls", "local"):
-        budget = min(DIRECT_TIMEOUT if opened.kind == "file" else VIDEO_TIMEOUT, deadline - time.monotonic())
+        limit = opened.direct_timeout or DIRECT_TIMEOUT
+        budget = min(limit if opened.kind == "file" else VIDEO_TIMEOUT, deadline - time.monotonic())
         try:
             return encode(opened.url, opened.headers, post, output, source.watermark, budget, run), "direct"
         except SourceError as error:
