@@ -72,6 +72,7 @@ class BannedTest(unittest.TestCase):
 
 class CaptionHelpersTest(unittest.TestCase):
     def test_default_caption(self):
+        self.assertEqual(ai.default_caption("{title}", "Trần Đức – Gym"), "Tran Duc – Gym")  # the default
         self.assertEqual(ai.default_caption("New video: {title} 🔥", "Trần Đức – Gym"), "New video: Tran Duc – Gym 🔥")
         # A title with a banned word, or a broken template, gives the generic caption.
         self.assertEqual(ai.default_caption("New video: {title}", "Nude beach"), ai.GENERIC_CAPTION)

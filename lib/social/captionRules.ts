@@ -10,7 +10,10 @@ import { X_MAX_WEIGHT, xWeight } from "./xText";
 
 const URL_WEIGHT = 23;
 export const CAPTION_BUDGET = X_MAX_WEIGHT - URL_WEIGHT - 2;
-export const DEFAULT_CAPTION_TEMPLATE = "New video: {title} 🔥";
+/** The caption is the video title (titles vary enough on their own). */
+export const DEFAULT_CAPTION_TEMPLATE = "{title}";
+/** The default until November 2026; captionUpgrade.ts replaces it where it is unedited. */
+export const LEGACY_CAPTION_TEMPLATE = "New video: {title} 🔥";
 export const GENERIC_CAPTION = "New video just dropped 🔥";
 
 export const BANNED_WORDS: readonly string[] = [
@@ -113,7 +116,7 @@ export function asciiTitle(title: string): string {
   return title.replace(/đ/g, "d").replace(/Đ/g, "D").normalize("NFD").replace(/\p{Mn}/gu, "");
 }
 
-/** The template ("New video: {title} 🔥") filled in; generic if the result is not postable. */
+/** The template (default "{title}") filled in; generic if the result is not postable. */
 export function defaultCaption(template: string, title: string, extra: readonly string[] = []): string {
   const filled = (template.trim() || DEFAULT_CAPTION_TEMPLATE).replaceAll("{title}", asciiTitle(title).trim());
   if (/\{[^}]*\}/.test(filled)) return GENERIC_CAPTION;

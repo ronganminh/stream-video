@@ -1,6 +1,7 @@
 import { runBackfill } from "../lib/sync/backfill";
 import { prisma } from "../lib/db";
 import { bufferClient } from "../lib/social/buffer";
+import { upgradeLegacyCaptions } from "../lib/social/captionUpgrade";
 import { socialConfig } from "../lib/social/config";
 import { runSocialSync, X_NETWORK } from "../lib/social/queue";
 import { runHealthCheck } from "../lib/sync/healthCheck";
@@ -91,6 +92,23 @@ export async function runCli(args = process.argv.slice(2)): Promise<number> {
       `SLUGS FIX-D applied (scope=${scope}): renamed=${applied.length} redirects=${applied.filter((fix) => fix.redirect).length} skipped=${skipped.length}. Cached list pages pick up the new slugs within their revalidate window; old URLs 301 meanwhile.`,
     );
     return skipped.length > 0 ? 1 : 0;
+  }
+
+  if (command === "social:caption-upgrade") {
+    // Run by every deploy. Moves the saved X caption template and unedited
+    // captions of posts not yet in Buffer from "New video: {title} 🔥" to the
+    // title alone. --dry-run changes nothing. Prints counts only.
+    const result = await upgradeLegacyCaptions({ apply: !args.includes("--dry-run") });
+    const settingText = {
+      upgraded: "old default -> {title}",
+      custom: "custom template kept",
+      default: "already {title}",
+      unset: "not saved (code default {title})",
+    }[result.setting];
+    console.info(
+      `X CAPTIONS${args.includes("--dry-run") ? " (dry run)" : ""}: setting=${settingText}; posts updated=${result.posts} of ${result.checked} not yet in Buffer`,
+    );
+    return 0;
   }
 
   if (command === "social:status") {
@@ -196,7 +214,7 @@ export async function runCli(args = process.argv.slice(2)): Promise<number> {
   }
 
   console.error(
-    "Usage: tsx worker/cli.ts <sync:new|sync:health|backfill|media:resize [--dry-run]|slugs:lost-d|slugs:fix-d [--scope=drafts|published|all] [--ids=a,b] [--apply]|social:status|social:sync|social:channels|social:retry <slug>|social:cancel <slug>|videos:restore-health [--apply] [--no-host-check]>",
+    "Usage: tsx worker/cli.ts <sync:new|sync:health|backfill|media:resize [--dry-run]|slugs:lost-d|slugs:fix-d [--scope=drafts|published|all] [--ids=a,b] [--apply]|social:status|social:sync|social:channels|social:retry <slug>|social:cancel <slug>|videos:restore-health [--apply] [--no-host-check]|social:caption-upgrade [--dry-run]>",
   );
   return 1;
 }

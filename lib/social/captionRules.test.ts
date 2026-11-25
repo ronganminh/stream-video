@@ -62,7 +62,9 @@ describe("caption checks", () => {
 
   it("fills the template with the title without accents", () => {
     expect(defaultCaption("New video: {title} 🔥", "Trần Đức – Gym")).toBe("New video: Tran Duc – Gym 🔥");
-    expect(defaultCaption("", "Gym")).toBe("New video: Gym 🔥");
+    expect(defaultCaption("", "Gym")).toBe("Gym");
+    expect(defaultCaption("{title}", "Trần Đức – Gym")).toBe("Tran Duc – Gym");
+    expect(defaultCaption("{title}", "Nude beach")).toBe(GENERIC_CAPTION);
     expect(defaultCaption("New video: {title}", "Nude beach")).toBe(GENERIC_CAPTION);
     expect(defaultCaption("New video: {name}", "Gym")).toBe(GENERIC_CAPTION);
   });

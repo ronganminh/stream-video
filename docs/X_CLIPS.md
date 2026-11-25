@@ -9,7 +9,7 @@ Khi duyệt một video trong **/admin/review**, khối **Đăng X** trên thẻ
 | **Không đăng X** | Video vẫn lên web; không có bài X |
 | **Dùng clip đã có** | Chỉ hiện khi video đã có clip (ví dụ từ notebook Colab) |
 
-- **Caption:** lấy theo mẫu trong **/admin/settings → X captions** (mặc định `New video: {title} 🔥`) và sửa được ngay trên thẻ.
+- **Caption:** lấy theo mẫu trong **/admin/settings → X captions** (mặc định `{title}`: chỉ tiêu đề bỏ dấu; trước 11/2026 là `New video: {title} 🔥`, mỗi lần deploy lệnh `social:caption-upgrade` chuyển mẫu cũ đã lưu và caption chưa sửa của bài chưa sang Buffer sang mẫu mới) và sửa được ngay trên thẻ.
 - **Kiểm tra caption:** caption qua cùng bộ lọc từ cấm và giới hạn 255 ký tự (cách X đếm) như notebook. Caption có từ cấm hoặc có link thì không duyệt được; caption quá dài thì bị cắt bớt.
 - **Lỗi bên X không chặn web:** lỗi phần X không bao giờ ngăn video lên web.
 
