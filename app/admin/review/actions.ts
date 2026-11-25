@@ -12,6 +12,7 @@ import { revalidatePublicPages } from "@/lib/revalidatePublic";
 import { applyThumbnailSelection } from "@/lib/sync/thumbnailSources";
 import { socialConfig } from "@/lib/social/config";
 import { requestClipRun, runClipDispatch } from "@/lib/social/dispatch";
+import { recutClip } from "@/lib/social/clipJobs";
 import { X_NETWORK } from "@/lib/social/queue";
 import { applyXPlan, cancelUnsentXPost, planXPost, readXReviewInput } from "@/lib/social/reviewPost";
 import { getXCaptionSettings } from "@/lib/social/settings";
@@ -343,5 +344,22 @@ export async function runClipWorkflowNowAction(): Promise<{ ok: boolean; message
   } catch (error) {
     console.error("runClipWorkflowNowAction failed", error);
     return { ok: false, message: "Không gọi được workflow cắt clip." };
+  }
+}
+
+/** "Thử lại" (failed) / "Cắt lại" (clip not in Buffer yet): back to the clip workflow. */
+export async function recutXPostAction(postId: string): Promise<{ ok: boolean; message: string }> {
+  const admin = await requireAdmin();
+  try {
+    const id = z.string().min(1).max(64).parse(postId);
+    if (!(await recutClip(id))) return { ok: false, message: "Bài này không cắt lại được (đã ở Buffer hoặc không có clip X)." };
+    await requestClipRun();
+    await writeAdminAudit(admin.id, "X_CLIP_RECUT", id);
+    revalidatePath("/admin/review");
+    revalidatePath("/admin/videos");
+    return { ok: true, message: "Đã đưa lại vào hàng cắt clip; workflow sẽ chạy sau khoảng 1,5 phút." };
+  } catch (error) {
+    console.error("recutXPostAction failed", error);
+    return { ok: false, message: "Không đưa lại vào hàng cắt clip được." };
   }
 }

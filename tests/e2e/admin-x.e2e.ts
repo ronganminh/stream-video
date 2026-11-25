@@ -189,9 +189,21 @@ test("the clip workflow API: pending list, attach a clip, report a failure", asy
     data: readFileSync(path.join(dir, "clip.mp4")),
   });
   const { clipId } = await upload.json();
-  const attached = await request.post(`/api/v1/social/${long.postId}/clip`, {
+  // The 3 s clip is far under the 140 s planned: refused as cut off.
+  const cutOff = await request.post(`/api/v1/social/${long.postId}/clip`, {
     headers: auth,
     data: { clipId, source: "drive" },
+  });
+  expect(cutOff.status()).toBe(422);
+  expect((await cutOff.json()).error.code).toBe("clip_too_short");
+  await prisma.socialPost.update({ where: { id: long.postId }, data: { clipSeconds: 3 } });
+  const again = await request.post("/api/v1/clips", {
+    headers: { ...auth, "content-type": "video/mp4" },
+    data: readFileSync(path.join(dir, "clip.mp4")),
+  });
+  const attached = await request.post(`/api/v1/social/${long.postId}/clip`, {
+    headers: auth,
+    data: { clipId: (await again.json()).clipId, source: "drive" },
   });
   expect(attached.status()).toBe(200);
   expect(await attached.json()).toEqual({ status: "queued" });
@@ -214,6 +226,17 @@ test("the clip workflow API: pending list, attach a clip, report a failure", asy
   await loginAdmin(page);
   await page.goto(`/admin/videos?published=true`);
   await expect(page.locator("tr").filter({ hasText: "Trần Đức – Gym" }).getByText("Trong hàng đợi")).toBeVisible();
+
+  // "Cắt lại": a clip not yet in Buffer goes back to the clip workflow.
+  await page.goto("/admin/review");
+  const panel = page.getByRole("region", { name: "Bài X và cắt clip" });
+  await panel.locator("li").filter({ hasText: "Trần Đức – Gym" }).getByRole("button", { name: "Cắt lại" }).click();
+  await expect(panel.getByRole("status")).toContainText("Đã đưa lại vào hàng cắt clip");
+  expect(await prisma.socialPost.findUniqueOrThrow({ where: { id: long.postId } })).toMatchObject({
+    status: "preparing",
+    attempts: 0,
+    clipFile: null,
+  });
 });
 
 test("undoing an approval drops the X post that has not reached Buffer", async ({ page }) => {

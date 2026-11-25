@@ -6,6 +6,11 @@ name: X clips
 # One run handles every pending post; runs never overlap.
 on:
   workflow_dispatch:
+    inputs:
+      diagnose_slugs:
+        description: "Diagnose only: comma-separated video slugs (prints statuses and reasons, never links or keys)"
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -17,13 +22,18 @@ concurrency:
 jobs:
   clips:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    # Each video gets X_CLIPS_VIDEO_TIMEOUT (20 min); the whole run stops here.
+    timeout-minutes: 75
     env:
       GAYVIDEO_API_URL: ${{ vars.GAYVIDEO_API_URL || 'https://gayvideo.fun' }}
       GAYVIDEO_API_TOKEN: ${{ secrets.GAYVIDEO_API_TOKEN }}
       HOST_EARNVIDS_API_KEY: ${{ secrets.HOST_EARNVIDS_API_KEY }}
       GDRIVE_SERVICE_ACCOUNT_JSON: ${{ secrets.GDRIVE_SERVICE_ACCOUNT_JSON }}
       MIGRATION_DATA: migration-data
+      DIAGNOSE_SLUGS: ${{ inputs.diagnose_slugs }}
+      # Direct (HTTP Range) read limit before downloading the whole file.
+      X_CLIPS_DIRECT_TIMEOUT: "240"
+      X_CLIPS_VIDEO_TIMEOUT: "1200"
     steps:
       - name: Checkout app
         uses: actions/checkout@v4
@@ -44,7 +54,7 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq --no-install-recommends ffmpeg fonts-dejavu-core > /dev/null
-          python -m pip install --disable-pip-version-check -q requests google-auth
+          python -m pip install --disable-pip-version-check -q requests google-auth gdown
           ffmpeg -version | head -1
 
       - name: Make clips
