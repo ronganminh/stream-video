@@ -94,6 +94,13 @@ describe("bufferClient", () => {
     expect(input.sort).toEqual([{ field: "dueAt", direction: "desc" }]);
   });
 
+  it("reads posts when the API returns them as a list of result pages", async () => {
+    const node = (id: string, status: string) => ({ node: { id, status, text: "t", dueAt: null, sentAt: null, externalLink: null, error: null } });
+    const { impl } = fakeFetch([{ body: { data: { posts: [{ edges: [node("p1", "sent"), node("p2", "scheduled")] }] } } }]);
+    const { posts } = await bufferClient(KEY, impl).channelPosts({ channelId: "c", organizationId: "o" }, new Date());
+    expect(posts.map((post) => [post.id, post.status])).toEqual([["p1", "sent"], ["p2", "scheduled"]]);
+  });
+
   it("finds the X channel by handle across organizations", async () => {
     const { impl } = fakeFetch([
       { body: { data: { account: { organizations: [{ id: "o1" }, { id: "o2" }] } } } },

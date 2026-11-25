@@ -64,6 +64,8 @@ export function remainingIn30Days(headers: Headers): number | null {
   return null;
 }
 
+type PostsResults = { edges: { node: BufferPost }[] | null };
+
 type GraphQLResponse<T> = { data?: T; errors?: { message?: string; extensions?: { code?: string } }[] };
 
 export function bufferClient(apiKey: string, fetchImpl: typeof fetch = fetch): BufferApi {
@@ -134,7 +136,7 @@ export function bufferClient(apiKey: string, fetchImpl: typeof fetch = fetch): B
 
     async channelPosts(channel, since) {
       const { data, headers } = await request<{
-        posts: { edges: { node: BufferPost }[] | null };
+        posts: PostsResults | PostsResults[] | null;
       }>(
         // Every status, explicitly: without a status filter the list did not
         // include sent posts, so posts that went out looked deleted
@@ -160,7 +162,12 @@ export function bufferClient(apiKey: string, fetchImpl: typeof fetch = fetch): B
       return {
         // GraphQL enums may come back upper case ("SENT"); the queue compares
         // lower case, so a sent post would otherwise never be marked sent.
-        posts: (data.posts.edges ?? []).map((edge) => ({
+        // The schema types `posts` as a list of result pages ([PostsResults]);
+        // reading `.edges` off the list gave nothing, so every post looked
+        // deleted. Both shapes are read.
+        posts: (Array.isArray(data.posts) ? data.posts : data.posts ? [data.posts] : [])
+          .flatMap((page) => page?.edges ?? [])
+          .map((edge) => ({
           ...edge.node,
           status: String(edge.node.status ?? "").toLowerCase() as BufferPost["status"],
         })),

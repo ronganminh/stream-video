@@ -332,6 +332,19 @@ describe.skipIf(!databaseUrl)("X queue (Buffer)", () => {
     expect((await row(waitingId)).bufferDueAt?.toISOString()).toBe("2026-11-27T11:03:00.000Z");
   });
 
+  it("an empty Buffer read never takes our posts for deleted", async () => {
+    const videoId = await video(60, true);
+    await enqueueXPost({ videoId, clipId: makeClip(), caption: "x" }, prisma, mediaDir);
+    await sync(fakeBuffer().api, {}, T0);
+    expect((await row(videoId)).status).toBe("pushed");
+    // The read comes back empty (a misread): the post stays pushed.
+    const summary = await sync(fakeBuffer({ posts: [] }).api, {}, later(300));
+    expect(summary.read).toBe(0);
+    expect(summary.errors.join(" ")).toContain("no posts");
+    expect(await row(videoId)).toMatchObject({ status: "pushed" });
+    expect((await row(videoId)).clipFile).not.toBeNull();
+  });
+
   it("does nothing with Buffer when it is not configured", async () => {
     const videoId = await video(12, true);
     await enqueueXPost({ videoId, clipId: makeClip(), caption: "x" }, prisma, mediaDir);
