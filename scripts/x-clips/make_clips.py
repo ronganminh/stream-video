@@ -521,8 +521,9 @@ def encode(url: str, headers: Dict[str, str], post: dict, output: Path, watermar
     """One ffmpeg run, then a length check. Raises SourceError."""
     start = 0 if post["mode"] == "full" else post["start"]
     command = ffmpeg_args(url, headers, start, post["seconds"], output, watermark)
+    timeout = max(10, timeout)
     try:
-        result = run(command, capture_output=True, text=True, timeout=max(30, timeout))
+        result = run(command, capture_output=True, text=True, timeout=timeout)
     except subprocess.TimeoutExpired:
         output.unlink(missing_ok=True)
         raise SourceError(f"quá {timeout:.0f} s") from None
