@@ -2,7 +2,9 @@ import type { PrismaClient } from "@prisma/client";
 
 import { prisma } from "../db";
 import { deleteClip, findClip } from "./clips";
+import { socialConfig, type SocialConfig } from "./config";
 import { X_NETWORK } from "./queue";
+import { plannedClipSeconds } from "./reviewPost";
 
 // The server side of the GitHub Actions clip workflow
 // (.github/workflows/x-clips.yml, scripts/x-clips/make_clips.py):
@@ -173,12 +175,32 @@ export const RECUTTABLE: readonly string[] = ["failed", "queued", "waiting", "pr
  * "Thử lại" / "Cắt lại" in the admin: the post goes back to "preparing" with
  * a fresh attempt count; its current clip (if any) is deleted.
  */
-export async function recutClip(postId: string, client: Db = prisma, mediaDir?: string): Promise<boolean> {
-  const post = await client.socialPost.findUnique({ where: { id: postId } });
+export async function recutClip(
+  postId: string,
+  client: Db = prisma,
+  mediaDir?: string,
+  config: Pick<SocialConfig, "clipSeconds" | "maxVideoSeconds"> = socialConfig(),
+): Promise<boolean> {
+  const post = await client.socialPost.findUnique({
+    where: { id: postId },
+    include: { video: { select: { durationSeconds: true } } },
+  });
   if (!post || !RECUTTABLE.includes(post.status) || !post.clipMode) return false;
+  // clipSeconds now holds the old clip's real length (2 s for a cut-off
+  // one): plan the length again, or the recut repeats the bad clip.
+  const mode = post.clipMode === "full" ? "full" : "clip";
+  const clipSeconds = plannedClipSeconds(mode, post.clipStart ?? 0, post.video.durationSeconds, config);
   await client.socialPost.update({
     where: { id: post.id },
-    data: { status: "preparing", attempts: 0, lastError: null, nextAttemptAt: null, clipFile: null, clipSource: null },
+    data: {
+      status: "preparing",
+      clipSeconds,
+      attempts: 0,
+      lastError: null,
+      nextAttemptAt: null,
+      clipFile: null,
+      clipSource: null,
+    },
   });
   await deleteClip(post.clipFile, mediaDir);
   return true;

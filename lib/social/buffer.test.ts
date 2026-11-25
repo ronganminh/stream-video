@@ -67,6 +67,25 @@ describe("bufferClient", () => {
     }
   });
 
+  it("reads post statuses whatever their case", async () => {
+    const { impl } = fakeFetch([
+      {
+        body: {
+          data: {
+            posts: {
+              edges: [
+                { node: { id: "p1", status: "SENT", text: "t", dueAt: null, sentAt: "2026-11-25T02:59:00Z", externalLink: "https://x.com/a/status/1", error: null } },
+                { node: { id: "p2", status: "scheduled", text: "t", dueAt: null, sentAt: null, externalLink: null, error: null } },
+              ],
+            },
+          },
+        },
+      },
+    ]);
+    const { posts } = await bufferClient(KEY, impl).channelPosts({ channelId: "c", organizationId: "o" }, new Date());
+    expect(posts.map((post) => post.status)).toEqual(["sent", "scheduled"]);
+  });
+
   it("finds the X channel by handle across organizations", async () => {
     const { impl } = fakeFetch([
       { body: { data: { account: { organizations: [{ id: "o1" }, { id: "o2" }] } } } },

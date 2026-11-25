@@ -40,6 +40,26 @@ export function clock(seconds: number): string {
   return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, "0")}`;
 }
 
+/**
+ * How long the clip must be: the whole video up to X_MAX_VIDEO_SECONDS
+ * ("full"), or X_CLIP_SECONDS from `start` ("clip"), never past the end of
+ * the video when its duration is known. Used when approving and when an
+ * admin asks for a recut (the stored clipSeconds is then the old clip's
+ * real length, possibly a cut-off one).
+ */
+export function plannedClipSeconds(
+  mode: "clip" | "full",
+  start: number,
+  durationSeconds: number | null,
+  config: Pick<SocialConfig, "clipSeconds" | "maxVideoSeconds">,
+): number {
+  const duration = durationSeconds && durationSeconds > 0 ? durationSeconds : null;
+  const limit = config.maxVideoSeconds;
+  if (mode === "full") return duration === null ? limit : Math.min(duration, limit);
+  const wanted = config.clipSeconds > 0 ? Math.min(config.clipSeconds, limit) : limit;
+  return duration === null ? wanted : Math.max(1, Math.min(wanted, duration - start));
+}
+
 /** Reads the review form's X fields; unknown modes fall back to "clip". */
 export function readXReviewInput(form: { get(name: string): unknown }): XReviewInput {
   const mode = String(form.get("xMode") ?? "clip") as XMode;
@@ -96,7 +116,7 @@ export function planXPost(
     } else if (duration === null) {
       warnings.push(`Chưa biết thời lượng video: nếu dài hơn ${clock(limit)} sẽ tự cắt.`);
     }
-    const seconds = duration === null ? limit : Math.min(duration, limit);
+    const seconds = plannedClipSeconds("full", 0, duration, config);
     return { plan: { action: "prepare", mode: "full", caption, start: 0, seconds }, warnings, errors };
   }
 
@@ -106,8 +126,7 @@ export function planXPost(
     warnings.push(`Giây bắt đầu ${clock(start)} vượt thời lượng ${clock(duration)}: cắt từ đầu.`);
     start = 0;
   }
-  const wanted = config.clipSeconds > 0 ? Math.min(config.clipSeconds, limit) : limit;
-  const seconds = duration === null ? wanted : Math.max(1, Math.min(wanted, duration - start));
+  const seconds = plannedClipSeconds("clip", start, duration, config);
   return { plan: { action: "prepare", mode: "clip", caption, start, seconds }, warnings, errors };
 }
 

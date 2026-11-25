@@ -212,13 +212,19 @@ describe.skipIf(!databaseUrl)("clip workflow dispatch and API (database)", () =>
 
   it("'Thử lại' / 'Cắt lại' sends a failed or not-yet-pushed post back, never one in Buffer", async () => {
     await prisma.socialPost.update({ where: { id: postId }, data: { status: "failed", attempts: 3, lastError: "x" } });
-    expect(await recutClip(postId, prisma, mediaDir)).toBe(true);
+    expect(await recutClip(postId, prisma, mediaDir, config())).toBe(true);
     expect(await prisma.socialPost.findUniqueOrThrow({ where: { id: postId } })).toMatchObject({
       status: "preparing",
       attempts: 0,
       lastError: null,
       clipFile: null,
+      clipSeconds: 120,
     });
+    // A queued post whose clip was cut off at 2 s gets its 120 s plan back
+    // (the stored length was the bad clip's; x-clips run #8 cut 2 s again).
+    await prisma.socialPost.update({ where: { id: postId }, data: { status: "queued", clipSeconds: 2 } });
+    expect(await recutClip(postId, prisma, mediaDir, config())).toBe(true);
+    expect((await prisma.socialPost.findUniqueOrThrow({ where: { id: postId } })).clipSeconds).toBe(120);
     await prisma.socialPost.update({ where: { id: postId }, data: { status: "pushed" } });
     expect(await recutClip(postId, prisma, mediaDir)).toBe(false);
   });
