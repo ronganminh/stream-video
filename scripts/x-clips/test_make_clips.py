@@ -249,6 +249,11 @@ class SlugTest(unittest.TestCase):
         index = mc.MigrationIndex.load(root)
         self.assertEqual(mc.slugify("Đức & Tùng Dương (41)"), "duc-tung-duong-41")
         self.assertEqual([row["post_id"] for row in mc.find_rows_by_slug(index, "duc-tung-duong-41-2")], ["p9"])
+        self.assertEqual([row["post_id"] for row in mc.find_rows_by_slug(index, "dood:dd9")], ["p9"])
+        (root / "migration-log.csv").write_text("post_id,dood_file_code,source_filename\np9,dd9,68267_watermarked.mp4\n",
+                                                encoding="utf-8")
+        index = mc.MigrationIndex.load(root)
+        self.assertEqual([row["post_id"] for row in mc.find_rows_by_slug(index, "68267-watermarked")], ["p9"])
 
 
 class FfmpegArgsTest(unittest.TestCase):

@@ -628,13 +628,24 @@ def slugify(text: str) -> str:
 
 
 def find_rows_by_slug(index: MigrationIndex, slug: str) -> List[Dict[str, str]]:
-    """Migration log rows whose source title slugifies to `slug` (ignoring a
-    "-2" style suffix the site adds to duplicate slugs)."""
-    base = re.sub(r"-\d+$", "", slug)
-    post_ids = [post_id for post_id, row in index.sources.items()
-                if slugify(row.get("title", "")) in (slug, base)]
-    return [row for row in {id(row): row for row in index.by_code.values()}.values()
-            if row.get("post_id") in post_ids]
+    """Migration log rows for a video: "host:code" (e.g. dood:abc123), or a
+    slug matched against the source title or the source file name (the
+    site's slugs come from host titles, often the file name), ignoring a
+    "-2" style suffix the site adds to duplicate slugs."""
+    if ":" in slug:
+        host, code = slug.split(":", 1)
+        row = index.by_code.get((host.strip(), code.strip()))
+        return [row] if row else []
+    wanted = {slug, re.sub(r"-\d+$", "", slug)}
+    rows = {id(row): row for row in index.by_code.values()}.values()
+    found = []
+    for row in rows:
+        title = index.sources.get(row.get("post_id", ""), {}).get("title", "")
+        names = {slugify(title), slugify(row.get("title", "")),
+                 slugify(Path(row.get("source_filename", "") or "").stem)}
+        if wanted & (names - {""}):
+            found.append(row)
+    return found
 
 
 def diagnose(slugs: List[str], index: MigrationIndex, drive: Drive, pending: List[dict], log=print) -> None:
