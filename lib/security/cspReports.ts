@@ -10,7 +10,13 @@ import { prisma } from "../db";
 // codes or tokens), never IPs.
 
 export const CSP_REPORTS_SETTING = "security.cspBlocked";
+/** Every player (frame-src) domain ever reported: { host: firstSeenAt }. Never pruned. */
+export const CSP_SEEN_SETTING = "security.cspSeenFrameHosts";
+/** When an admin last pressed "Đã xem": domains first seen after it are new. */
+export const CSP_ACK_SETTING = "security.cspAckAt";
 const MAX_ENTRIES = 200;
+const MAX_SEEN = 2000;
+export const CSP_RETENTION_DAYS = 30;
 
 export type CspReport = {
   directive: string;
@@ -116,6 +122,55 @@ export async function recordCspReports(
     create: { key: CSP_REPORTS_SETTING, value: kept },
     update: { value: kept },
   });
+
+  // First sightings of player domains, kept past the report retention so a
+  // domain raises the alert once, not again every 30 days.
+  const frameHosts = [...new Set(reports.filter((report) => report.directive === "frame-src").map((report) => report.blocked))];
+  if (!frameHosts.length) return;
+  const seenRow = await client.setting.findUnique({ where: { key: CSP_SEEN_SETTING } });
+  const seen = { ...((seenRow?.value as Record<string, string> | undefined) ?? {}) };
+  const added = frameHosts.filter((host) => !(host in seen));
+  if (!added.length) return;
+  for (const host of added) seen[host] = now.toISOString();
+  const trimmed = Object.fromEntries(Object.entries(seen).sort(([, a], [, b]) => b.localeCompare(a)).slice(0, MAX_SEEN));
+  await client.setting.upsert({
+    where: { key: CSP_SEEN_SETTING },
+    create: { key: CSP_SEEN_SETTING, value: trimmed },
+    update: { value: trimmed },
+  });
+}
+
+export type NewPlayerDomain = { host: string; firstSeenAt: string };
+
+/** Player domains first reported after the last "Đã xem", newest first. */
+export async function newPlayerDomains(client: Pick<PrismaClient, "setting"> = prisma): Promise<NewPlayerDomain[]> {
+  const rows = await client.setting.findMany({ where: { key: { in: [CSP_SEEN_SETTING, CSP_ACK_SETTING] } } });
+  const byKey = new Map(rows.map((row) => [row.key, row.value]));
+  const ack = typeof byKey.get(CSP_ACK_SETTING) === "string" ? (byKey.get(CSP_ACK_SETTING) as string) : "";
+  return Object.entries((byKey.get(CSP_SEEN_SETTING) as Record<string, string> | undefined) ?? {})
+    .filter(([, firstSeenAt]) => firstSeenAt > ack)
+    .map(([host, firstSeenAt]) => ({ host, firstSeenAt }))
+    .sort((a, b) => b.firstSeenAt.localeCompare(a.firstSeenAt));
+}
+
+/** "Đã xem": clears the alert for every domain seen so far. */
+export async function acknowledgePlayerDomains(now = new Date(), client: Pick<PrismaClient, "setting"> = prisma): Promise<void> {
+  await client.setting.upsert({
+    where: { key: CSP_ACK_SETTING },
+    create: { key: CSP_ACK_SETTING, value: now.toISOString() },
+    update: { value: now.toISOString() },
+  });
+}
+
+/** Drops reports not seen for CSP_RETENTION_DAYS (run by the worker). Returns how many. */
+export async function pruneCspReports(now = new Date(), client: Pick<PrismaClient, "setting"> = prisma): Promise<number> {
+  const saved = await client.setting.findUnique({ where: { key: CSP_REPORTS_SETTING } });
+  const entries = Object.entries((saved?.value as Record<string, CspEntry> | undefined) ?? {});
+  const cutoff = new Date(now.getTime() - CSP_RETENTION_DAYS * 24 * 3600_000).toISOString();
+  const kept = entries.filter(([, entry]) => entry.lastAt >= cutoff);
+  if (kept.length === entries.length) return 0;
+  await client.setting.update({ where: { key: CSP_REPORTS_SETTING }, data: { value: Object.fromEntries(kept) } });
+  return entries.length - kept.length;
 }
 
 /** Newest first, for the admin. */

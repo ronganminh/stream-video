@@ -72,7 +72,7 @@ async function openPlayer(page: Page, headers: Record<string, string>) {
 }
 
 test.afterAll(async () => {
-  await prisma.setting.deleteMany({ where: { key: "security.cspBlocked" } });
+  await prisma.setting.deleteMany({ where: { key: { in: ["security.cspBlocked", "security.cspSeenFrameHosts", "security.cspAckAt"] } } });
   await prisma.$disconnect();
 });
 
@@ -122,8 +122,20 @@ test("browsers' CSP reports are stored as hostnames and listed in /admin/hosts",
   await loginAdmin(page);
   await page.goto("/admin/hosts");
   const table = page.getByRole("region", { name: "Player domains reported by browsers" });
-  await expect(table.getByRole("row", { name: /rotated-player\.example Report/ })).toBeVisible();
-  await expect(table.getByRole("row", { name: /d000d\.example Blocked/ })).toBeVisible();
+  await expect(table.getByRole("row", { name: /rotated-player\.example mới Report/ })).toBeVisible();
+  await expect(table.getByRole("row", { name: /d000d\.example mới Blocked/ })).toBeVisible();
   await expect(table).not.toContainText("secret-file-code");
   await expect(table).toContainText(`/watch/${AVAILABLE_SLUG}`);
+
+  // New domains raise a red alert on the dashboard and here, until "Đã xem".
+  await page.goto("/admin");
+  const alert = page.getByRole("alert").filter({ hasText: "domain player mới" });
+  await expect(alert).toContainText("rotated-player.example");
+  await expect(alert).toContainText("d000d.example");
+  await alert.getByRole("button", { name: "Đã xem" }).click();
+  await expect(page.getByRole("alert").filter({ hasText: "domain player mới" })).toHaveCount(0);
+  await page.goto("/admin/hosts");
+  await expect(page.getByRole("alert").filter({ hasText: "domain player mới" })).toHaveCount(0);
+  // The reports themselves stay listed.
+  await expect(page.getByRole("region", { name: "Player domains reported by browsers" })).toContainText("rotated-player.example");
 });

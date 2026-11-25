@@ -336,3 +336,8 @@
   border-bottom: 1px solid var(--gv-border, rgba(127, 127, 127, 0.25));
   text-align: left;
 }
+
+.newBadge {
+  margin-left: 6px;
+  color: var(--gv-danger);
+}

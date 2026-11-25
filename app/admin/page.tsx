@@ -5,7 +5,9 @@ import { z } from "zod";
 
 import { writeAdminAudit } from "@/lib/auth/audit";
 import { requireAdmin } from "@/lib/auth/session";
+import { NewPlayerDomainsAlert } from "@/components/admin/NewPlayerDomainsAlert";
 import { db } from "@/lib/db";
+import { newPlayerDomains } from "@/lib/security/cspReports";
 
 import styles from "./page.module.css";
 
@@ -97,6 +99,7 @@ export default async function AdminDashboardPage() {
   );
   const primaryMissing =
     missingByHost.find((host) => host.isPrimary)?.missing ?? 0;
+  const newDomains = await newPlayerDomains();
 
   return (
     <main className={styles.page}>
@@ -118,6 +121,8 @@ export default async function AdminDashboardPage() {
           </form>
         </div>
       </div>
+
+      <NewPlayerDomainsAlert domains={newDomains} showLink />
 
       <section className={styles.stats} aria-label="Video status counts">
         <Link className={styles.statLink} href="/admin/review">

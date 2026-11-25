@@ -1,7 +1,17 @@
 import { PrismaClient } from "@prisma/client";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 
-import { CSP_REPORTS_SETTING, listCspReports, parseCspReports, recordCspReports } from "./cspReports";
+import {
+  acknowledgePlayerDomains,
+  CSP_ACK_SETTING,
+  CSP_REPORTS_SETTING,
+  CSP_SEEN_SETTING,
+  listCspReports,
+  newPlayerDomains,
+  parseCspReports,
+  pruneCspReports,
+  recordCspReports,
+} from "./cspReports";
 
 describe("parseCspReports", () => {
   it("reads report-uri reports and keeps only the hostname", () => {
@@ -46,9 +56,10 @@ const databaseUrl = process.env.DATABASE_URL;
 
 describe.skipIf(!databaseUrl)("recordCspReports (database)", () => {
   const prisma = new PrismaClient();
-  beforeEach(() => prisma.setting.deleteMany({ where: { key: CSP_REPORTS_SETTING } }));
+  const keys = [CSP_REPORTS_SETTING, CSP_SEEN_SETTING, CSP_ACK_SETTING];
+  beforeEach(() => prisma.setting.deleteMany({ where: { key: { in: keys } } }));
   afterAll(async () => {
-    await prisma.setting.deleteMany({ where: { key: CSP_REPORTS_SETTING } });
+    await prisma.setting.deleteMany({ where: { key: { in: keys } } });
     await prisma.$disconnect();
   });
 
@@ -62,5 +73,25 @@ describe.skipIf(!databaseUrl)("recordCspReports (database)", () => {
       ["voe-rotated.com", 1],
     ]);
     expect(list[0]).toMatchObject({ firstAt: "2026-11-26T10:00:00.000Z", lastAt: "2026-11-26T11:00:00.000Z" });
+  });
+
+  it("alerts on a player domain never seen before, until 'Đã xem'; only once per domain", async () => {
+    const frame = { directive: "frame-src", blocked: "d000d.com", disposition: "report" as const, page: "/watch/a" };
+    await recordCspReports([frame, { ...frame, directive: "img-src", blocked: "img.example" }], new Date("2026-11-26T10:00:00Z"), prisma);
+    expect(await newPlayerDomains(prisma)).toEqual([{ host: "d000d.com", firstSeenAt: "2026-11-26T10:00:00.000Z" }]);
+
+    await acknowledgePlayerDomains(new Date("2026-11-26T12:00:00Z"), prisma);
+    expect(await newPlayerDomains(prisma)).toEqual([]);
+    // Seen again: no new alert. A different domain: alert again.
+    await recordCspReports([frame, { ...frame, blocked: "voe-new.com" }], new Date("2026-11-26T13:00:00Z"), prisma);
+    expect((await newPlayerDomains(prisma)).map((domain) => domain.host)).toEqual(["voe-new.com"]);
+
+    // Pruned after 30 days without reports, but still known: no alert later.
+    await acknowledgePlayerDomains(new Date("2026-11-26T14:00:00Z"), prisma);
+    expect(await pruneCspReports(new Date("2026-12-27T00:00:00Z"), prisma)).toBe(3);
+    expect(await listCspReports(prisma)).toEqual([]);
+    await recordCspReports([frame], new Date("2027-01-02T00:00:00Z"), prisma);
+    expect(await newPlayerDomains(prisma)).toEqual([]);
+    expect(await pruneCspReports(new Date("2027-01-03T00:00:00Z"), prisma)).toBe(0);
   });
 });

@@ -2,6 +2,7 @@ import cron from "node-cron";
 
 import { prisma } from "../lib/db";
 import { runClipDispatch } from "../lib/social/dispatch";
+import { pruneCspReports } from "../lib/security/cspReports";
 import { runSocialSyncIfDue } from "../lib/social/queue";
 import { runHealthCheck } from "../lib/sync/healthCheck";
 import { runNewVideos } from "../lib/sync/newVideos";
@@ -98,6 +99,15 @@ export async function workerTick(now = new Date()): Promise<void> {
     for (const message of summary?.errors ?? []) console.warn(`X queue: ${message}`);
   } catch (error) {
     console.error(`X queue: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  // CSP reports from browsers: drop those not seen for 30 days, hourly.
+  if (now.getUTCMinutes() === 7) {
+    try {
+      const pruned = await pruneCspReports(now);
+      if (pruned) console.info(`CSP reports: pruned ${pruned} older than 30 days`);
+    } catch (error) {
+      console.error(`CSP reports: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
 }
 
