@@ -12,6 +12,7 @@ import {
 import { findLostDSlugs } from "../lib/sync/lostDSlugs";
 import { runNewVideos } from "../lib/sync/newVideos";
 import { runMediaResize } from "../lib/sync/resizeMedia";
+import { applyHealthRestore, planHealthRestore } from "../lib/sync/restoreHealthRemoved";
 
 export async function runCli(args = process.argv.slice(2)): Promise<number> {
   const command = args[0];
@@ -160,6 +161,30 @@ export async function runCli(args = process.argv.slice(2)): Promise<number> {
     return result.skipped ? 2 : 0;
   }
 
+  if (command === "videos:restore-health") {
+    // Dry run unless --apply. Lists every REMOVED video the health check (or
+    // an unknown cause) removed, checks its files on the hosts, and restores
+    // only those with a live file and nothing suggesting a deliberate removal.
+    // --no-host-check skips the live check (DB mirror status only).
+    const apply = args.includes("--apply");
+    const rows = await planHealthRestore({ checkHosts: !args.includes("--no-host-check") });
+    console.info("action\tpublished\tslug\tmirrors (db)\thost now\treason");
+    for (const row of rows) {
+      console.info(
+        [row.skip ? "skip" : "restore", row.isPublished ? "yes" : "no", row.slug, row.mirrors.join(","), row.live.join(",") || "-", row.skip ?? ""].join("\t"),
+      );
+    }
+    const ready = rows.filter((row) => !row.skip);
+    const summary = `restore=${ready.length} (published=${ready.filter((row) => row.isPublished).length}) skip=${rows.length - ready.length}`;
+    if (!apply) {
+      console.info(`VIDEOS RESTORE-HEALTH dry run: ${summary}; nothing changed. Re-run with --apply to write.`);
+      return 0;
+    }
+    const restored = await applyHealthRestore(rows);
+    console.info(`VIDEOS RESTORE-HEALTH applied: restored=${restored}; ${summary}. List pages pick them up within their revalidate window.`);
+    return 0;
+  }
+
   if (command === "sync:health") {
     const result = await runHealthCheck();
     console.info(
@@ -171,7 +196,7 @@ export async function runCli(args = process.argv.slice(2)): Promise<number> {
   }
 
   console.error(
-    "Usage: tsx worker/cli.ts <sync:new|sync:health|backfill|media:resize [--dry-run]|slugs:lost-d|slugs:fix-d [--scope=drafts|published|all] [--ids=a,b] [--apply]|social:status|social:sync|social:channels|social:retry <slug>|social:cancel <slug>>",
+    "Usage: tsx worker/cli.ts <sync:new|sync:health|backfill|media:resize [--dry-run]|slugs:lost-d|slugs:fix-d [--scope=drafts|published|all] [--ids=a,b] [--apply]|social:status|social:sync|social:channels|social:retry <slug>|social:cancel <slug>|videos:restore-health [--apply] [--no-host-check]>",
   );
   return 1;
 }

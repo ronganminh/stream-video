@@ -22,6 +22,9 @@ export type ReviewItem = {
   thumbnailChoices: { id: string; label: string; url: string }[];
   selectedThumbnail: string | null;
   durationSeconds: number | null;
+  /** Video.status; anything but AVAILABLE stays off the site after approval. */
+  availability: string;
+  removedBy: string | null;
   x: XReviewState;
   xSettings: { bannedExtra: string[]; clipSeconds: number; maxVideoSeconds: number };
 };
@@ -188,6 +191,19 @@ export function ReviewCard({
           clipSeconds={item.xSettings.clipSeconds}
           maxVideoSeconds={item.xSettings.maxVideoSeconds}
         />
+
+        {item.availability !== "AVAILABLE" ? (
+          <p className={styles.statusWarning} role="status">
+            <strong>Trạng thái {item.availability}</strong>
+            {item.removedBy === "health"
+              ? " (health check không thấy file trên host)"
+              : item.removedBy === "admin"
+                ? " (admin đặt)"
+                : ""}
+            : duyệt xong video vẫn không hiện trên site (trang xem trả 410). Đổi trạng thái ở{" "}
+            <a href={`/admin/videos/${item.id}`}>trang video</a> nếu file trên host còn.
+          </p>
+        ) : null}
 
         <div className={styles.mirrorLine}>
           <span>

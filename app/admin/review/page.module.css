@@ -805,3 +805,20 @@
   font: 600 12px var(--gv-font);
   cursor: pointer;
 }
+
+/* A draft whose Video.status is not AVAILABLE (e.g. REMOVED by the health
+   check): approving it does not put it on the site. */
+.statusWarning {
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid color-mix(in srgb, var(--gv-danger) 50%, transparent);
+  border-radius: var(--gv-radius-md);
+  background: color-mix(in srgb, var(--gv-danger) 12%, transparent);
+  color: var(--gv-danger-300);
+  font-size: 13px;
+}
+
+.statusWarning a {
+  color: inherit;
+  text-decoration: underline;
+}
