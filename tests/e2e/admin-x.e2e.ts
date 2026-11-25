@@ -214,6 +214,17 @@ test("the clip workflow API: pending list, attach a clip, report a failure", asy
   await loginAdmin(page);
   await page.goto(`/admin/videos?published=true`);
   await expect(page.locator("tr").filter({ hasText: "Trần Đức – Gym" }).getByText("Trong hàng đợi")).toBeVisible();
+
+  // "Cắt lại": a clip not yet in Buffer goes back to the clip workflow.
+  await page.goto("/admin/review");
+  const panel = page.getByRole("region", { name: "Bài X và cắt clip" });
+  await panel.locator("li").filter({ hasText: "Trần Đức – Gym" }).getByRole("button", { name: "Cắt lại" }).click();
+  await expect(panel.getByRole("status")).toContainText("Đã đưa lại vào hàng cắt clip");
+  expect(await prisma.socialPost.findUniqueOrThrow({ where: { id: long.postId } })).toMatchObject({
+    status: "preparing",
+    attempts: 0,
+    clipFile: null,
+  });
 });
 
 test("undoing an approval drops the X post that has not reached Buffer", async ({ page }) => {
