@@ -345,6 +345,25 @@ describe.skipIf(!databaseUrl)("X queue (Buffer)", () => {
     expect((await row(videoId)).clipFile).not.toBeNull();
   });
 
+  it("cuts the clip again when Buffer could not fetch it because it was deleted", async () => {
+    const goneId = await video(70, true);
+    const keptId = await video(71, true);
+    for (const videoId of [goneId, keptId]) {
+      await enqueueXPost({ videoId, clipId: makeClip(), caption: "x" }, prisma, mediaDir);
+    }
+    await sync(fakeBuffer().api, {}, T0);
+    const error = "Buffer: Please update the media URL to be publicly accessible before retrying the post.";
+    const gone = await row(goneId);
+    const kept = await row(keptId);
+    await prisma.socialPost.update({ where: { id: gone.id }, data: { status: "failed", lastError: error, clipFile: null, clipMode: "clip" } });
+    await prisma.socialPost.update({ where: { id: kept.id }, data: { status: "failed", lastError: error, clipMode: "clip" } });
+    const summary = await sync(fakeBuffer().api, {}, later(10));
+    expect(summary.recut).toBe(1);
+    expect(await row(goneId)).toMatchObject({ status: "preparing", bufferPostId: null, attempts: 0 });
+    // Our clip is still there: a real fetch problem, left for a person.
+    expect(await row(keptId)).toMatchObject({ status: "failed", lastError: error });
+  });
+
   it("does nothing with Buffer when it is not configured", async () => {
     const videoId = await video(12, true);
     await enqueueXPost({ videoId, clipId: makeClip(), caption: "x" }, prisma, mediaDir);

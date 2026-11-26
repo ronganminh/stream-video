@@ -28,6 +28,8 @@ const LAST_READ_SETTING = "social.x.lastBufferRead";
 const DUE_GRACE_MS = 10 * 60 * 1000;
 /** lastError of a post the Buffer read no longer listed. */
 const MISSING_NOTE = "No longer in Buffer (deleted there?)";
+/** Buffer's error when it cannot download the clip at publish time. */
+const MEDIA_GONE = "media URL to be publicly accessible";
 const MISREAD_DAYS = 30;
 const MAX_ATTEMPTS = 5;
 const PUSHING_TIMEOUT_MS = 15 * 60 * 1000;
@@ -98,6 +100,8 @@ export type SyncSummary = {
   sent: number;
   failed: number;
   room: number | null;
+  /** Failed posts whose clip was gone when Buffer published: sent back to be cut again. */
+  recut: number;
   /** Posts the Buffer read returned (null: no read this cycle). */
   read: number | null;
   errors: string[];
@@ -179,7 +183,7 @@ export async function runSocialSync(
   const now = options.now ?? new Date();
   const config = options.config ?? socialConfig();
   const client = options.client ?? prisma;
-  const summary: SyncSummary = { requests: 0, promoted: 0, pushed: 0, sent: 0, failed: 0, room: null, read: null, errors: [] };
+  const summary: SyncSummary = { requests: 0, promoted: 0, pushed: 0, sent: 0, failed: 0, recut: 0, room: null, read: null, errors: [] };
 
   // Housekeeping that needs no Buffer call.
   const promoted = await client.socialPost.updateMany({
@@ -191,6 +195,32 @@ export async function runSocialSync(
     data: { status: "queued" },
   });
   summary.promoted = promoted.count;
+  // Buffer fetches the clip when it publishes. Posts whose clip was deleted
+  // while they waited there (a misread once took them for deleted) fail with
+  // "update the media URL to be publicly accessible": cut the clip again and
+  // push a new post. Only when our clip is gone, so a real fetch problem
+  // never loops.
+  const recut = await client.socialPost.updateMany({
+    where: {
+      network: X_NETWORK,
+      status: "failed",
+      clipFile: null,
+      clipMode: { not: null },
+      lastError: { contains: MEDIA_GONE, mode: "insensitive" },
+    },
+    data: {
+      status: "preparing",
+      attempts: 0,
+      quotaWaits: 0,
+      nextAttemptAt: null,
+      clipSource: null,
+      bufferPostId: null,
+      bufferDueAt: null,
+      pushedAt: null,
+      lastError: "Buffer could not fetch the clip (deleted early); cutting it again.",
+    },
+  });
+  summary.recut = recut.count;
   await sweepClips(client, now, options.mediaDir);
 
   if (!config.enabled) return { ...summary, skipped: "disabled" };
