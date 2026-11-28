@@ -72,7 +72,7 @@ async function openPlayer(page: Page, headers: Record<string, string>) {
 }
 
 test.afterAll(async () => {
-  await prisma.setting.deleteMany({ where: { key: { in: ["security.cspBlocked", "security.cspSeenFrameHosts", "security.cspAckAt"] } } });
+  await prisma.setting.deleteMany({ where: { key: { in: ["security.cspBlocked", "security.cspSeenFrameHosts", "security.cspAckAt", "security.cspDomainLabels"] } } });
   await prisma.$disconnect();
 });
 
@@ -114,6 +114,8 @@ test("browsers' CSP reports are stored as hostnames and listed in /admin/hosts",
     headers: { "content-type": "application/reports+json" },
     data: JSON.stringify([
       { type: "csp-violation", body: { documentURL: "http://localhost:3000/", effectiveDirective: "frame-src", blockedURL: "https://d000d.example/e/x", disposition: "enforce" } },
+      // An ad page the host's player opens on a click: never red.
+      { type: "csp-violation", body: { documentURL: "http://localhost:3000/", effectiveDirective: "frame-src", blockedURL: "https://promo.win88.example/x", disposition: "report" } },
     ]),
   });
   expect(reportTo.status()).toBe(204);
@@ -122,20 +124,37 @@ test("browsers' CSP reports are stored as hostnames and listed in /admin/hosts",
   await loginAdmin(page);
   await page.goto("/admin/hosts");
   const table = page.getByRole("region", { name: "Player domains reported by browsers" });
-  await expect(table.getByRole("row", { name: /rotated-player\.example mới Report/ })).toBeVisible();
-  await expect(table.getByRole("row", { name: /d000d\.example mới Blocked/ })).toBeVisible();
+  await expect(table.getByRole("row", { name: /rotated-player\.example mới.*Report/ })).toBeVisible();
+  await expect(table.getByRole("row", { name: /d000d\.example mới.*Blocked/ })).toBeVisible();
   await expect(table).not.toContainText("secret-file-code");
   await expect(table).toContainText(`/watch/${AVAILABLE_SLUG}`);
 
-  // New domains raise a red alert on the dashboard and here, until "Đã xem".
+  await expect(table.getByRole("row", { name: /promo\.win88\.example.*Có thể là quảng cáo/ })).toBeVisible();
+
+  // Unknown domains raise a red alert on the dashboard and here, saying it is
+  // not an app error; the ad look-alike is listed apart, not in red.
   await page.goto("/admin");
-  const alert = page.getByRole("alert").filter({ hasText: "domain player mới" });
-  await expect(alert).toContainText("rotated-player.example");
-  await expect(alert).toContainText("d000d.example");
-  await alert.getByRole("button", { name: "Đã xem" }).click();
-  await expect(page.getByRole("alert").filter({ hasText: "domain player mới" })).toHaveCount(0);
+  const red = () => page.getByRole("alert").filter({ hasText: "domain lạ trong khung player" });
+  await expect(red()).toContainText("Không phải lỗi của trang");
+  await expect(red()).toContainText("rotated-player.example");
+  await expect(red()).toContainText("d000d.example");
+  await expect(red()).not.toContainText("promo.win88.example");
+  const ads = page.getByRole("region", { name: /Có thể là quảng cáo/ });
+  await expect(ads).toContainText("promo.win88.example");
+
+  // Per domain: a host's player, an ad (never shown again), or "Đã xem tất cả".
+  const row = (name: string) => red().getByRole("listitem").filter({ hasText: name });
+  await row("d000d.example").getByRole("button", { name: "Là player của host" }).click();
+  await expect(red()).not.toContainText("d000d.example");
+  await ads.getByRole("button", { name: "Quảng cáo — bỏ qua" }).click();
+  await expect(page.getByRole("region", { name: /Có thể là quảng cáo/ })).toHaveCount(0);
+  await red().getByRole("button", { name: "Đã xem tất cả" }).click();
+  await expect(red()).toHaveCount(0);
   await page.goto("/admin/hosts");
-  await expect(page.getByRole("alert").filter({ hasText: "domain player mới" })).toHaveCount(0);
+  await expect(red()).toHaveCount(0);
+  const listed = page.getByRole("region", { name: "Player domains reported by browsers" });
+  await expect(listed.getByRole("row", { name: /d000d\.example.*Player của/ })).toBeVisible();
+  await expect(listed.getByRole("row", { name: /promo\.win88\.example.*Quảng cáo \(bỏ qua\)/ })).toBeVisible();
   // The reports themselves stay listed.
   await expect(page.getByRole("region", { name: "Player domains reported by browsers" })).toContainText("rotated-player.example");
 });

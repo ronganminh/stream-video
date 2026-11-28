@@ -14,6 +14,8 @@ export const CSP_REPORTS_SETTING = "security.cspBlocked";
 export const CSP_SEEN_SETTING = "security.cspSeenFrameHosts";
 /** When an admin last pressed "Đã xem": domains first seen after it are new. */
 export const CSP_ACK_SETTING = "security.cspAckAt";
+/** What an admin said a reported frame domain is: { host: { kind, hostId?, at } }. */
+export const CSP_LABELS_SETTING = "security.cspDomainLabels";
 const MAX_ENTRIES = 200;
 const MAX_SEEN = 2000;
 export const CSP_RETENTION_DAYS = 30;
@@ -142,15 +144,93 @@ export async function recordCspReports(
 
 export type NewPlayerDomain = { host: string; firstSeenAt: string };
 
-/** Player domains first reported after the last "Đã xem", newest first. */
-export async function newPlayerDomains(client: Pick<PrismaClient, "setting"> = prisma): Promise<NewPlayerDomain[]> {
-  const rows = await client.setting.findMany({ where: { key: { in: [CSP_SEEN_SETTING, CSP_ACK_SETTING] } } });
+export type DomainLabel = { kind: "ad"; at: string } | { kind: "player"; hostId: string; at: string };
+/** ignored: an admin said ad; player: an admin tied it to a host; likely-ad: looks like an ad; unknown: needs a look. */
+export type DomainClass = "ignored" | "player" | "likely-ad" | "unknown";
+
+// Dood (and others) move the player frame to ad and gambling pages when a
+// viewer clicks; browsers report those as unknown frame domains. Clear signs:
+// ad words as a name part, gambling numbers ("88"), or a cheap TLD that ad
+// networks rotate through. Such domains are listed apart, never in red.
+const AD_WORDS = new Set([
+  "ad", "ads", "adserver", "adserve", "adx", "banner", "bet", "bets", "betting", "bingo", "casino", "click",
+  "clicks", "ezmob", "exoclick", "juicyads", "lotto", "lottery", "poker", "pop", "popads", "popunder",
+  "propeller", "slot", "slots", "track", "tracker", "win", "xoso",
+]);
+const AD_TLDS = new Set([
+  "autos", "bar", "beauty", "boats", "bond", "buzz", "cam", "cfd", "click", "cyou", "hair", "icu", "lol",
+  "makeup", "mom", "monster", "pics", "qpon", "quest", "rest", "sbs", "skin", "top", "xyz", "yachts",
+]);
+
+export function looksLikeAdDomain(host: string): boolean {
+  const labels = host.toLowerCase().split(".").filter(Boolean);
+  if (labels.length < 2) return false;
+  if (AD_TLDS.has(labels[labels.length - 1])) return true;
+  const names = labels.slice(0, -1);
+  if (names.some((name) => name.split(/[-_]/).some((part) => AD_WORDS.has(part)))) return true;
+  return names.some((name) => /88|casino|bet\d|\dbet|win\d|\dwin/.test(name));
+}
+
+export function classifyDomain(host: string, labels: Record<string, DomainLabel>): DomainClass {
+  const label = labels[host];
+  if (label?.kind === "ad") return "ignored";
+  if (label?.kind === "player") return "player";
+  return looksLikeAdDomain(host) ? "likely-ad" : "unknown";
+}
+
+export async function domainLabels(client: Pick<PrismaClient, "setting"> = prisma): Promise<Record<string, DomainLabel>> {
+  const row = await client.setting.findUnique({ where: { key: CSP_LABELS_SETTING } });
+  return (row?.value as Record<string, DomainLabel> | undefined) ?? {};
+}
+
+const HOST_PATTERN = /^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)+$/;
+
+/** "Quảng cáo — bỏ qua" / "Là player của host": never alerts again for this domain. */
+export async function labelCspDomain(
+  host: string,
+  label: { kind: "ad" } | { kind: "player"; hostId: string },
+  now = new Date(),
+  client: Pick<PrismaClient, "setting"> = prisma,
+): Promise<boolean> {
+  const name = host.trim().toLowerCase();
+  if (name.length > 253 || !HOST_PATTERN.test(name)) return false;
+  const labels = { ...(await domainLabels(client)) };
+  labels[name] = { ...label, at: now.toISOString() };
+  await client.setting.upsert({
+    where: { key: CSP_LABELS_SETTING },
+    create: { key: CSP_LABELS_SETTING, value: labels },
+    update: { value: labels },
+  });
+  return true;
+}
+
+async function seenSinceAck(client: Pick<PrismaClient, "setting">) {
+  const rows = await client.setting.findMany({
+    where: { key: { in: [CSP_SEEN_SETTING, CSP_ACK_SETTING, CSP_LABELS_SETTING] } },
+  });
   const byKey = new Map(rows.map((row) => [row.key, row.value]));
   const ack = typeof byKey.get(CSP_ACK_SETTING) === "string" ? (byKey.get(CSP_ACK_SETTING) as string) : "";
-  return Object.entries((byKey.get(CSP_SEEN_SETTING) as Record<string, string> | undefined) ?? {})
+  const labels = (byKey.get(CSP_LABELS_SETTING) as Record<string, DomainLabel> | undefined) ?? {};
+  const domains = Object.entries((byKey.get(CSP_SEEN_SETTING) as Record<string, string> | undefined) ?? {})
     .filter(([, firstSeenAt]) => firstSeenAt > ack)
     .map(([host, firstSeenAt]) => ({ host, firstSeenAt }))
     .sort((a, b) => b.firstSeenAt.localeCompare(a.firstSeenAt));
+  return { domains, labels };
+}
+
+/**
+ * The red alert: frame domains first reported after the last "Đã xem" that
+ * are neither labelled by an admin nor look like ads. Newest first.
+ */
+export async function newPlayerDomains(client: Pick<PrismaClient, "setting"> = prisma): Promise<NewPlayerDomain[]> {
+  const { domains, labels } = await seenSinceAck(client);
+  return domains.filter((domain) => classifyDomain(domain.host, labels) === "unknown");
+}
+
+/** "Có thể là quảng cáo" (not red): unlabelled domains with clear ad signs, since the last "Đã xem". */
+export async function likelyAdDomains(client: Pick<PrismaClient, "setting"> = prisma): Promise<NewPlayerDomain[]> {
+  const { domains, labels } = await seenSinceAck(client);
+  return domains.filter((domain) => classifyDomain(domain.host, labels) === "likely-ad");
 }
 
 /** "Đã xem": clears the alert for every domain seen so far. */

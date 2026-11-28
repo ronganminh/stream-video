@@ -7,7 +7,7 @@ import { writeAdminAudit } from "@/lib/auth/audit";
 import { requireAdmin } from "@/lib/auth/session";
 import { NewPlayerDomainsAlert } from "@/components/admin/NewPlayerDomainsAlert";
 import { db } from "@/lib/db";
-import { newPlayerDomains } from "@/lib/security/cspReports";
+import { likelyAdDomains, newPlayerDomains } from "@/lib/security/cspReports";
 
 import styles from "./page.module.css";
 
@@ -99,7 +99,11 @@ export default async function AdminDashboardPage() {
   );
   const primaryMissing =
     missingByHost.find((host) => host.isPrimary)?.missing ?? 0;
-  const newDomains = await newPlayerDomains();
+  const [newDomains, likelyAds, hostOptions] = await Promise.all([
+    newPlayerDomains(),
+    likelyAdDomains(),
+    db.host.findMany({ orderBy: { sortOrder: "asc" }, select: { id: true, label: true } }),
+  ]);
 
   return (
     <main className={styles.page}>
@@ -122,7 +126,7 @@ export default async function AdminDashboardPage() {
         </div>
       </div>
 
-      <NewPlayerDomainsAlert domains={newDomains} showLink />
+      <NewPlayerDomainsAlert domains={newDomains} likelyAds={likelyAds} hosts={hostOptions} showLink />
 
       <section className={styles.stats} aria-label="Video status counts">
         <Link className={styles.statLink} href="/admin/review">

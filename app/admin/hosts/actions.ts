@@ -7,7 +7,7 @@ import { writeAdminAudit } from "@/lib/auth/audit";
 import { requireAdmin } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { revalidatePublicPages } from "@/lib/revalidatePublic";
-import { acknowledgePlayerDomains } from "@/lib/security/cspReports";
+import { acknowledgePlayerDomains, labelCspDomain } from "@/lib/security/cspReports";
 
 const hostFormSchema = z.object({
   primaryHostId: z.string().min(1),
@@ -93,6 +93,28 @@ export async function acknowledgePlayerDomainsAction() {
   const admin = await requireAdmin();
   await acknowledgePlayerDomains();
   await writeAdminAudit(admin.id, "CSP_DOMAINS_ACK", "frame-src");
+  revalidatePath("/admin");
+  revalidatePath("/admin/hosts");
+}
+
+/**
+ * Per domain on the alert and in /admin/hosts: "Quảng cáo — bỏ qua" (never
+ * alerted again) or "Là player của host" (tied to that host).
+ */
+export async function labelCspDomainAction(formData: FormData) {
+  const admin = await requireAdmin();
+  const host = String(formData.get("domain") ?? "");
+  const kind = formData.get("kind");
+  let saved = false;
+  if (kind === "ad") {
+    saved = await labelCspDomain(host, { kind: "ad" });
+  } else if (kind === "player") {
+    const hostId = String(formData.get("hostId") ?? "");
+    const known = await db.host.findUnique({ where: { id: hostId }, select: { id: true } });
+    if (known) saved = await labelCspDomain(host, { kind: "player", hostId: known.id });
+  }
+  if (!saved) return;
+  await writeAdminAudit(admin.id, "CSP_DOMAIN_LABEL", `${kind}:${host.trim().toLowerCase()}`.slice(0, 300));
   revalidatePath("/admin");
   revalidatePath("/admin/hosts");
 }

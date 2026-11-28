@@ -16,7 +16,14 @@ import { findLostDSlugs } from "../lib/sync/lostDSlugs";
 import { runNewVideos } from "../lib/sync/newVideos";
 import { runMediaResize } from "../lib/sync/resizeMedia";
 import { applyHealthRestore, planHealthRestore } from "../lib/sync/restoreHealthRemoved";
-import { cspSelfTest, listCspReports, newPlayerDomains } from "../lib/security/cspReports";
+import {
+  classifyDomain,
+  cspSelfTest,
+  domainLabels,
+  likelyAdDomains,
+  listCspReports,
+  newPlayerDomains,
+} from "../lib/security/cspReports";
 
 export async function runCli(args = process.argv.slice(2)): Promise<number> {
   const command = args[0];
@@ -231,11 +238,14 @@ export async function runCli(args = process.argv.slice(2)): Promise<number> {
 
   if (command === "csp:status") {
     // Read-only: player domains reported by browsers, and the admin alert.
-    const [reports, fresh] = await Promise.all([listCspReports(), newPlayerDomains()]);
+    const [reports, fresh, ads, labels] = await Promise.all([listCspReports(), newPlayerDomains(), likelyAdDomains(), domainLabels()]);
     const frames = reports.filter((entry) => entry.directive === "frame-src");
-    console.info(`CSP reports: ${reports.length} kept (${frames.length} frame-src); alert (new player domains not yet seen by an admin): ${fresh.length}`);
+    console.info(
+      `CSP reports: ${reports.length} kept (${frames.length} frame-src); red alert (unknown domains not yet seen by an admin): ${fresh.length}; likely ads (not red): ${ads.length}; labelled: ${Object.keys(labels).length}`,
+    );
     for (const entry of frames.slice(0, 15)) {
-      console.info(`  ${entry.disposition === "enforce" ? "BLOCKED" : "report "} ${entry.blocked} x${entry.count} last ${entry.lastAt.slice(0, 16)}Z${fresh.some((domain) => domain.host === entry.blocked) ? " NEW" : ""}`);
+      const kind = classifyDomain(entry.blocked, labels);
+      console.info(`  ${entry.disposition === "enforce" ? "BLOCKED" : "report "} ${entry.blocked} x${entry.count} last ${entry.lastAt.slice(0, 16)}Z ${kind}${fresh.some((domain) => domain.host === entry.blocked) ? " NEW" : ""}`);
     }
     return 0;
   }
